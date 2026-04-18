@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <title>HA Wallpanel</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <div class="page">
+    <h1>Haus Dashboard</h1>
+
+    <div class="card">
+      <div class="label">Steuerelemente</div>
+        <div class="card">
+            <div class="label">gelbe Tonne</div>
+            <div class="value" id="gelbeTonne">--</div>
+        </div>
+        <div class="card">
+            <div class="label">blaue Tonne</div>
+            <div class="value" id="blaueTonne">--</div>
+        </div>
+        <div class="card">
+            <div class="label">restmüll</div>
+            <div class="value" id="restmuell">--</div>
+        </div>
+      
+    </div>
+
+    <div class="card">
+      <div class="label">Wohnzimmer Temperatur</div>
+      <div class="value" id="livingTemp">--</div>
+    </div>
+
+    <div class="card">
+      <div class="label">Wohnzimmer Luftfeuchte</div>
+      <div class="value" id="livingHumidity">--</div>
+    </div>
+
+    <div class="card">
+      <div class="label">Hauptlicht</div>
+      <div class="value" id="kitchenLight">--</div>
+      <div class="actions">
+        <button onclick="switchMainLight('on')">Ein</button>
+        <button class="danger" onclick="switchMainLight('off')">Aus</button>
+      </div>
+    </div>
+
+    <div class="card tor-card">
+      <div class="label">Tor Status</div>
+      <div class="value" id="torStatus">--</div>
+
+      <div class="tor-visual" id="torVisual">
+        <div class="gate-track mode-closed">
+          <div class="gate-leaf"></div>
+          <div class="gate-arrow gate-arrow-right">→</div>
+          <div class="gate-arrow gate-arrow-left">←</div>
+        </div>
+        <div class="tor-visual-text" id="torVisualText">Tor geschlossen</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="label">Steuerelemente</div>
+
+      <div class="control-row">
+        <div class="control-name">+60s warten</div>
+        <button onclick="triggerTorButton('/api/tor/wait60')">Drücken</button>
+      </div>
+
+      <div class="control-row">
+        <div class="control-name">Automatik Öffnen</div>
+        <button onclick="triggerTorButton('/api/tor/auto-open')">Drücken</button>
+      </div>
+
+      <div class="card">
+        <div class="label">Automatik schließen in...</div>
+        <div class="value" id="schliessZeit">--</div>
+      </div>
+
+      <div class="card">
+        <div class="label">Fahrzeit Tor</div>
+        <div class="value" id="fahrZeit">--</div>
+      </div>
+
+      <div class="control-row">
+        <div class="control-name">Smarte Steuerung</div>
+        <label class="switch">
+          <input type="checkbox" id="smartControl" onchange="toggleSwitch('smartControl', '/api/tor/smart-control/on', '/api/tor/smart-control/off')">
+          <span class="slider"></span>
+        </label>
+      </div>
+
+      <div class="control-row">
+        <div class="control-name">Tor Automatik</div>
+        <label class="switch">
+          <input type="checkbox" id="torAutomatik" onchange="toggleSwitch('torAutomatik', '/api/tor/automatik/on', '/api/tor/automatik/off')">
+          <span class="slider"></span>
+        </label>
+      </div>
+
+      <div class="control-row">
+        <div class="control-name">Tor Dauer Auf</div>
+        <label class="switch">
+          <input type="checkbox" id="torDauerAuf" onchange="toggleSwitch('torDauerAuf', '/api/tor/dauer-auf/on', '/api/tor/dauer-auf/off')">
+          <span class="slider"></span>
+        </label>
+      </div>
+
+      <div class="control-row">
+        <div class="control-name">Tor Impuls</div>
+        <button onclick="triggerTorButton('/api/tor/impulse')">Drücken</button>
+      </div>
+    </div>
+
+    <div class="footer" id="updatedAt">Letztes Update: --</div>
+  </div>
+
+  <script src="/app.js"></script>
+</body>
+</html>
