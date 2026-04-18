@@ -8,113 +8,185 @@
   <link rel="stylesheet" href="/style.css">
 </head>
 <body>
-  <div class="page">
-    <h1>Haus Dashboard</h1>
+  <div class="app-shell">
+    <header class="topbar">
+      <div class="topbar-row">
+      <nav class="topnav">
+        <button class="topnav-item active">Home</button>
+        <button class="topnav-item">Energie</button>
+        <button class="topnav-item">Sicherheit</button>
+      </nav>
+    </header>
 
-    <div class="card">
-      <div class="label">Steuerelemente</div>
-        <div class="card">
-            <div class="label">gelbe Tonne</div>
-            <div class="value" id="gelbeTonne">--</div>
+    <div class="layout">
+      <main class="dashboard-main">
+        <section class="hero-grid">
+          <article class="panel metric-card weather-card compact-hero-card">
+            <div class="panel-header">
+              <span class="panel-kicker">Wetter</span>
+              <span class="panel-meta">Strehla</span>
+            </div>
+            <div class="metric-main-row compact-main-row">
+              <div>
+                <div class="metric-value compact-metric-value">21°</div>
+                <div class="metric-caption compact-caption">Leicht bewölkt</div>
+              </div>
+              <div class="weather-icon compact-weather-icon">☁</div>
+            </div>
+          </article>
+
+          <article class="panel metric-card energy-card compact-hero-card">
+            <div class="panel-header">
+              <span class="panel-kicker">Energie</span>
+            </div>
+            <div class="metric-value compact-metric-value">4.8 kW</div>
+            <div class="metric-caption compact-caption">Aktuelle PV-Leistung</div>
+            <div class="energy-bars compact-energy-bars">
+              <span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+            </div>
+            <div class="mini-stats two-cols compact-mini-stats">
+              <div class="mini-stat highlight-green compact-mini-stat">
+                <span class="mini-label">Produktion</span>
+                <strong>18.2 kWh</strong>
+              </div>
+              <div class="mini-stat compact-mini-stat">
+                <span class="mini-label">Verbrauch</span>
+                <strong>11.7 kWh</strong>
+              </div>
+            </div>
+          </article>
+
+          <article class="panel metric-card gate-status-card compact-hero-card">
+            <div class="panel-header">
+              <span class="panel-kicker">Hoftor</span>
+            </div>
+            <div class="metric-value compact-metric-value">Geschlossen</div>
+            <div class="metric-caption compact-caption">Torstatus / Schnellübersicht</div>
+            <div class="gate-track mode-closed preview-track compact-preview-track">
+              <div class="gate-leaf"></div>
+              <div class="gate-arrow gate-arrow-right">→</div>
+              <div class="gate-arrow gate-arrow-left">←</div>
+            </div>
+            <div class="quick-actions compact-actions compact-button-row">
+              <button class="pill-button active">Öffnen</button>
+              <button class="pill-button">Stopp</button>
+              <button class="pill-button">Impuls</button>
+            </div>
+          </article>
+        </section>
+
+        <section class="content-grid">
+          <article class="panel camera-panel main-camera-panel">
+            <div class="panel-header">
+              <span class="panel-kicker">Kamera</span>
+            </div>
+            <div class="camera-stage">
+              <div class="camera-overlay">Hoftor Kamera · Letztes Ereignis</div>
+              <div class="camera-placeholder camera-placeholder-standard">
+                <div class="camera-gate"></div>
+              </div>
+            </div>
+          </article>
+
+          <article class="panel camera-list-panel">
+            <div class="panel-header">
+              <span class="panel-kicker">Kameras</span>
+            </div>
+            <div class="camera-list">
+              <button class="camera-thumb active">
+                <span class="camera-thumb-title">Hof</span>
+                <span class="camera-thumb-preview"></span>
+              </button>
+              <button class="camera-thumb">
+                <span class="camera-thumb-title">Garage</span>
+                <span class="camera-thumb-preview"></span>
+              </button>
+              <button class="camera-thumb">
+                <span class="camera-thumb-title">Eingang</span>
+                <span class="camera-thumb-preview"></span>
+              </button>
+              <button class="camera-thumb">
+                <span class="camera-thumb-title">Garten</span>
+                <span class="camera-thumb-preview"></span>
+              </button>
+              <button class="camera-thumb">
+                <span class="camera-thumb-title">Werkstatt</span>
+                <span class="camera-thumb-preview"></span>
+              </button>
+              <button class="camera-thumb">
+                <span class="camera-thumb-title">Carport</span>
+                <span class="camera-thumb-preview"></span>
+              </button>
+            </div>
+          </article>
+
+          <article class="panel waste-panel">
+            <div class="panel-header">
+              <span class="panel-kicker">Abfall</span>
+            </div>
+            <div class="waste-list">
+              <div class="waste-item yellow">
+                <div>
+                  <div class="waste-title">Gelbe Tonne</div>
+                  <div class="waste-date">Montag · 22.04.</div>
+                </div>
+                <div class="waste-days">in 4 Tagen</div>
+              </div>
+              <div class="waste-item blue">
+                <div>
+                  <div class="waste-title">Blaue Tonne</div>
+                  <div class="waste-date">Donnerstag · 25.04.</div>
+                </div>
+                <div class="waste-days">in 7 Tagen</div>
+              </div>
+              <div class="waste-item dark">
+                <div>
+                  <div class="waste-title">Restmüll</div>
+                  <div class="waste-date">Dienstag · 30.04.</div>
+                </div>
+                <div class="waste-days">in 12 Tagen</div>
+              </div>
+            </div>
+          </article>
+
+
+          <article class="panel lights-panel">
+            <div class="panel-header">
+              <span class="panel-kicker">Lichter</span>
+            </div>
+            <div class="light-cards">
+              <div class="light-card active">
+                <div class="light-card-title">Wohnzimmer</div>
+                <div class="light-card-state">An · 65%</div>
+              </div>
+              <div class="light-card">
+                <div class="light-card-title">Küche</div>
+                <div class="light-card-state">Aus</div>
+              </div>
+              <div class="light-card accent">
+                <div class="light-card-title">Hof</div>
+                <div class="light-card-state">An · Warmweiß</div>
+              </div>
+            </div>
+          </article>
+        </section>
+      </main>
+
+      <aside class="room-sidebar">
+        <div class="sidebar-card">
+          <div class="room-list">
+            <button class="room-button active">Hof</button>
+            <button class="room-button">Küche</button>
+            <button class="room-button">Wohnzimmer</button>
+            <button class="room-button">Badezimmer</button>
+            <button class="room-button">Schlafzimmer</button>
+            <button class="room-button">Garage</button>
+            <button class="room-button">Büro</button>
+            <button class="room-button">Garten</button>
+          </div>
         </div>
-        <div class="card">
-            <div class="label">blaue Tonne</div>
-            <div class="value" id="blaueTonne">--</div>
-        </div>
-        <div class="card">
-            <div class="label">restmüll</div>
-            <div class="value" id="restmuell">--</div>
-        </div>
-      
+      </aside>
     </div>
-
-    <div class="card">
-      <div class="label">Wohnzimmer Temperatur</div>
-      <div class="value" id="livingTemp">--</div>
-    </div>
-
-    <div class="card">
-      <div class="label">Wohnzimmer Luftfeuchte</div>
-      <div class="value" id="livingHumidity">--</div>
-    </div>
-
-    <div class="card">
-      <div class="label">Hauptlicht</div>
-      <div class="value" id="kitchenLight">--</div>
-      <div class="actions">
-        <button onclick="switchMainLight('on')">Ein</button>
-        <button class="danger" onclick="switchMainLight('off')">Aus</button>
-      </div>
-    </div>
-
-    <div class="card tor-card">
-      <div class="label">Tor Status</div>
-      <div class="value" id="torStatus">--</div>
-
-      <div class="tor-visual" id="torVisual">
-        <div class="gate-track mode-closed">
-          <div class="gate-leaf"></div>
-          <div class="gate-arrow gate-arrow-right">→</div>
-          <div class="gate-arrow gate-arrow-left">←</div>
-        </div>
-        <div class="tor-visual-text" id="torVisualText">Tor geschlossen</div>
-      </div>
-    </div>
-
-    <div class="card">
-      <div class="label">Steuerelemente</div>
-
-      <div class="control-row">
-        <div class="control-name">+60s warten</div>
-        <button onclick="triggerTorButton('/api/tor/wait60')">Drücken</button>
-      </div>
-
-      <div class="control-row">
-        <div class="control-name">Automatik Öffnen</div>
-        <button onclick="triggerTorButton('/api/tor/auto-open')">Drücken</button>
-      </div>
-
-      <div class="card">
-        <div class="label">Automatik schließen in...</div>
-        <div class="value" id="schliessZeit">--</div>
-      </div>
-
-      <div class="card">
-        <div class="label">Fahrzeit Tor</div>
-        <div class="value" id="fahrZeit">--</div>
-      </div>
-
-      <div class="control-row">
-        <div class="control-name">Smarte Steuerung</div>
-        <label class="switch">
-          <input type="checkbox" id="smartControl" onchange="toggleSwitch('smartControl', '/api/tor/smart-control/on', '/api/tor/smart-control/off')">
-          <span class="slider"></span>
-        </label>
-      </div>
-
-      <div class="control-row">
-        <div class="control-name">Tor Automatik</div>
-        <label class="switch">
-          <input type="checkbox" id="torAutomatik" onchange="toggleSwitch('torAutomatik', '/api/tor/automatik/on', '/api/tor/automatik/off')">
-          <span class="slider"></span>
-        </label>
-      </div>
-
-      <div class="control-row">
-        <div class="control-name">Tor Dauer Auf</div>
-        <label class="switch">
-          <input type="checkbox" id="torDauerAuf" onchange="toggleSwitch('torDauerAuf', '/api/tor/dauer-auf/on', '/api/tor/dauer-auf/off')">
-          <span class="slider"></span>
-        </label>
-      </div>
-
-      <div class="control-row">
-        <div class="control-name">Tor Impuls</div>
-        <button onclick="triggerTorButton('/api/tor/impulse')">Drücken</button>
-      </div>
-    </div>
-
-    <div class="footer" id="updatedAt">Letztes Update: --</div>
   </div>
 
   <script src="/app.js"></script>
