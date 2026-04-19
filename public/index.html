@@ -3,192 +3,381 @@
 <head>
   <meta charset="utf-8">
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
-  <title>HA Wallpanel</title>
+  <title>HA Wallpanel - Home</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="stylesheet" href="/style.css">
 </head>
-<body>
+<body data-page="home" data-room="hof">
   <div class="app-shell">
-    <header class="topbar">
-      <div class="topbar-row">
-      <nav class="topnav">
-        <button class="topnav-item active">Home</button>
-        <button class="topnav-item">Energie</button>
-        <button class="topnav-item">Sicherheit</button>
-      </nav>
-    </header>
+    <div id="headerMount"></div>
 
     <div class="layout">
       <main class="dashboard-main">
         <section class="hero-grid">
-          <article class="panel metric-card weather-card compact-hero-card">
+          <article class="panel metric-card weather-card compact-hero-card dashboard-clickable" onclick="openModal('weatherModal')">
             <div class="panel-header">
               <span class="panel-kicker">Wetter</span>
               <span class="panel-meta">Strehla</span>
             </div>
             <div class="metric-main-row compact-main-row">
               <div>
-                <div class="metric-value compact-metric-value">21°</div>
-                <div class="metric-caption compact-caption">Leicht bewölkt</div>
+                <div class="metric-value compact-metric-value" id="weatherTemp">--</div>
+                <div class="metric-caption compact-caption" id="weatherState">unavailable</div>
               </div>
               <div class="weather-icon compact-weather-icon">☁</div>
             </div>
           </article>
 
-          <article class="panel metric-card energy-card compact-hero-card">
+          <article class="panel metric-card energy-card compact-hero-card dashboard-clickable" onclick="openModal('energyModal')">
             <div class="panel-header">
               <span class="panel-kicker">Energie</span>
             </div>
-            <div class="metric-value compact-metric-value">4.8 kW</div>
-            <div class="metric-caption compact-caption">Aktuelle PV-Leistung</div>
-            <div class="energy-bars compact-energy-bars">
-              <span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span>
-            </div>
-            <div class="mini-stats two-cols compact-mini-stats">
-              <div class="mini-stat highlight-green compact-mini-stat">
-                <span class="mini-label">Produktion</span>
-                <strong>18.2 kWh</strong>
-              </div>
-              <div class="mini-stat compact-mini-stat">
-                <span class="mini-label">Verbrauch</span>
-                <strong>11.7 kWh</strong>
-              </div>
-            </div>
+            <div class="metric-value compact-metric-value">----</div>
+            <div class="metric-caption compact-caption">Noch nicht angebunden</div>
           </article>
 
-          <article class="panel metric-card gate-status-card compact-hero-card">
+          <article class="panel metric-card gate-status-card compact-hero-card dashboard-clickable" onclick="openModal('gateModal')">
             <div class="panel-header">
               <span class="panel-kicker">Hoftor</span>
             </div>
-            <div class="metric-value compact-metric-value">Geschlossen</div>
-            <div class="metric-caption compact-caption">Torstatus / Schnellübersicht</div>
-            <div class="gate-track mode-closed preview-track compact-preview-track">
-              <div class="gate-leaf"></div>
-              <div class="gate-arrow gate-arrow-right">→</div>
-              <div class="gate-arrow gate-arrow-left">←</div>
-            </div>
-            <div class="quick-actions compact-actions compact-button-row">
-              <button class="pill-button active">Öffnen</button>
-              <button class="pill-button">Stopp</button>
-              <button class="pill-button">Impuls</button>
-            </div>
+            <div class="metric-value compact-metric-value" id="torStatus">unavailable</div>
+            <div class="metric-caption compact-caption" id="torVisualText">Status unbekannt</div>
           </article>
         </section>
 
         <section class="content-grid">
           <article class="panel camera-panel main-camera-panel">
-            <div class="panel-header">
+            <div class="panel-header camera-panel-header">
               <span class="panel-kicker">Kamera</span>
+              <!-- <div class="camera-source-toggle">
+                <button class="camera-source-button active" type="button" id="cameraEventModeButton" onclick="setCameraSourceMode('event')">Event</button>
+                <button class="camera-source-button" type="button" id="cameraLiveModeButton" onclick="setCameraSourceMode('live')">Live</button>
+              </div> -->
             </div>
-            <div class="camera-stage">
-              <div class="camera-overlay">Hoftor Kamera · Letztes Ereignis</div>
-              <div class="camera-placeholder camera-placeholder-standard">
-                <div class="camera-gate"></div>
+            <div class="camera-stage-with-strip">
+              <div class="camera-stage">
+                <div class="camera-overlay" id="cameraMainName">Kamera</div>
+                <button class="camera-preview-button" type="button" onclick="openCameraModal()">
+                  <div class="camera-placeholder camera-placeholder-standard">
+                    <img id="cameraMainImage" class="camera-image" src="" alt="Kamera Vorschau">
+                  </div>
+                </button>
+              </div>
+
+              <div class="camera-strip-wrap">
+                <div class="camera-strip">
+                  <button class="camera-strip-thumb active" type="button" onclick="selectCameraByIndex(1)">
+                    <span class="camera-strip-preview"><img id="camera2Image" class="camera-thumb-image" src="" alt="Kamera 2"></span>
+                    <span class="camera-strip-title" id="camera2Name">Kamera 2</span>
+                  </button>
+                  <button class="camera-strip-thumb" type="button" onclick="selectCameraByIndex(2)">
+                    <span class="camera-strip-preview"><img id="camera3Image" class="camera-thumb-image" src="" alt="Kamera 3"></span>
+                    <span class="camera-strip-title" id="camera3Name">Kamera 3</span>
+                  </button>
+                  <button class="camera-strip-thumb" type="button" onclick="selectCameraByIndex(3)">
+                    <span class="camera-strip-preview"><img id="camera4Image" class="camera-thumb-image" src="" alt="Kamera 4"></span>
+                    <span class="camera-strip-title" id="camera4Name">Kamera 4</span>
+                  </button>
+                  <button class="camera-strip-thumb" type="button" onclick="selectCameraByIndex(4)">
+                    <span class="camera-strip-preview"><img id="camera5Image" class="camera-thumb-image" src="" alt="Kamera 5"></span>
+                    <span class="camera-strip-title" id="camera5Name">Kamera 5</span>
+                  </button>
+                </div>
               </div>
             </div>
           </article>
 
-          <article class="panel camera-list-panel">
-            <div class="panel-header">
-              <span class="panel-kicker">Kameras</span>
-            </div>
-            <div class="camera-list">
-              <button class="camera-thumb active">
-                <span class="camera-thumb-title">Hof</span>
-                <span class="camera-thumb-preview"></span>
-              </button>
-              <button class="camera-thumb">
-                <span class="camera-thumb-title">Garage</span>
-                <span class="camera-thumb-preview"></span>
-              </button>
-              <button class="camera-thumb">
-                <span class="camera-thumb-title">Eingang</span>
-                <span class="camera-thumb-preview"></span>
-              </button>
-              <button class="camera-thumb">
-                <span class="camera-thumb-title">Garten</span>
-                <span class="camera-thumb-preview"></span>
-              </button>
-              <button class="camera-thumb">
-                <span class="camera-thumb-title">Werkstatt</span>
-                <span class="camera-thumb-preview"></span>
-              </button>
-              <button class="camera-thumb">
-                <span class="camera-thumb-title">Carport</span>
-                <span class="camera-thumb-preview"></span>
-              </button>
-            </div>
-          </article>
-
-          <article class="panel waste-panel">
+          <article class="panel waste-panel dashboard-clickable" onclick="openModal('wasteModal')">
             <div class="panel-header">
               <span class="panel-kicker">Abfall</span>
             </div>
-            <div class="waste-list">
-              <div class="waste-item yellow">
-                <div>
-                  <div class="waste-title">Gelbe Tonne</div>
-                  <div class="waste-date">Montag · 22.04.</div>
-                </div>
-                <div class="waste-days">in 4 Tagen</div>
+            <div class="waste-inline-list waste-dashboard-list">
+              <div class="waste-dashboard-item yellow">
+                <div class="waste-dashboard-name">Gelbe Tonne</div>
+                <span class="waste-inline-icon waste-dashboard-icon"></span>
+                <div class="waste-dashboard-days" id="gelbeTonne">unavailable</div>
               </div>
-              <div class="waste-item blue">
-                <div>
-                  <div class="waste-title">Blaue Tonne</div>
-                  <div class="waste-date">Donnerstag · 25.04.</div>
-                </div>
-                <div class="waste-days">in 7 Tagen</div>
+              <div class="waste-dashboard-item blue">
+                <div class="waste-dashboard-name">Papiertonne</div>
+                <span class="waste-inline-icon waste-dashboard-icon"></span>
+                <div class="waste-dashboard-days" id="blaueTonne">unavailable</div>
               </div>
-              <div class="waste-item dark">
-                <div>
-                  <div class="waste-title">Restmüll</div>
-                  <div class="waste-date">Dienstag · 30.04.</div>
-                </div>
-                <div class="waste-days">in 12 Tagen</div>
+              <div class="waste-dashboard-item dark">
+                <div class="waste-dashboard-name">Restmülltonne</div>
+                <span class="waste-inline-icon waste-dashboard-icon"></span>
+                <div class="waste-dashboard-days" id="restmuell">unavailable</div>
               </div>
             </div>
           </article>
 
+          <article class="panel lights-panel dashboard-clickable" onclick="openModal('lightsModal')">
+  <div class="panel-header">
+    <span class="panel-kicker">Lichter</span>
+  </div>
+  <div class="light-cards">
+    <div id="light1Card" class="light-card active light-toggle-card" data-base-class="light-card active light-toggle-card" onclick="event.stopPropagation(); toggleLightCard('light1Card', '/api/light/main/on', '/api/light/main/off')">
+      <div class="light-card-title" id="light1Name">Licht 1</div>
+      <div class="light-card-state" id="light1State">unavailable</div>
+    </div>
 
-          <article class="panel lights-panel">
-            <div class="panel-header">
-              <span class="panel-kicker">Lichter</span>
-            </div>
-            <div class="light-cards">
-              <div class="light-card active">
-                <div class="light-card-title">Wohnzimmer</div>
-                <div class="light-card-state">An · 65%</div>
-              </div>
-              <div class="light-card">
-                <div class="light-card-title">Küche</div>
-                <div class="light-card-state">Aus</div>
-              </div>
-              <div class="light-card accent">
-                <div class="light-card-title">Hof</div>
-                <div class="light-card-state">An · Warmweiß</div>
-              </div>
-            </div>
-          </article>
+    <div id="light2Card" class="light-card light-toggle-card" data-base-class="light-card light-toggle-card" onclick="event.stopPropagation(); toggleLightCard('light2Card', '/api/light/stehlampe/on', '/api/light/stehlampe/off')">
+      <div class="light-card-title" id="light2Name">Licht 2</div>
+      <div class="light-card-state" id="light2State">unavailable</div>
+    </div>
+
+    <div id="light3Card" class="light-card accent light-toggle-card" data-base-class="light-card accent light-toggle-card" onclick="event.stopPropagation(); toggleLightCard('light3Card', '/api/light/bulb/on', '/api/light/bulb/off')">
+      <div class="light-card-title" id="light3Name">Licht 3</div>
+      <div class="light-card-state" id="light3State">unavailable</div>
+    </div>
+  </div>
+</article>
         </section>
       </main>
 
-      <aside class="room-sidebar">
-        <div class="sidebar-card">
-          <div class="room-list">
-            <button class="room-button active">Hof</button>
-            <button class="room-button">Küche</button>
-            <button class="room-button">Wohnzimmer</button>
-            <button class="room-button">Badezimmer</button>
-            <button class="room-button">Schlafzimmer</button>
-            <button class="room-button">Garage</button>
-            <button class="room-button">Büro</button>
-            <button class="room-button">Garten</button>
-          </div>
-        </div>
-      </aside>
+      <div id="footerMount"></div>
     </div>
   </div>
 
+  <div class="modal-backdrop" id="modalBackdrop" onclick="closeModal()"></div>
+
+  <div class="dashboard-modal" id="weatherModal">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div>
+          <div class="panel-kicker">Wetter</div>
+          <div class="modal-title">Wetterdetails</div>
+        </div>
+        <button class="modal-close" type="button" onclick="closeModal()">×</button>
+      </div>
+      <div class="modal-content">
+        <div class="modal-grid two-columns">
+          <div class="modal-info-box">
+            <div class="modal-info-label">Temperatur</div>
+            <div class="modal-info-value" id="weatherTempModal">--</div>
+          </div>
+          <div class="modal-info-box">
+            <div class="modal-info-label">Zustand</div>
+            <div class="modal-info-value" id="weatherStateModal">unavailable</div>
+          </div>
+          <div class="modal-info-box">
+            <div class="modal-info-label">Luftfeuchte</div>
+            <div class="modal-info-value" id="weatherHumidity">unavailable</div>
+          </div>
+          <div class="modal-info-box">
+            <div class="modal-info-label">Wind</div>
+            <div class="modal-info-value" id="weatherWind">unavailable</div>
+          </div>
+          <div class="modal-info-box">
+            <div class="modal-info-label">Regen</div>
+            <div class="modal-info-value" id="weatherRain">unavailable</div>
+          </div>
+          <div class="modal-info-box">
+            <div class="modal-info-label">Heute</div>
+            <div class="modal-info-value"><span id="weatherHigh">unavailable</span> / <span id="weatherLow">unavailable</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="dashboard-modal" id="energyModal">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div>
+          <div class="panel-kicker">Energie</div>
+          <div class="modal-title">Solar und Verbrauch</div>
+        </div>
+        <button class="modal-close" type="button" onclick="closeModal()">×</button>
+      </div>
+      <div class="modal-content">
+        <div class="modal-note">Energie folgt später, sobald PV / Netzbezug / Verbrauch angebunden sind.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="dashboard-modal" id="gateModal">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div>
+          <div class="panel-kicker">Hoftor</div>
+          <div class="modal-title">Torsteuerung</div>
+        </div>
+        <button class="modal-close" type="button" onclick="closeModal()">×</button>
+      </div>
+      <div class="modal-content">
+  <div class="modal-grid two-columns">
+    <div class="modal-info-box">
+      <div class="modal-info-label">Status</div>
+      <div class="modal-info-value" id="torStatusModal">unavailable</div>
+    </div>
+    <div class="modal-info-box">
+      <div class="modal-info-label">Schließzeit</div>
+      <div class="modal-info-value" id="schliessZeit">unavailable</div>
+    </div>
+    <div class="modal-info-box">
+      <div class="modal-info-label">Fahrzeit</div>
+      <div class="modal-info-value" id="fahrZeit">unavailable</div>
+    </div>
+    <div class="modal-info-box">
+      <div class="modal-info-label">Automatik Status</div>
+      <div class="modal-info-value" id="torAutomatikState">unavailable</div>
+    </div>
+  </div>
+
+  <div class="gate-switches-row">
+    <label class="gate-switch-card" for="smartControl">
+      <span class="gate-switch-label-wrap">
+        <span class="gate-switch-title">Smarte Steuerung</span>
+        <span class="gate-switch-state" id="smartControlState">unavailable</span>
+      </span>
+      <span class="gate-switch-control">
+        <input id="smartControl" type="checkbox" onchange="toggleSwitch('smartControl', '/api/tor/smart-control/on', '/api/tor/smart-control/off')">
+        <span class="gate-switch-slider"></span>
+      </span>
+    </label>
+
+    <label class="gate-switch-card" for="torAutomatik">
+      <span class="gate-switch-label-wrap">
+        <span class="gate-switch-title">Automatik</span>
+        <span class="gate-switch-state" id="torAutomatikStateSwitch">unavailable</span>
+      </span>
+      <span class="gate-switch-control">
+        <input id="torAutomatik" type="checkbox" onchange="toggleSwitch('torAutomatik', '/api/tor/automatik/on', '/api/tor/automatik/off')">
+        <span class="gate-switch-slider"></span>
+      </span>
+    </label>
+
+    <label class="gate-switch-card" for="torDauerAuf">
+      <span class="gate-switch-label-wrap">
+        <span class="gate-switch-title">Dauer-Auf</span>
+        <span class="gate-switch-state" id="torDauerAufState">unavailable</span>
+      </span>
+      <span class="gate-switch-control">
+        <input id="torDauerAuf" type="checkbox" onchange="toggleSwitch('torDauerAuf', '/api/tor/dauer-auf/on', '/api/tor/dauer-auf/off')">
+        <span class="gate-switch-slider"></span>
+      </span>
+    </label>
+  </div>
+
+  <div class="quick-actions modal-actions-row gate-action-buttons">
+    <button class="pill-button pill-button-large active" type="button" onclick="triggerTorButton('/api/tor/auto-open')">AutoÖffnen</button>
+    <button class="pill-button pill-button-large" type="button" onclick="triggerTorButton('/api/tor/impulse')">Impuls</button>
+    <button class="pill-button pill-button-large" type="button" onclick="triggerTorButton('/api/tor/wait60')">+60s</button>
+  </div>
+</div>
+    </div>
+  </div>
+
+  <div class="dashboard-modal" id="wasteModal">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div>
+          <div class="panel-kicker">Abfall</div>
+          <div class="modal-title">Abholungen</div>
+        </div>
+        <button class="modal-close" type="button" onclick="closeModal()">×</button>
+      </div>
+      <div class="modal-content">
+        <div class="waste-list modal-waste-list">
+          <div class="waste-item yellow">
+            <div>
+              <div class="waste-title">Gelbe Tonne</div>
+              <div class="waste-date" id="gelbeTonneModal">unavailable</div>
+            </div>
+          </div>
+          <div class="waste-item blue">
+            <div>
+              <div class="waste-title">Blaue Tonne</div>
+              <div class="waste-date" id="blaueTonneModal">unavailable</div>
+            </div>
+          </div>
+          <div class="waste-item dark">
+            <div>
+              <div class="waste-title">Restmüll</div>
+              <div class="waste-date" id="restmuellModal">unavailable</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="dashboard-modal" id="lightsModal">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div>
+          <div class="panel-kicker">Lichter</div>
+          <div class="modal-title">Lichtsteuerung</div>
+        </div>
+        <button class="modal-close" type="button" onclick="closeModal()">×</button>
+      </div>
+      <div class="modal-content">
+        <div class="light-cards modal-light-cards">
+  <div id="light1CardModal" class="light-card active light-toggle-card" data-base-class="light-card active light-toggle-card" onclick="toggleLightCard('light1CardModal', '/api/light/main/on', '/api/light/main/off')">
+    <div class="light-card-title" id="light1NameModal">Licht 1</div>
+    <div class="light-card-state" id="light1StateModal">unavailable</div>
+  </div>
+
+  <div id="light2CardModal" class="light-card light-toggle-card" data-base-class="light-card light-toggle-card" onclick="toggleLightCard('light2CardModal', '/api/light/stehlampe/on', '/api/light/stehlampe/off')">
+    <div class="light-card-title" id="light2NameModal">Licht 2</div>
+    <div class="light-card-state" id="light2StateModal">unavailable</div>
+  </div>
+
+  <div id="light3CardModal" class="light-card accent light-toggle-card" data-base-class="light-card accent light-toggle-card" onclick="toggleLightCard('light3CardModal', '/api/light/bulb/on', '/api/light/bulb/off')">
+    <div class="light-card-title" id="light3NameModal">Licht 3</div>
+    <div class="light-card-state" id="light3StateModal">unavailable</div>
+  </div>
+</div>
+
+  <div class="light-card light-toggle-card">
+    <div class="light-card-toprow">
+      <div class="light-card-title" id="light2NameModal">Licht 2</div>
+      <label class="light-toggle-switch" for="light2ToggleModal">
+        <input id="light2ToggleModal" type="checkbox" onchange="toggleLightSwitch('light2ToggleModal', '/api/light/stehlampe/on', '/api/light/stehlampe/off')">
+        <span class="light-toggle-slider"></span>
+      </label>
+    </div>
+    <div class="light-card-state" id="light2StateModal">unavailable</div>
+  </div>
+
+  <div class="light-card accent light-toggle-card">
+    <div class="light-card-toprow">
+      <div class="light-card-title" id="light3NameModal">Licht 3</div>
+      <label class="light-toggle-switch" for="light3ToggleModal">
+        <input id="light3ToggleModal" type="checkbox" onchange="toggleLightSwitch('light3ToggleModal', '/api/light/bulb/on', '/api/light/bulb/off')">
+        <span class="light-toggle-slider"></span>
+      </label>
+    </div>
+    <div class="light-card-state" id="light3StateModal">unavailable</div>
+  </div>
+</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="dashboard-modal" id="cameraModal">
+    <div class="modal-card modal-card-large">
+      <div class="modal-header camera-modal-header">
+        <div>
+          <div class="panel-kicker">Kamera</div>
+          <div class="modal-title" id="cameraMainNameModal">Kamera</div>
+        </div>
+        <div class="camera-modal-actions">
+          <div class="camera-source-toggle camera-source-toggle-modal">
+            <button class="camera-source-button active" type="button" id="cameraEventModeButtonModal" onclick="setCameraSourceMode('event')">Event</button>
+            <button class="camera-source-button" type="button" id="cameraLiveModeButtonModal" onclick="setCameraSourceMode('live')">Live</button>
+          </div>
+          <button class="modal-close" type="button" onclick="closeModal()">×</button>
+        </div>
+      </div>
+      <div class="modal-content">
+        <div class="camera-modal-stage">
+          <img id="cameraModalImage" class="camera-modal-image" src="" alt="Kamera Großansicht">
+        </div>
+      </div>
+    </div>
+  </div>
+  <script src="/layout.js"></script>
   <script src="/app.js"></script>
 </body>
 </html>
