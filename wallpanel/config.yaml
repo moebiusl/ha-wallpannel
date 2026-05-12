@@ -1,0 +1,24 @@
+name: "HA Wallpanel"
+description: "Touch-optimiertes Home-Assistant-Wallpanel fuer iPad und Tablet."
+version: "1.0.0"
+slug: "wallpanel"
+init: false
+arch:
+  - aarch64
+  - amd64
+  - armhf
+  - armv7
+  - i386
+startup: application
+boot: auto
+homeassistant_api: true
+ingress: true
+ingress_port: 3000
+panel_icon: mdi:tablet-dashboard
+webui: "http://[HOST]:[PORT:3000]"
+ports:
+  3000/tcp: 3000
+ports_description:
+  3000/tcp: "Wallpanel Weboberflaeche"
+options: {}
+schema: {}
