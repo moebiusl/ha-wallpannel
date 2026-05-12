@@ -14,35 +14,87 @@
     <div class="layout">
       <main class="dashboard-main single-page-main">
         <section class="single-page-grid">
-          <article class="panel large-page-panel settings-panel">
+          <article id="settingsLock" class="panel large-page-panel settings-panel dynamic-settings-panel">
             <div class="panel-header">
               <span class="panel-kicker">Optionen</span>
-              <span class="panel-meta">iPad Konfiguration</span>
+              <span class="panel-meta">Geschützt</span>
+            </div>
+            <div class="settings-section">
+              <div class="settings-title">Admin-PIN</div>
+              <input id="settingsPin" class="settings-pin-hidden" type="password" inputmode="numeric" maxlength="4" autocomplete="off">
+              <div id="settingsPinDots" class="settings-pin-dots" aria-label="PIN Eingabe"></div>
+              <div class="settings-pin-pad" aria-label="Zahlenfeld">
+                <button type="button" onclick="pressSettingsPin('1')">1</button>
+                <button type="button" onclick="pressSettingsPin('2')">2</button>
+                <button type="button" onclick="pressSettingsPin('3')">3</button>
+                <button type="button" onclick="pressSettingsPin('4')">4</button>
+                <button type="button" onclick="pressSettingsPin('5')">5</button>
+                <button type="button" onclick="pressSettingsPin('6')">6</button>
+                <button type="button" onclick="pressSettingsPin('7')">7</button>
+                <button type="button" onclick="pressSettingsPin('8')">8</button>
+                <button type="button" onclick="pressSettingsPin('9')">9</button>
+                <button type="button" onclick="clearSettingsPin()">C</button>
+                <button type="button" onclick="pressSettingsPin('0')">0</button>
+                <button type="button" onclick="backspaceSettingsPin()">←</button>
+              </div>
+              <span id="settingsPinState" class="settings-save-state"></span>
+            </div>
+          </article>
+
+          <article id="settingsContent" class="panel large-page-panel settings-panel dynamic-settings-panel" style="display: none;">
+            <div class="panel-header">
+              <span class="panel-kicker">Optionen</span>
+              <span class="panel-meta">Wallpanel Konfiguration</span>
+            </div>
+            <div class="settings-sticky-actions">
+              <button class="pill-button active" type="button" onclick="savePanelOptions()">Speichern</button>
+              <span id="settingsSaveState" class="settings-save-state"></span>
             </div>
 
-            <div class="settings-section">
-              <div class="settings-title">Sichtbare Seiten</div>
-              <label class="settings-check"><input type="checkbox" checked> <span>Home anzeigen</span></label>
-              <label class="settings-check"><input type="checkbox" checked> <span>Energie anzeigen</span></label>
-              <label class="settings-check"><input type="checkbox" checked> <span>Sicherheit anzeigen</span></label>
-            </div>
+            <div class="settings-layout-grid">
+              <section class="settings-section">
+                <div class="settings-title">Allgemein fürs Tablet</div>
+                <label class="select-label" for="panelSelect">Panel wählen</label>
+                <select id="panelSelect" class="room-select"></select>
+                <div class="settings-hint">Die Auswahl wird lokal auf diesem Tablet gespeichert.</div>
+                <label class="select-label settings-label-spaced" for="tabletRoomSelect">Tablet hängt in Raum</label>
+                <select id="tabletRoomSelect" class="room-select"></select>
+              </section>
 
-            <div class="settings-section">
-              <label class="select-label" for="defaultRoom">Raum dieses iPads</label>
-              <select id="defaultRoom" class="room-select">
-                <option value="hof">Hof</option>
-                <option value="kueche">Küche</option>
-                <option value="wohnzimmer">Wohnzimmer</option>
-                <option value="badezimmer">Badezimmer</option>
-                <option value="schlafzimmer">Schlafzimmer</option>
-                <option value="garage">Garage</option>
-                <option value="buero">Büro</option>
-                <option value="garten">Garten</option>
-              </select>
+              <section class="settings-section">
+                <div class="settings-title">Navigation</div>
+                <div id="visiblePagesMount" class="dynamic-list settings-compact-checks"></div>
+              </section>
+
+              <section class="settings-section settings-section-wide">
+                <div class="settings-title">Diese Seite bearbeiten</div>
+                <label class="select-label" for="pageSelect">Seite wählen</label>
+                <select id="pageSelect" class="room-select"></select>
+                <label class="select-label settings-label-spaced" for="areaSelect">Home-Assistant-Bereich/Raum</label>
+                <select id="areaSelect" class="room-select"></select>
+                <div class="settings-hint">Für Energie und Sicherheit kannst du hier ebenfalls einzelne Entitäten ein- oder ausblenden.</div>
+              </section>
+
+              <section class="settings-section">
+                <div class="settings-title">Spezialkarten</div>
+                <div id="cardsMount" class="dynamic-list settings-compact-checks"></div>
+              </section>
+
+              <section class="settings-section">
+                <div class="settings-title">Geräte</div>
+                <div id="devicesMount" class="dynamic-list settings-preview-list"></div>
+                <button class="pill-button settings-more-button" type="button" onclick="openOptionsPicker('devices')">Alle Geräte anzeigen</button>
+              </section>
+
+              <section class="settings-section settings-section-wide">
+                <div class="settings-title">Entitäten</div>
+                <div id="entitiesMount" class="dynamic-list settings-preview-list"></div>
+                <button class="pill-button settings-more-button" type="button" onclick="openOptionsPicker('entities')">Alle Entitäten anzeigen</button>
+              </section>
             </div>
 
             <div class="settings-actions">
-              <button class="pill-button active" type="button">Speichern</button>
+              <button class="pill-button active" type="button" onclick="savePanelOptions()">Speichern</button>
             </div>
           </article>
         </section>
@@ -52,7 +104,23 @@
     </div>
   </div>
 
+  <div id="optionsPickerBackdrop" class="rooms-modal-backdrop" onclick="closeOptionsPicker()"></div>
+  <div id="optionsPickerModal" class="rooms-modal settings-picker-modal">
+    <div class="rooms-modal-card">
+      <div class="rooms-modal-header">
+        <div>
+          <div class="panel-kicker">Optionen</div>
+          <div id="optionsPickerTitle" class="rooms-modal-title">Auswahl</div>
+        </div>
+        <button class="modal-close" type="button" onclick="closeOptionsPicker()">×</button>
+      </div>
+      <input id="optionsPickerSearch" class="room-select settings-picker-search" type="search" placeholder="Suchen" oninput="renderOptionsPickerList()">
+      <div id="optionsPickerList" class="settings-picker-grid"></div>
+    </div>
+  </div>
+
   <script src="layout.js"></script>
-  <script src="app.js"></script>
+  <script src="api.js"></script>
+  <script src="options.js"></script>
 </body>
 </html>

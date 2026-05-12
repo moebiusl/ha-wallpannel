@@ -14,19 +14,41 @@
     <div class="layout">
       <main class="dashboard-main">
         <section class="single-page-grid">
-          <article class="panel large-page-panel">
+          <article class="panel large-page-panel energy-page-panel">
             <div class="panel-header">
               <span class="panel-kicker">Energie</span>
-              <span class="panel-meta">PV / Haus / Speicher</span>
+              <span id="energyUpdateState" class="panel-meta">Lade...</span>
             </div>
+
+            <div class="energy-summary-grid">
+              <article class="energy-summary-card">
+                <div class="energy-summary-label">Solar aktuell</div>
+                <div id="energyPageSolar" class="energy-summary-value">--</div>
+              </article>
+              <article class="energy-summary-card">
+                <div class="energy-summary-label">Netzleistung</div>
+                <div id="energyPageGrid" class="energy-summary-value">--</div>
+              </article>
+              <article class="energy-summary-card">
+                <div class="energy-summary-label">Delta2</div>
+                <div id="energyPageDeltaBattery" class="energy-summary-value">--</div>
+              </article>
+              <article class="energy-summary-card">
+                <div class="energy-summary-label">Powerstream</div>
+                <div id="energyPagePowerstreamBattery" class="energy-summary-value">--</div>
+              </article>
+            </div>
+
+            <div id="energySections" class="energy-sections"></div>
           </article>
         </section>
       </main>
 
-      <div id="footerMount"></div>
     </div>
   </div>
 
   <script src="layout.js"></script>
+  <script src="api.js"></script>
+  <script src="energy.js"></script>
 </body>
 </html>

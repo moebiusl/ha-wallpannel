@@ -14,19 +14,42 @@
     <div class="layout">
       <main class="dashboard-main">
         <section class="single-page-grid">
-          <article class="panel large-page-panel">
+          <article class="panel large-page-panel security-page-panel">
             <div class="panel-header">
               <span class="panel-kicker">Sicherheit</span>
-              <span class="panel-meta">Kameras / Tor / Sensoren</span>
+              <span id="securityUpdateState" class="panel-meta">Lade...</span>
             </div>
+
+            <section class="security-camera-section">
+              <div id="securityCameraMain" class="security-camera-main"></div>
+              <div id="securityCameraStrip" class="security-camera-strip"></div>
+            </section>
+
+            <section class="security-summary-grid">
+              <article class="security-summary-card">
+                <div class="security-summary-label">Offen / Aktiv</div>
+                <div id="securityActiveCount" class="security-summary-value">--</div>
+              </article>
+              <article class="security-summary-card">
+                <div class="security-summary-label">Gefahren</div>
+                <div id="securityHazardCount" class="security-summary-value">--</div>
+              </article>
+              <article class="security-summary-card">
+                <div class="security-summary-label">Sensoren</div>
+                <div id="securitySensorCount" class="security-summary-value">--</div>
+              </article>
+            </section>
+
+            <div id="securitySections" class="security-sections"></div>
           </article>
         </section>
       </main>
 
-      <div id="footerMount"></div>
     </div>
   </div>
 
   <script src="layout.js"></script>
+  <script src="api.js"></script>
+  <script src="security.js"></script>
 </body>
 </html>
