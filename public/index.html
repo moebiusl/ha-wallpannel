@@ -32,8 +32,8 @@
             <div class="panel-header">
               <span class="panel-kicker">Energie</span>
             </div>
-            <div class="metric-value compact-metric-value">----</div>
-            <div class="metric-caption compact-caption">Noch nicht angebunden</div>
+            <div class="metric-value compact-metric-value" id="energySolarPower">--</div>
+            <div class="metric-caption compact-caption" id="energyHomeSummary">PV / Speicher</div>
           </article>
 
           <article class="panel metric-card gate-status-card compact-hero-card dashboard-clickable" onclick="openModal('gateModal')">
@@ -87,11 +87,19 @@
             </div>
           </article>
 
-          <article class="panel waste-panel dashboard-clickable" onclick="openModal('wasteModal')">
+          <article class="panel waste-panel dashboard-clickable" id="wastePanel" onclick="toggleWastePanel(event)">
             <div class="panel-header">
               <span class="panel-kicker">Abfall</span>
+              <span class="panel-meta" id="wastePanelHint">Details</span>
             </div>
-            <div class="waste-inline-list waste-dashboard-list">
+            <div class="waste-next-card">
+              <div>
+                <div id="wasteNextName" class="waste-next-name">Nächste Leerung</div>
+                <div id="wasteNextDays" class="waste-next-days">unavailable</div>
+              </div>
+              <span id="wasteNextIcon" class="waste-inline-icon waste-dashboard-icon"></span>
+            </div>
+            <div class="waste-inline-list waste-dashboard-list" id="wasteAllList">
               <div class="waste-dashboard-item yellow">
                 <div class="waste-dashboard-name">Gelbe Tonne</div>
                 <span class="waste-inline-icon waste-dashboard-icon"></span>
@@ -110,27 +118,13 @@
             </div>
           </article>
 
-          <article class="panel lights-panel dashboard-clickable" onclick="openModal('lightsModal')">
-  <div class="panel-header">
-    <span class="panel-kicker">Lichter</span>
-  </div>
-  <div class="light-cards">
-    <div id="light1Card" class="light-card active light-toggle-card" data-base-class="light-card active light-toggle-card" onclick="event.stopPropagation(); toggleLightCard('light1Card', 'api/light/main/on', 'api/light/main/off')">
-      <div class="light-card-title" id="light1Name">Licht 1</div>
-      <div class="light-card-state" id="light1State">unavailable</div>
-    </div>
-
-    <div id="light2Card" class="light-card light-toggle-card" data-base-class="light-card light-toggle-card" onclick="event.stopPropagation(); toggleLightCard('light2Card', 'api/light/stehlampe/on', 'api/light/stehlampe/off')">
-      <div class="light-card-title" id="light2Name">Licht 2</div>
-      <div class="light-card-state" id="light2State">unavailable</div>
-    </div>
-
-    <div id="light3Card" class="light-card accent light-toggle-card" data-base-class="light-card accent light-toggle-card" onclick="event.stopPropagation(); toggleLightCard('light3Card', 'api/light/bulb/on', 'api/light/bulb/off')">
-      <div class="light-card-title" id="light3Name">Licht 3</div>
-      <div class="light-card-state" id="light3State">unavailable</div>
-    </div>
-  </div>
-</article>
+          <article class="panel notifications-panel">
+            <div class="panel-header">
+              <span class="panel-kicker">Mitteilungen</span>
+              <span class="panel-meta">Warnungen</span>
+            </div>
+            <div id="homeNotifications" class="home-notification-list"></div>
+          </article>
         </section>
       </main>
 
@@ -156,7 +150,7 @@
             <div class="modal-info-value" id="weatherTempModal">--</div>
           </div>
           <div class="modal-info-box">
-            <div class="modal-info-label">Zustand</div>
+            <div class="modal-info-label">Wetterlage</div>
             <div class="modal-info-value" id="weatherStateModal">unavailable</div>
           </div>
           <div class="modal-info-box">
@@ -168,12 +162,20 @@
             <div class="modal-info-value" id="weatherWind">unavailable</div>
           </div>
           <div class="modal-info-box">
-            <div class="modal-info-label">Regen</div>
-            <div class="modal-info-value" id="weatherRain">unavailable</div>
+            <div class="modal-info-label">Bewölkung</div>
+            <div class="modal-info-value" id="weatherCloudCoverage">unavailable</div>
           </div>
           <div class="modal-info-box">
-            <div class="modal-info-label">Heute</div>
-            <div class="modal-info-value"><span id="weatherHigh">unavailable</span> / <span id="weatherLow">unavailable</span></div>
+            <div class="modal-info-label">Luftdruck</div>
+            <div class="modal-info-value" id="weatherPressure">unavailable</div>
+          </div>
+          <div class="modal-info-box">
+            <div class="modal-info-label">Taupunkt</div>
+            <div class="modal-info-value" id="weatherDewPoint">unavailable</div>
+          </div>
+          <div class="modal-info-box">
+            <div class="modal-info-label">UV-Index</div>
+            <div class="modal-info-value" id="weatherUvIndex">unavailable</div>
           </div>
         </div>
       </div>
@@ -190,7 +192,25 @@
         <button class="modal-close" type="button" onclick="closeModal()">×</button>
       </div>
       <div class="modal-content">
-        <div class="modal-note">Energie folgt später, sobald PV / Netzbezug / Verbrauch angebunden sind.</div>
+        <div class="modal-grid two-columns">
+          <div class="modal-info-box">
+            <div class="modal-info-label">Solar aktuell</div>
+            <div class="modal-info-value" id="energySolarPowerModal">unavailable</div>
+          </div>
+          <div class="modal-info-box">
+            <div class="modal-info-label">Netzleistung</div>
+            <div class="modal-info-value" id="energyGridPowerModal">unavailable</div>
+          </div>
+          <div class="modal-info-box">
+            <div class="modal-info-label">Delta2 Akku</div>
+            <div class="modal-info-value" id="energyDeltaBatteryModal">unavailable</div>
+          </div>
+          <div class="modal-info-box">
+            <div class="modal-info-label">Powerstream Akku</div>
+            <div class="modal-info-value" id="energyPowerstreamBatteryModal">unavailable</div>
+          </div>
+        </div>
+        <div class="modal-note">Details findest du im Energie-Reiter.</div>
       </div>
     </div>
   </div>

@@ -14,34 +14,23 @@
     <div class="layout">
       <main class="dashboard-main single-page-main">
         <section class="single-page-grid">
-          <article class="panel large-page-panel room-page-panel">
+          <article class="panel large-page-panel room-page-panel dynamic-room-panel">
             <div class="panel-header">
               <span class="panel-kicker">Raum</span>
-              <span class="panel-meta">Ansicht</span>
+              <span id="roomUpdateState" class="panel-meta">Lade...</span>
             </div>
 
-            <div class="settings-section">
-              <label class="select-label" for="roomSelect">Raum wählen</label>
-              <select id="roomSelect" class="room-select">
-                <option value="hof">Hof</option>
-                <option value="kueche">Küche</option>
-                <option value="wohnzimmer">Wohnzimmer</option>
-                <option value="badezimmer">Badezimmer</option>
-                <option value="schlafzimmer">Schlafzimmer</option>
-                <option value="garage">Garage</option>
-                <option value="buero">Büro</option>
-                <option value="garten">Garten</option>
-              </select>
-            </div>
+            <h1 id="roomTitle" class="dynamic-room-title">Raum</h1>
+            <div id="roomPinnedStatus" class="room-pinned-status"></div>
+            <div id="roomCardsMount" class="dynamic-card-grid"></div>
           </article>
         </section>
       </main>
-
-      <div id="footerMount"></div>
     </div>
   </div>
 
   <script src="layout.js"></script>
-  <script src="app.js"></script>
+  <script src="api.js"></script>
+  <script src="room-page.js"></script>
 </body>
 </html>
