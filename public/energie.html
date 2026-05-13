@@ -17,7 +17,8 @@
           <article class="panel large-page-panel energy-page-panel">
             <div class="panel-header">
               <span class="panel-kicker">Energie</span>
-              <span id="energyUpdateState" class="panel-meta">Lade...</span>
+              <button class="panel-meta panel-link-button" type="button" onclick="openEnergyBatteryModal()">Batterien</button>
+              <span id="energyUpdateState" class="panel-meta energy-update-meta">Lade...</span>
             </div>
 
             <div class="energy-summary-grid">
@@ -44,6 +45,22 @@
         </section>
       </main>
 
+    </div>
+  </div>
+
+  <div class="modal-backdrop" id="energyModalBackdrop" onclick="closeEnergyBatteryModal()"></div>
+  <div class="dashboard-modal" id="energyBatteryModal">
+    <div class="modal-card modal-card-large">
+      <div class="modal-header">
+        <div>
+          <div class="panel-kicker">Batterien</div>
+          <div class="modal-title">Batterieübersicht</div>
+        </div>
+        <button class="modal-close" type="button" onclick="closeEnergyBatteryModal()">×</button>
+      </div>
+      <div class="modal-content">
+        <div id="energyBatteryOverviewList" class="battery-overview-list"></div>
+      </div>
     </div>
   </div>
 

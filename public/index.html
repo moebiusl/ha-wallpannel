@@ -60,6 +60,7 @@
                 <button class="camera-preview-button" type="button" onclick="openCameraModal()">
                   <div class="camera-placeholder camera-placeholder-standard">
                     <img id="cameraMainImage" class="camera-image" src="" alt="Kamera Vorschau">
+                    <span class="camera-time-badge" id="cameraMainTime">Event: --</span>
                   </div>
                 </button>
               </div>
@@ -67,19 +68,19 @@
               <div class="camera-strip-wrap">
                 <div class="camera-strip">
                   <button class="camera-strip-thumb active" type="button" onclick="selectCameraByIndex(1)">
-                    <span class="camera-strip-preview"><img id="camera2Image" class="camera-thumb-image" src="" alt="Kamera 2"></span>
+                    <span class="camera-strip-preview"><img id="camera2Image" class="camera-thumb-image" src="" alt="Kamera 2"><span class="camera-thumb-time" id="camera2Time">--</span></span>
                     <span class="camera-strip-title" id="camera2Name">Kamera 2</span>
                   </button>
                   <button class="camera-strip-thumb" type="button" onclick="selectCameraByIndex(2)">
-                    <span class="camera-strip-preview"><img id="camera3Image" class="camera-thumb-image" src="" alt="Kamera 3"></span>
+                    <span class="camera-strip-preview"><img id="camera3Image" class="camera-thumb-image" src="" alt="Kamera 3"><span class="camera-thumb-time" id="camera3Time">--</span></span>
                     <span class="camera-strip-title" id="camera3Name">Kamera 3</span>
                   </button>
                   <button class="camera-strip-thumb" type="button" onclick="selectCameraByIndex(3)">
-                    <span class="camera-strip-preview"><img id="camera4Image" class="camera-thumb-image" src="" alt="Kamera 4"></span>
+                    <span class="camera-strip-preview"><img id="camera4Image" class="camera-thumb-image" src="" alt="Kamera 4"><span class="camera-thumb-time" id="camera4Time">--</span></span>
                     <span class="camera-strip-title" id="camera4Name">Kamera 4</span>
                   </button>
                   <button class="camera-strip-thumb" type="button" onclick="selectCameraByIndex(4)">
-                    <span class="camera-strip-preview"><img id="camera5Image" class="camera-thumb-image" src="" alt="Kamera 5"></span>
+                    <span class="camera-strip-preview"><img id="camera5Image" class="camera-thumb-image" src="" alt="Kamera 5"><span class="camera-thumb-time" id="camera5Time">--</span></span>
                     <span class="camera-strip-title" id="camera5Name">Kamera 5</span>
                   </button>
                 </div>
@@ -118,10 +119,19 @@
             </div>
           </article>
 
+          <article class="panel security-home-panel dashboard-clickable" id="homeSecurityPanel" onclick="window.location.href='sicherheit.html'">
+            <div class="panel-header">
+              <span class="panel-kicker">Sicherheit</span>
+              <span class="panel-meta" id="homeSecurityMeta">Status</span>
+            </div>
+            <div class="security-home-title" id="homeSecurityTitle">Lade...</div>
+            <div class="security-home-text" id="homeSecurityText">Sensoren werden geprüft</div>
+          </article>
+
           <article class="panel notifications-panel">
             <div class="panel-header">
               <span class="panel-kicker">Mitteilungen</span>
-              <span class="panel-meta">Warnungen</span>
+              <button class="panel-meta panel-link-button" type="button" onclick="openBatteryModal()">Batterien</button>
             </div>
             <div id="homeNotifications" class="home-notification-list"></div>
           </article>
@@ -130,6 +140,7 @@
 
       <div id="footerMount"></div>
     </div>
+    <div id="updatedAt" class="page-update-stamp">Letztes Update: --</div>
   </div>
 
   <div class="modal-backdrop" id="modalBackdrop" onclick="closeModal()"></div>
@@ -200,6 +211,10 @@
           <div class="modal-info-box">
             <div class="modal-info-label">Netzleistung</div>
             <div class="modal-info-value" id="energyGridPowerModal">unavailable</div>
+          </div>
+          <div class="modal-info-box">
+            <div class="modal-info-label">Verbrauch</div>
+            <div class="modal-info-value" id="energyConsumptionModal">unavailable</div>
           </div>
           <div class="modal-info-box">
             <div class="modal-info-label">Delta2 Akku</div>
@@ -393,7 +408,24 @@
       <div class="modal-content">
         <div class="camera-modal-stage">
           <img id="cameraModalImage" class="camera-modal-image" src="" alt="Kamera Großansicht">
+          <iframe id="cameraWebrtcFrame" class="camera-webrtc-frame" title="Kamera Live" src="about:blank"></iframe>
+          <span class="camera-time-badge camera-modal-time" id="cameraModalTime">Event: --</span>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="dashboard-modal" id="batteryModal">
+    <div class="modal-card modal-card-large">
+      <div class="modal-header">
+        <div>
+          <div class="panel-kicker">Batterien</div>
+          <div class="modal-title">Batterieübersicht</div>
+        </div>
+        <button class="modal-close" type="button" onclick="closeModal()">×</button>
+      </div>
+      <div class="modal-content">
+        <div id="batteryOverviewList" class="battery-overview-list"></div>
       </div>
     </div>
   </div>

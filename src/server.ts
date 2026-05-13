@@ -14,6 +14,12 @@ const PORT = Number(process.env.PORT || 3000);
 const HA_URL = process.env.HA_URL || (process.env.SUPERVISOR_TOKEN ? "http://supervisor/core" : undefined);
 const HA_TOKEN = process.env.HA_TOKEN || process.env.SUPERVISOR_TOKEN;
 const SETTINGS_PIN = process.env.SETTINGS_PIN || "1310";
+const GO2RTC_PUBLIC_URL = process.env.GO2RTC_PUBLIC_URL || "";
+
+function envValue(name: string, fallback: string): string {
+  const value = process.env[name];
+  return value && value.trim() ? value.trim() : fallback;
+}
 
 if (!HA_URL || !HA_TOKEN) {
   throw new Error("HA_URL/HA_TOKEN fehlt. Im Home-Assistant-Add-on wird SUPERVISOR_TOKEN automatisch genutzt.");
@@ -32,6 +38,8 @@ export type HaState = {
   entity_id: string;
   state: string;
   attributes?: Record<string, unknown>;
+  last_changed?: string;
+  last_updated?: string;
 };
 
 function describeError(error: unknown): string {
@@ -66,10 +74,18 @@ type LightSummary = {
 
 type CameraSummary = {
   entity_id: string;
+  liveCameraEntityId: string;
   name: string;
   state: string;
   imageUrl: string;
   liveUrl: string;
+  streamUrl: string;
+  webrtcUrl: string;
+  webrtcFallbackUrl: string;
+  mjpegUrl: string;
+  mjpegFallbackUrl: string;
+  eventUpdatedAt: string;
+  eventTimestamp: string;
 };
 
 type CameraConfig = {
@@ -80,8 +96,8 @@ type CameraConfig = {
 
 const ENTITIES = {
   weather: {
-        summary: "weather.forecast_home_2"
- },
+    summary: "weather.forecast_home_2"
+  },
   sensors: {
     livingTemp: "sensor.smart_thermostat_valve_03008db6_temperature",
     livingHumidity: "sensor.luftbefeuchter_humidity",
@@ -93,27 +109,27 @@ const ENTITIES = {
     restmuellNaechsteLeerung: "sensor.restmuell"
   },
   lights: {
-  main: "light.hof",
-  stehlampe: "light.stehlampe",
-  bulb: "light.msl320_d16d_lightbulb"
-    },
-    lightGroups: {
+    main: envValue("ENTITY_LIGHT_MAIN", "light.hof"),
+    stehlampe: envValue("ENTITY_LIGHT_SECONDARY", "light.stehlampe"),
+    bulb: envValue("ENTITY_LIGHT_THIRD", "")
+  },
+  lightGroups: {
     esstischKueche: "light.esstischk",
     esstischWohnzimmer: "light.esstischwz"
-    },
+  },
   cameras: {
-    einfahrtEventImage: "image.einfahrt_event_image",
-    hofEventImage: "image.hof_event_image",
-    hofVonGarageEventImage: "image.hof_von_garage_event_image",
-    werkstattRichtungGartenEventImage: "image.werkstatt_richtung_garten_event_image",
-    klingelEventImage: "image.klingel_event_image"
+    einfahrtEventImage: envValue("CAMERA_EINFAHRT_EVENT_IMAGE", "image.einfahrt_event_image"),
+    hofEventImage: envValue("CAMERA_HOF_EVENT_IMAGE", "image.hof_event_image"),
+    hofVonGarageEventImage: envValue("CAMERA_HOF_VON_GARAGE_EVENT_IMAGE", "image.hof_von_garage_event_image"),
+    werkstattRichtungGartenEventImage: envValue("CAMERA_WERKSTATT_GARTEN_EVENT_IMAGE", "image.werkstatt_richtung_garten_event_image"),
+    klingelEventImage: envValue("CAMERA_KLINGEL_EVENT_IMAGE", "image.klingel_event_image")
   },
   cameraFeeds: {
-    einfahrt: "camera.einfahrt",
-    hof: "camera.hof",
-    hofVonGarage: "camera.hof_von_garage",
-    werkstattRichtungGarten: "camera.werkstatt_richtung_garten",
-    klingel: "camera.klingel"
+    einfahrt: envValue("CAMERA_EINFAHRT_LIVE", "camera.einfahrt"),
+    hof: envValue("CAMERA_HOF_LIVE", "camera.hof"),
+    hofVonGarage: envValue("CAMERA_HOF_VON_GARAGE_LIVE", "camera.hof_von_garage"),
+    werkstattRichtungGarten: envValue("CAMERA_WERKSTATT_GARTEN_LIVE", "camera.werkstatt_richtung_garten"),
+    klingel: envValue("CAMERA_KLINGEL_LIVE", "camera.klingel")
   },
   switches: {
     smartControl: "switch.esp_tor_smarte_steuerung",
@@ -129,29 +145,29 @@ const ENTITIES = {
 
 const CAMERA_CONFIGS: CameraConfig[] = [
   {
-    name: "Einfahrt",
+    name: envValue("CAMERA_EINFAHRT_NAME", "Einfahrt"),
     eventImageEntityId: ENTITIES.cameras.einfahrtEventImage,
-    liveCameraEntityId: ENTITIES.cameraFeeds.einfahrt
+    liveCameraEntityId: envValue("CAMERA_EINFAHRT_STREAM", ENTITIES.cameraFeeds.einfahrt)
   },
   {
-    name: "Hof",
+    name: envValue("CAMERA_HOF_NAME", "Hof"),
     eventImageEntityId: ENTITIES.cameras.hofEventImage,
-    liveCameraEntityId: ENTITIES.cameraFeeds.hof
+    liveCameraEntityId: envValue("CAMERA_HOF_STREAM", ENTITIES.cameraFeeds.hof)
   },
   {
-    name: "Hof von Garage",
+    name: envValue("CAMERA_HOF_VON_GARAGE_NAME", "Hof von Garage"),
     eventImageEntityId: ENTITIES.cameras.hofVonGarageEventImage,
-    liveCameraEntityId: ENTITIES.cameraFeeds.hofVonGarage
+    liveCameraEntityId: envValue("CAMERA_HOF_VON_GARAGE_STREAM", ENTITIES.cameraFeeds.hofVonGarage)
   },
   {
-    name: "Werkstatt Richtung Garten",
+    name: envValue("CAMERA_WERKSTATT_GARTEN_NAME", "Werkstatt Richtung Garten"),
     eventImageEntityId: ENTITIES.cameras.werkstattRichtungGartenEventImage,
-    liveCameraEntityId: ENTITIES.cameraFeeds.werkstattRichtungGarten
+    liveCameraEntityId: envValue("CAMERA_WERKSTATT_GARTEN_STREAM", ENTITIES.cameraFeeds.werkstattRichtungGarten)
   },
   {
-    name: "Klingel",
+    name: envValue("CAMERA_KLINGEL_NAME", "Klingel"),
     eventImageEntityId: ENTITIES.cameras.klingelEventImage,
-    liveCameraEntityId: ENTITIES.cameraFeeds.klingel
+    liveCameraEntityId: envValue("CAMERA_KLINGEL_STREAM", ENTITIES.cameraFeeds.klingel)
   }
 ];
 
@@ -193,12 +209,14 @@ const ENERGY_ENTITIES = {
   }
 } as const;
 
-async function getEntity(entityId: string): Promise<HaState | null> {
+async function getEntity(entityId: string, silent = false): Promise<HaState | null> {
   try {
     const response = await ha.get(`/api/states/${entityId}`);
     return response.data;
   } catch (error) {
-    console.error(`Fehler beim Holen von ${entityId}: ${describeError(error)}`);
+    if (!silent) {
+      console.error(`Fehler beim Holen von ${entityId}: ${describeError(error)}`);
+    }
     return null;
   }
 }
@@ -271,16 +289,60 @@ function mapCamera(
   fallbackName: string,
   liveCameraEntityId: string
 ): CameraSummary {
-  const friendlyName = readStringAttribute(entity, ["friendly_name"], fallbackName);
   const entityId = entity?.entity_id ?? fallbackName;
+  const eventDate = entity?.state && !["unknown", "unavailable"].includes(entity.state)
+    ? entity.state
+    : entity?.last_updated || entity?.last_changed;
+  const webrtcUrl = getGo2RtcWebUrl(liveCameraEntityId);
+  const shortCameraId = liveCameraEntityId.replace(/^camera\./, "");
+  const webrtcFallbackUrl = getGo2RtcWebUrl(shortCameraId);
+  const mjpegUrl = getGo2RtcMjpegUrl(liveCameraEntityId);
+  const mjpegFallbackUrl = getGo2RtcMjpegUrl(shortCameraId);
 
   return {
     entity_id: entityId,
-    name: friendlyName,
+    liveCameraEntityId,
+    name: fallbackName,
     state: entity?.state ?? "unavailable",
     imageUrl: `/api/camera-image/${encodeURIComponent(entityId)}`,
-    liveUrl: `/api/camera-live/${encodeURIComponent(liveCameraEntityId)}?fallbackImage=${encodeURIComponent(entityId)}`
+    liveUrl: `/api/camera-stream/${encodeURIComponent(liveCameraEntityId)}?fallbackImage=${encodeURIComponent(entityId)}`,
+    streamUrl: `/api/camera-stream/${encodeURIComponent(liveCameraEntityId)}?fallbackImage=${encodeURIComponent(entityId)}`,
+    webrtcUrl,
+    webrtcFallbackUrl,
+    mjpegUrl,
+    mjpegFallbackUrl,
+    eventUpdatedAt: eventDate ? new Date(eventDate).toLocaleString("de-DE") : "unavailable",
+    eventTimestamp: eventDate || ""
   };
+}
+
+function getGo2RtcWebUrl(cameraEntityId: string): string {
+  const base = GO2RTC_PUBLIC_URL || inferGo2RtcUrlFromHaUrl();
+  if (!base) { return ""; }
+  const normalized = base.replace(/\/$/, "");
+  return `${normalized}/stream.html?src=${encodeURIComponent(cameraEntityId)}`;
+}
+
+function getGo2RtcMjpegUrl(cameraEntityId: string): string {
+  const base = GO2RTC_PUBLIC_URL || inferGo2RtcUrlFromHaUrl();
+  if (!base) { return ""; }
+  const normalized = base.replace(/\/$/, "");
+  return `${normalized}/api/stream.mjpeg?src=${encodeURIComponent(cameraEntityId)}`;
+}
+
+function inferGo2RtcUrlFromHaUrl(): string {
+  if (!HA_URL) { return ""; }
+  try {
+    const parsed = new URL(HA_URL);
+    if (parsed.hostname === "supervisor") { return ""; }
+    parsed.port = process.env.GO2RTC_PORT || "1984";
+    parsed.pathname = "";
+    parsed.search = "";
+    parsed.hash = "";
+    return parsed.toString().replace(/\/$/, "");
+  } catch (_error) {
+    return "";
+  }
 }
 
 function extractWeatherSummary(entity: HaState | null): WeatherSummary {
@@ -376,6 +438,11 @@ async function buildEnergySummary() {
   ]);
   const totalSolar = (deltaSolar || 0) + (powerstreamSolar || 0);
   const hasSolar = deltaSolar !== null || powerstreamSolar !== null;
+  const gridPower = numericState(readStateFromMap(stateMap, ENERGY_ENTITIES.grid.power));
+  const feedInPower = numericState(readStateFromMap(stateMap, ENERGY_ENTITIES.grid.feedIn));
+  const currentConsumption = gridPower !== null || hasSolar || feedInPower !== null
+    ? Math.max(0, (gridPower || 0) + (hasSolar ? totalSolar : 0) - (feedInPower || 0))
+    : null;
 
   return {
     summary: {
@@ -384,7 +451,8 @@ async function buildEnergySummary() {
       deltaBatteryDisplay: metricFromState(stateMap, ENERGY_ENTITIES.delta2.battery, "Delta2 Akku").display,
       powerstreamBatteryDisplay: metricFromState(stateMap, ENERGY_ENTITIES.powerstream.batteryCharge, "Powerstream Akku").display,
       gridPowerDisplay: metricFromState(stateMap, ENERGY_ENTITIES.grid.power, "Netz").display,
-      feedInDisplay: metricFromState(stateMap, ENERGY_ENTITIES.grid.feedIn, "Einspeisung").display
+      feedInDisplay: metricFromState(stateMap, ENERGY_ENTITIES.grid.feedIn, "Einspeisung").display,
+      consumptionDisplay: currentConsumption === null ? "unavailable" : `${Math.round(currentConsumption)} W`
     },
     delta2: {
       title: "Delta2",
@@ -749,7 +817,7 @@ async function getImageEntityBytes(entityId: string): Promise<{ contentType: str
       data: Buffer.from(response.data)
     };
   } catch (error) {
-    console.error(`Fehler beim Holen des Bildes von ${entityId}:`, error);
+    console.error(`Fehler beim Holen des Bildes von ${entityId}: ${describeError(error)}`);
     return null;
   }
 }
@@ -773,7 +841,6 @@ async function getCameraProxyBytes(
       data: Buffer.from(response.data)
     };
   } catch (error) {
-    console.error(`Fehler beim Holen des Live-Bildes von ${cameraEntityId}:`, error);
     return null;
   }
 }
@@ -830,7 +897,11 @@ function getTorVisual(rawState: string | undefined): { mode: string; text: strin
 
 
 app.use(express.json());
-app.use(express.static(path.join(__dirname, "../public")));
+app.use(express.static(path.join(__dirname, "../public"), {
+  setHeaders: (res) => {
+    res.setHeader("Cache-Control", "no-store");
+  }
+}));
 
 
 app.get("/api/ha/states", async (_req: Request, res: Response) => {
@@ -923,7 +994,7 @@ app.post("/api/entity/:entityId/service", async (req: Request, res: Response) =>
     await callService(domain, service, { ...data, entity_id: entityId });
     res.json({ ok: true });
   } catch (error) {
-    console.error("Fehler beim Service-Aufruf:", error);
+    console.error(`Fehler beim Service-Aufruf: ${describeError(error)}`);
     res.status(500).json({ ok: false });
   }
 });
@@ -945,7 +1016,21 @@ app.get("/api/camera-image/:entityId", async (req: Request, res: Response) => {
   res.send(image.data);
 });
 
-app.get("/api/camera-live/:entityId", async (req: Request, res: Response) => {
+app.get("/api/camera-live/:entityId", (req: Request, res: Response) => {
+  const rawEntityId = req.params.entityId;
+  const entityId = Array.isArray(rawEntityId)
+    ? decodeURIComponent(rawEntityId[0])
+    : decodeURIComponent(rawEntityId ?? "");
+  const fallbackImageParam = req.query.fallbackImage;
+  const fallbackImageEntityId =
+    typeof fallbackImageParam === "string" && fallbackImageParam.length > 0
+      ? decodeURIComponent(fallbackImageParam)
+      : "";
+  const target = `/api/camera-stream/${encodeURIComponent(entityId)}${fallbackImageEntityId ? `?fallbackImage=${encodeURIComponent(fallbackImageEntityId)}` : ""}`;
+  res.redirect(302, target);
+});
+
+app.get("/api/camera-stream/:entityId", async (req: Request, res: Response) => {
   const rawEntityId = req.params.entityId;
   const entityId = Array.isArray(rawEntityId)
     ? decodeURIComponent(rawEntityId[0])
@@ -956,12 +1041,21 @@ app.get("/api/camera-live/:entityId", async (req: Request, res: Response) => {
       ? decodeURIComponent(fallbackImageParam)
       : "";
 
-  const liveImage = await getCameraProxyBytes(entityId);
-  if (liveImage) {
-    res.setHeader("Content-Type", liveImage.contentType);
+  try {
+    const response = await ha.get(`/api/camera_proxy_stream/${entityId}`, {
+      responseType: "stream",
+      headers: {
+        Accept: "multipart/x-mixed-replace,image/*"
+      },
+      timeout: 30000
+    });
+    const contentTypeHeader = response.headers["content-type"];
+    res.setHeader("Content-Type", typeof contentTypeHeader === "string" ? contentTypeHeader : "multipart/x-mixed-replace");
     res.setHeader("Cache-Control", "no-store");
-    res.send(liveImage.data);
+    response.data.pipe(res);
     return;
+  } catch (error) {
+    console.warn(`Kamera-Stream nicht verfügbar (${entityId}), nutze Eventbild: ${describeError(error)}`);
   }
 
   if (fallbackImageEntityId) {
@@ -974,7 +1068,7 @@ app.get("/api/camera-live/:entityId", async (req: Request, res: Response) => {
     }
   }
 
-  res.status(404).json({ ok: false, message: "live image not found" });
+  res.status(404).json({ ok: false, message: "camera stream not found" });
 });
 
 app.get("/api/dashboard", async (_req: Request, res: Response) => {
@@ -1007,7 +1101,7 @@ app.get("/api/dashboard", async (_req: Request, res: Response) => {
     getEntity(ENTITIES.sensors.livingHumidity),
     getEntity(ENTITIES.lights.main),
     getEntity(ENTITIES.lights.stehlampe),
-    getEntity(ENTITIES.lights.bulb),
+    ENTITIES.lights.bulb ? getEntity(ENTITIES.lights.bulb, true) : Promise.resolve(null),
     getEntity(ENTITIES.lightGroups.esstischKueche),
     getEntity(ENTITIES.lightGroups.esstischWohnzimmer),
     getEntity(ENTITIES.cameras.einfahrtEventImage),
@@ -1031,7 +1125,7 @@ app.get("/api/dashboard", async (_req: Request, res: Response) => {
   const lights = [
     mapLight(mainLight, "Hof"),
     mapLight(stehlampe, "Stehlampe"),
-    mapLight(bulb, "Lampe"),
+    ...(ENTITIES.lights.bulb ? [mapLight(bulb, "Lampe")] : []),
     mapLight(esstischKueche, "Esstisch Küche"),
     mapLight(esstischWohnzimmer, "Esstisch Wohnzimmer")
   ];
@@ -1132,6 +1226,11 @@ app.post("/api/light/stehlampe/off", async (_req: Request, res: Response) => {
 });
 
 app.post("/api/light/bulb/on", async (_req: Request, res: Response) => {
+  if (!ENTITIES.lights.bulb) {
+    res.status(404).json({ ok: false, message: "third light is not configured" });
+    return;
+  }
+
   try {
     await callService("light", "turn_on", {
       entity_id: ENTITIES.lights.bulb
@@ -1144,6 +1243,11 @@ app.post("/api/light/bulb/on", async (_req: Request, res: Response) => {
 });
 
 app.post("/api/light/bulb/off", async (_req: Request, res: Response) => {
+  if (!ENTITIES.lights.bulb) {
+    res.status(404).json({ ok: false, message: "third light is not configured" });
+    return;
+  }
+
   try {
     await callService("light", "turn_off", {
       entity_id: ENTITIES.lights.bulb

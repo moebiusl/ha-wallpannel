@@ -9,6 +9,18 @@ function securityText(id, value) {
   if (el) { el.textContent = value; }
 }
 
+function setSecurityRetryStatus(active) {
+  var el = document.getElementById("securityUpdateState");
+  if (!el) { return; }
+  el.className = active ? "panel-meta retry-status" : "panel-meta";
+  el.title = active ? "Zum Neuladen tippen" : "";
+  el.onclick = active ? function () {
+    el.textContent = "Lade...";
+    el.className = "panel-meta retry-status is-loading";
+    window.location.reload();
+  } : null;
+}
+
 function isExcludedSecurityEntity(entity) {
   var id = entity.entityId || "";
   var name = (entity.name || "").toLowerCase();
@@ -269,6 +281,12 @@ function cameraImageUrl(camera) {
   return camera.imageUrl || camera.eventUrl || camera.liveUrl || "";
 }
 
+function cameraEventTime(camera) {
+  return camera && camera.eventUpdatedAt && camera.eventUpdatedAt !== "unavailable"
+    ? "Event: " + camera.eventUpdatedAt
+    : "Event: unbekannt";
+}
+
 function selectSecurityCamera(index) {
   if (!securityState.cameras[index]) { return; }
   securityState.activeCameraIndex = index;
@@ -282,7 +300,7 @@ function renderSecurityCameras(cameras) {
   if (!main || !strip || securityState.cameras.length === 0) { return; }
 
   var active = securityState.cameras[securityState.activeCameraIndex] || securityState.cameras[0];
-  main.innerHTML = '<div class="security-camera-name">' + (active.name || "Kamera") + '</div><img class="security-camera-image" src="' + cameraImageUrl(active) + '?t=' + new Date().getTime() + '" alt="Kamera">';
+  main.innerHTML = '<div class="security-camera-name">' + (active.name || "Kamera") + '</div><img class="security-camera-image" src="' + cameraImageUrl(active) + '?t=' + new Date().getTime() + '" alt="Kamera"><div class="camera-time-badge">' + cameraEventTime(active) + '</div>';
   strip.innerHTML = "";
 
   for (var i = 0; i < securityState.cameras.length; i++) {
@@ -293,7 +311,7 @@ function renderSecurityCameras(cameras) {
     button.onclick = function () {
       selectSecurityCamera(Number(this.getAttribute("data-camera-index")));
     };
-    button.innerHTML = '<img src="' + cameraImageUrl(securityState.cameras[i]) + '?t=' + new Date().getTime() + '" alt=""><span>' + (securityState.cameras[i].name || "Kamera") + '</span>';
+    button.innerHTML = '<span class="security-camera-thumb-image"><img src="' + cameraImageUrl(securityState.cameras[i]) + '?t=' + new Date().getTime() + '" alt=""><span class="camera-thumb-time">' + cameraEventTime(securityState.cameras[i]).replace("Event: ", "") + '</span></span><span>' + (securityState.cameras[i].name || "Kamera") + '</span>';
     strip.appendChild(button);
   }
 }
@@ -310,10 +328,12 @@ function loadSecurityPage() {
     apiGet("api/ha/structure", function (error, structure) {
       if (error) {
         securityText("securityUpdateState", "Fehler beim Laden");
+        setSecurityRetryStatus(true);
         return;
       }
       renderSecuritySensors(structure);
       securityText("securityUpdateState", "Letztes Update: " + new Date().toLocaleTimeString("de-DE"));
+      setSecurityRetryStatus(false);
     });
   });
 }

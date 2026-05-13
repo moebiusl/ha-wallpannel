@@ -30,6 +30,17 @@ function apiGetQuiet(url, callback) {
   xhr.send();
 }
 
+function setRetryStatus(el, active) {
+  if (!el) { return; }
+  el.className = active ? "panel-meta retry-status" : "panel-meta";
+  el.title = active ? "Zum Neuladen tippen" : "";
+  el.onclick = active ? function () {
+    el.innerHTML = "Lade...";
+    el.className = "panel-meta retry-status is-loading";
+    window.location.reload();
+  } : null;
+}
+
 function formatEntityValue(entity) {
   if (!entity) { return "unavailable"; }
   var unit = entity.attributes && entity.attributes.unit_of_measurement ? entity.attributes.unit_of_measurement : "";
@@ -391,6 +402,27 @@ function renderCompactEntity(entity) {
   return row;
 }
 
+function getBalancedRowSize(remaining) {
+  if (remaining === 4) { return 2; }
+  if (remaining === 5) { return 3; }
+  if (remaining <= 3) { return remaining; }
+  return 3;
+}
+
+function appendBalancedRows(mount, items, renderItem) {
+  var index = 0;
+  while (index < items.length) {
+    var rowSize = getBalancedRowSize(items.length - index);
+    var row = document.createElement("div");
+    row.className = "balanced-grid-row count-" + rowSize;
+    for (var i = 0; i < rowSize; i++) {
+      row.appendChild(renderItem(items[index + i], index + i));
+    }
+    mount.appendChild(row);
+    index += rowSize;
+  }
+}
+
 function renderDeviceGroup(deviceName, entities) {
   var group = document.createElement("section");
   group.className = "device-entity-group";
@@ -491,7 +523,7 @@ function renderSpecialCard(cardId, mount) {
   } else if (cardId === "energy") {
     var energy = dashboard.energy && dashboard.energy.summary ? dashboard.energy.summary : {};
     html += '<div class="dynamic-entity-value">' + (energy.solarPowerDisplay || "unavailable") + '</div>' +
-      '<div class="dynamic-entity-meta">Delta2 ' + (energy.deltaBatteryDisplay || "unavailable") + '</div>';
+      '<div class="dynamic-entity-meta">IN Solar · OUT ' + (energy.consumptionDisplay || energy.gridPowerDisplay || "unavailable") + '</div>';
   } else if (cardId === "waste") {
     html += '<div class="room-waste-mini">' +
       '<span>Gelb <b>' + (dashboard.gelbeTonneNaechsteLeerung || "unavailable") + '</b></span>' +
@@ -569,6 +601,7 @@ function openSpecialCardModal(cardId) {
     content = '<div class="modal-grid two-columns">' +
       infoBox("Solar aktuell", energy.solarPowerDisplay) +
       infoBox("Netzleistung", energy.gridPowerDisplay) +
+      infoBox("Verbrauch", energy.consumptionDisplay) +
       infoBox("Delta2 Akku", energy.deltaBatteryDisplay) +
       infoBox("Powerstream Akku", energy.powerstreamBatteryDisplay) +
       infoBox("Einspeisung", energy.feedInDisplay) +
@@ -683,10 +716,12 @@ function renderEntityLayout(cards, entities, mount) {
   if (cards.length > 0) {
     var quick = makeSection("Direktzugriff", "quick-section");
     var quickGrid = document.createElement("div");
-    quickGrid.className = "control-card-grid special-card-grid";
-    for (i = 0; i < cards.length; i++) {
-      renderSpecialCard(cards[i], quickGrid);
-    }
+    quickGrid.className = "balanced-grid-stack special-card-stack";
+    appendBalancedRows(quickGrid, cards, function (cardId) {
+      var rowMount = document.createElement("div");
+      renderSpecialCard(cardId, rowMount);
+      return rowMount.firstChild;
+    });
     quick.appendChild(quickGrid);
     mount.appendChild(quick);
   }
@@ -706,11 +741,9 @@ function renderEntityLayout(cards, entities, mount) {
   if (binaryEntities.length > 0) {
     var binarySection = makeSection("Status", "status-section");
     var binaryGrid = document.createElement("div");
-    binaryGrid.className = "compact-entity-grid";
+    binaryGrid.className = "balanced-grid-stack compact-entity-stack";
     binaryEntities.sort(sortEntities);
-    for (i = 0; i < binaryEntities.length; i++) {
-      binaryGrid.appendChild(renderCompactEntity(binaryEntities[i]));
-    }
+    appendBalancedRows(binaryGrid, binaryEntities, renderCompactEntity);
     binarySection.appendChild(binaryGrid);
     mount.appendChild(binarySection);
   }
@@ -718,11 +751,9 @@ function renderEntityLayout(cards, entities, mount) {
   if (sensorEntities.length > 0) {
     var sensorSection = makeDetailsSection("Sensoren", "sensor-section", sensorEntities.length <= 8);
     var sensorGrid = document.createElement("div");
-    sensorGrid.className = "compact-entity-grid";
+    sensorGrid.className = "balanced-grid-stack compact-entity-stack";
     sensorEntities.sort(sortEntities);
-    for (i = 0; i < sensorEntities.length; i++) {
-      sensorGrid.appendChild(renderCompactEntity(sensorEntities[i]));
-    }
+    appendBalancedRows(sensorGrid, sensorEntities, renderCompactEntity);
     sensorSection.appendChild(sensorGrid);
     mount.appendChild(sensorSection);
   }
@@ -730,11 +761,9 @@ function renderEntityLayout(cards, entities, mount) {
   if (otherEntities.length > 0) {
     var otherSection = makeDetailsSection("Weitere Entitäten", "other-section", false);
     var otherGrid = document.createElement("div");
-    otherGrid.className = "compact-entity-grid";
+    otherGrid.className = "balanced-grid-stack compact-entity-stack";
     otherEntities.sort(sortEntities);
-    for (i = 0; i < otherEntities.length; i++) {
-      otherGrid.appendChild(renderCompactEntity(otherEntities[i]));
-    }
+    appendBalancedRows(otherGrid, otherEntities, renderCompactEntity);
     otherSection.appendChild(otherGrid);
     mount.appendChild(otherSection);
   }
@@ -756,6 +785,7 @@ function renderRoomPayload(payload) {
   var status = document.getElementById("roomUpdateState");
   if (status) {
     status.innerHTML = "Letztes Update: " + new Date().toLocaleTimeString("de-DE");
+    setRetryStatus(status, false);
   }
 }
 
@@ -767,7 +797,10 @@ function loadRoomPage() {
   apiGet("api/page/" + encodeURIComponent(roomPageState.panelId) + "/" + encodeURIComponent(roomPageState.pageId), function (error, payload) {
     if (error) {
       var status = document.getElementById("roomUpdateState");
-      if (status) { status.innerHTML = "Fehler beim Laden"; }
+      if (status) {
+        status.innerHTML = "Fehler beim Laden";
+        setRetryStatus(status, true);
+      }
       return;
     }
     renderRoomPayload(payload);

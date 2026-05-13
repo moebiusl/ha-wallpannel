@@ -20,5 +20,57 @@ ports:
   3000/tcp: 3000
 ports_description:
   3000/tcp: "Wallpanel Weboberflaeche"
-options: {}
-schema: {}
+options:
+  go2rtc_public_url: ""
+  go2rtc_port: "1984"
+  settings_pin: "1310"
+  entity_light_main: "light.hof"
+  entity_light_secondary: "light.stehlampe"
+  entity_light_third: ""
+  camera_einfahrt_name: "Einfahrt"
+  camera_einfahrt_event_image: "image.einfahrt_event_image"
+  camera_einfahrt_live: "camera.einfahrt"
+  camera_einfahrt_stream: ""
+  camera_hof_name: "Hof"
+  camera_hof_event_image: "image.hof_event_image"
+  camera_hof_live: "camera.hof"
+  camera_hof_stream: ""
+  camera_hof_von_garage_name: "Hof von Garage"
+  camera_hof_von_garage_event_image: "image.hof_von_garage_event_image"
+  camera_hof_von_garage_live: "camera.hof_von_garage"
+  camera_hof_von_garage_stream: ""
+  camera_werkstatt_garten_name: "Werkstatt Garten"
+  camera_werkstatt_garten_event_image: "image.werkstatt_richtung_garten_event_image"
+  camera_werkstatt_garten_live: "camera.werkstatt_richtung_garten"
+  camera_werkstatt_garten_stream: ""
+  camera_klingel_name: "Klingel"
+  camera_klingel_event_image: "image.klingel_event_image"
+  camera_klingel_live: "camera.klingel"
+  camera_klingel_stream: ""
+schema:
+  go2rtc_public_url: str?
+  go2rtc_port: str?
+  settings_pin: str?
+  entity_light_main: str?
+  entity_light_secondary: str?
+  entity_light_third: str?
+  camera_einfahrt_name: str?
+  camera_einfahrt_event_image: str?
+  camera_einfahrt_live: str?
+  camera_einfahrt_stream: str?
+  camera_hof_name: str?
+  camera_hof_event_image: str?
+  camera_hof_live: str?
+  camera_hof_stream: str?
+  camera_hof_von_garage_name: str?
+  camera_hof_von_garage_event_image: str?
+  camera_hof_von_garage_live: str?
+  camera_hof_von_garage_stream: str?
+  camera_werkstatt_garten_name: str?
+  camera_werkstatt_garten_event_image: str?
+  camera_werkstatt_garten_live: str?
+  camera_werkstatt_garten_stream: str?
+  camera_klingel_name: str?
+  camera_klingel_event_image: str?
+  camera_klingel_live: str?
+  camera_klingel_stream: str?

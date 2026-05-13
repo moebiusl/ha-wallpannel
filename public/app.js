@@ -2,6 +2,8 @@ var currentCameras = [];
 var currentCameraIndex = 0;
 var currentCameraSourceMode = "event";
 var liveCameraRefreshIntervalMs = 750;
+var cameraManualHoldUntil = 0;
+var cameraWebrtcFallbackTimer = null;
 var notificationState = {
   dashboard: null,
   structure: null
@@ -31,6 +33,17 @@ function closeModal() {
   for (i = 0; i < modals.length; i++) {
     modals[i].className = "dashboard-modal";
   }
+
+  resetCameraToEventMode();
+}
+
+function isCameraModalOpen() {
+  var modal = document.getElementById("cameraModal");
+  return !!modal && modal.className.indexOf(" open") !== -1;
+}
+
+function holdActiveCameraSelection() {
+  cameraManualHoldUntil = new Date().getTime() + (isCameraModalOpen() ? 60000 : 10000);
 }
 
 function setImageSource(imageId, url) {
@@ -40,12 +53,63 @@ function setImageSource(imageId, url) {
   }
 
   if (url) {
-    image.src = url + "?t=" + new Date().getTime();
+    var isStream = url.indexOf("camera-stream") !== -1;
+    var nextSrc = isStream ? url : url + (url.indexOf("?") === -1 ? "?t=" : "&t=") + new Date().getTime();
+    if (image.getAttribute("src") !== nextSrc) {
+      image.src = nextSrc;
+    }
     image.style.display = "block";
   } else {
     image.removeAttribute("src");
     image.style.display = "none";
   }
+}
+
+function setWebrtcFrame(camera) {
+  var frame = document.getElementById("cameraWebrtcFrame");
+  var image = document.getElementById("cameraModalImage");
+  var url = camera && camera.webrtcUrl ? camera.webrtcUrl : "";
+  var fallbackUrl = camera && camera.webrtcFallbackUrl ? camera.webrtcFallbackUrl : "";
+  if (!frame) { return; }
+  if (cameraWebrtcFallbackTimer) {
+    clearTimeout(cameraWebrtcFallbackTimer);
+    cameraWebrtcFallbackTimer = null;
+  }
+
+  if (currentCameraSourceMode === "live" && shouldUseMjpegLive(camera)) {
+    frame.src = "about:blank";
+    frame.style.display = "none";
+    if (image) { image.style.display = "block"; }
+  } else if (currentCameraSourceMode === "live" && url) {
+    if (frame.getAttribute("src") !== url) {
+      frame.src = url;
+    }
+    frame.style.display = "block";
+    if (image) { image.style.display = "none"; }
+    if (fallbackUrl && fallbackUrl !== url) {
+      cameraWebrtcFallbackTimer = setTimeout(function () {
+        if (currentCameraSourceMode === "live" && frame.style.display === "block" && frame.getAttribute("src") === url) {
+          frame.src = fallbackUrl;
+        }
+      }, 3500);
+    }
+  } else {
+    frame.src = "about:blank";
+    frame.style.display = "none";
+  }
+}
+
+function formatCameraEventTime(camera) {
+  return camera && camera.eventUpdatedAt && camera.eventUpdatedAt !== "unavailable"
+    ? "Event: " + camera.eventUpdatedAt
+    : "Event: unbekannt";
+}
+
+function formatCameraStatus(camera) {
+  if (currentCameraSourceMode === "live") {
+    return "Live";
+  }
+  return formatCameraEventTime(camera);
 }
 
 function getCameraImageUrl(camera) {
@@ -54,10 +118,21 @@ function getCameraImageUrl(camera) {
   }
 
   if (currentCameraSourceMode === "live") {
-    return camera.liveUrl || camera.liveImageUrl || camera.streamUrl || camera.imageUrl || "";
+    if (shouldUseMjpegLive(camera)) {
+      return camera.mjpegUrl || camera.mjpegFallbackUrl || camera.streamUrl || camera.liveUrl || camera.imageUrl || "";
+    }
+    if (camera.webrtcUrl) { return ""; }
+    return camera.streamUrl || camera.liveUrl || camera.liveImageUrl || camera.imageUrl || "";
   }
 
   return camera.imageUrl || camera.eventUrl || camera.eventImageUrl || "";
+}
+
+function shouldUseMjpegLive(camera) {
+  if (!camera || (!camera.mjpegUrl && !camera.mjpegFallbackUrl)) { return false; }
+  var ua = navigator.userAgent || "";
+  var oldIos = /iPad|iPhone|iPod/.test(ua) && /OS (9|10|11|12|13)_/.test(ua);
+  return oldIos || !window.RTCPeerConnection;
 }
 
 function updateCameraSourceButtons() {
@@ -93,11 +168,59 @@ function setCameraSourceMode(mode) {
     return;
   }
 
+  holdActiveCameraSelection();
   currentCameraSourceMode = mode;
   updateCameraSourceButtons();
   renderCameras(currentCameras);
   refreshActiveCameraImages();
 }
+
+function resetCameraToEventMode() {
+  currentCameraSourceMode = "event";
+  updateCameraSourceButtons();
+  setWebrtcFrame(null);
+  refreshActiveCameraImages();
+}
+
+function renderCameraStrip() {
+  var strip = document.querySelector(".camera-strip");
+  if (!strip || !currentCameras || !currentCameras.length) {
+    return;
+  }
+
+  strip.innerHTML = "";
+  for (var i = 0; i < currentCameras.length; i++) {
+    (function (index) {
+      var camera = currentCameras[index];
+      var button = document.createElement("button");
+      button.className = index === currentCameraIndex ? "camera-strip-thumb active" : "camera-strip-thumb";
+      button.type = "button";
+      button.onclick = function () {
+        selectCameraByIndex(index);
+      };
+      button.innerHTML =
+        '<span class="camera-strip-preview"><img class="camera-thumb-image" src="' + (camera.imageUrl || camera.eventUrl || camera.eventImageUrl || "") + '?t=' + new Date().getTime() + '" alt=""><span class="camera-thumb-time">' + formatCameraEventTime(camera).replace("Event: ", "") + '</span></span>' +
+        '<span class="camera-strip-title">' + (camera.name || "Kamera") + '</span>';
+      strip.appendChild(button);
+    })(i);
+  }
+}
+
+function getLatestCameraIndex(cameras) {
+  var latestIndex = 0;
+  var latestTime = -1;
+  for (var i = 0; i < (cameras || []).length; i++) {
+    var raw = cameras[i].eventTimestamp || cameras[i].state || cameras[i].eventUpdatedAt || "";
+    var time = Date.parse(raw);
+    if (!Number.isNaN(time) && time > latestTime) {
+      latestTime = time;
+      latestIndex = i;
+    }
+  }
+  return latestIndex;
+}
+
+
 function refreshCameraThumb(index, imageId, nameId, fallbackName) {
   var camera = currentCameras[index];
   if (!camera) {
@@ -105,6 +228,7 @@ function refreshCameraThumb(index, imageId, nameId, fallbackName) {
   }
 
   setText(nameId, camera.name || fallbackName);
+  setText(nameId.replace("Name", "Time"), formatCameraEventTime(camera).replace("Event: ", ""));
   setImageSource(imageId, getCameraImageUrl(camera));
 }
 
@@ -114,17 +238,14 @@ function refreshActiveCameraImages() {
   }
 
   updateMainCamera(currentCameraIndex || 0);
-  refreshCameraThumb(1, "camera2Image", "camera2Name", "Kamera 2");
-  refreshCameraThumb(2, "camera3Image", "camera3Name", "Kamera 3");
-  refreshCameraThumb(3, "camera4Image", "camera4Name", "Kamera 4");
-  refreshCameraThumb(4, "camera5Image", "camera5Name", "Kamera 5");
+  renderCameraStrip();
 }
 function updateCameraThumbSelection() {
   var thumbs = document.getElementsByClassName("camera-strip-thumb");
   var i;
 
   for (i = 0; i < thumbs.length; i++) {
-    thumbs[i].className = i === (currentCameraIndex - 1)
+    thumbs[i].className = i === currentCameraIndex
       ? "camera-strip-thumb active"
       : "camera-strip-thumb";
   }
@@ -146,16 +267,21 @@ function updateMainCamera(index) {
 
   setText("cameraMainName", camera.name || "Kamera");
   setText("cameraMainNameModal", camera.name || "Kamera");
+  setText("cameraMainTime", formatCameraStatus(camera));
+  setText("cameraModalTime", formatCameraStatus(camera));
   setImageSource("cameraMainImage", getCameraImageUrl(camera));
   setImageSource("cameraModalImage", getCameraImageUrl(camera));
+  setWebrtcFrame(camera);
 }
 
 function selectCameraByIndex(index) {
+  holdActiveCameraSelection();
   updateMainCamera(index);
 }
 
 function openCameraModal() {
   openModal("cameraModal");
+  holdActiveCameraSelection();
 }
 
 function updateClockTime() {
@@ -188,6 +314,18 @@ function setText(id, value) {
     return;
   }
   el.innerHTML = value;
+}
+
+function markRetryStatus(id, active) {
+  var el = document.getElementById(id);
+  if (!el) { return; }
+  el.className = active ? "page-update-stamp retry-status" : "page-update-stamp";
+  el.title = active ? "Zum Neuladen tippen" : "";
+  el.onclick = active ? function () {
+    el.innerHTML = "Lade...";
+    el.className = "page-update-stamp retry-status is-loading";
+    window.location.reload();
+  } : null;
 }
 
 function setChecked(id, value) {
@@ -284,7 +422,9 @@ function toggleWastePanel(event) {
 function isIgnoredBatteryEntity(entity) {
   var text = ((entity.name || "") + " " + (entity.entityId || "")).toLowerCase();
   return text.indexOf("apple watch") !== -1 ||
-    text.indexOf("iphone") !== -1;
+    text.indexOf("iphone") !== -1 ||
+    text.indexOf("macbook") !== -1 ||
+    text.indexOf("mac book") !== -1;
 }
 
 function isExcludedHomeSecurityEntity(entity) {
@@ -369,28 +509,42 @@ function buildHomeSecurityNotice(entities) {
 
   var notSecure = openDoors > 0 || openWindows > 0 || hazardCount > 0 || dangerCount > 0 || warningCount > 0;
   var parts = [
-    openDoors + " Türen offen",
-    openWindows + " Fenster offen"
+    "Türen " + openDoors,
+    "Fenster " + openWindows
   ];
-  if (hazardCount > 0) { parts.push(hazardCount + " Gefahrenmelder"); }
-  if (activeMotion > 0) { parts.push(activeMotion + " Bewegungen"); }
+  if (hazardCount > 0) { parts.push("Warnmelder " + hazardCount); }
+  if (activeMotion > 0) { parts.push("Bewegung " + activeMotion); }
   if (securityEntities.length === 0) { parts.push("keine Sensoren"); }
 
   return {
     level: dangerCount > 0 || hazardCount > 0 ? "danger security-summary" : (notSecure ? "warn security-summary" : "ok security-summary"),
     priority: dangerCount > 0 || hazardCount > 0 ? -30 : (notSecure ? -20 : -10),
     title: notSecure ? "NICHT SICHER" : "SICHER",
-    text: parts.join(" · ")
+    text: parts.join(" · "),
+    action: "security"
   };
+}
+
+function renderHomeSecurityCard(notice) {
+  var panel = document.getElementById("homeSecurityPanel");
+  if (!panel || !notice) { return; }
+  var level = notice.title === "SICHER" ? "ok" : "danger";
+  panel.className = "panel security-home-panel dashboard-clickable " + level;
+  setText("homeSecurityMeta", notice.title === "SICHER" ? "Alles ok" : "Prüfen");
+  setText("homeSecurityTitle", notice.title);
+  setText("homeSecurityText", notice.text);
 }
 
 function renderEnergy(energy) {
   if (!energy || !energy.summary) { return; }
   var summary = energy.summary;
+  var solarDisplay = summary.solarPowerDisplay || "unavailable";
+  var consumptionDisplay = summary.consumptionDisplay || summary.gridPowerDisplay || "unavailable";
   setText("energySolarPower", summary.solarPowerDisplay || "unavailable");
-  setText("energyHomeSummary", "Delta2 " + (summary.deltaBatteryDisplay || "unavailable") + " · PS " + (summary.powerstreamBatteryDisplay || "unavailable"));
+  setText("energyHomeSummary", "IN " + solarDisplay + " · OUT " + consumptionDisplay);
   setText("energySolarPowerModal", summary.solarPowerDisplay || "unavailable");
   setText("energyGridPowerModal", summary.gridPowerDisplay || "unavailable");
+  setText("energyConsumptionModal", consumptionDisplay);
   setText("energyDeltaBatteryModal", summary.deltaBatteryDisplay || "unavailable");
   setText("energyPowerstreamBatteryModal", summary.powerstreamBatteryDisplay || "unavailable");
 }
@@ -434,13 +588,69 @@ function renderCameras(cameras) {
   }
 
   currentCameras = cameras;
-
-  if (currentCameraIndex < 0 || currentCameraIndex >= cameras.length) {
-    currentCameraIndex = 0;
+  if (new Date().getTime() >= cameraManualHoldUntil || currentCameraIndex < 0 || currentCameraIndex >= cameras.length) {
+    currentCameraIndex = getLatestCameraIndex(cameras);
   }
 
   updateCameraSourceButtons();
   refreshActiveCameraImages();
+}
+
+function getBatteryEntities() {
+  var structure = notificationState.structure;
+  var entities = structure && structure.entities ? structure.entities : [];
+  var batteries = [];
+
+  for (var i = 0; i < entities.length; i++) {
+    if (entities[i].deviceClass === "battery" && !isIgnoredBatteryEntity(entities[i])) {
+      batteries.push(entities[i]);
+    }
+  }
+
+  batteries.sort(function (a, b) {
+    var av = Number(a.state);
+    var bv = Number(b.state);
+    if (Number.isNaN(av)) { av = 999; }
+    if (Number.isNaN(bv)) { bv = 999; }
+    if (av !== bv) { return av - bv; }
+    return String(a.name || a.entityId).localeCompare(String(b.name || b.entityId), "de");
+  });
+  return batteries;
+}
+
+function openBatteryModal() {
+  renderBatteryOverview();
+  openModal("batteryModal");
+}
+
+function renderBatteryOverview() {
+  var mount = document.getElementById("batteryOverviewList");
+  if (!mount) { return; }
+  var batteries = getBatteryEntities();
+  mount.innerHTML = "";
+
+  if (batteries.length === 0) {
+    var empty = document.createElement("div");
+    empty.className = "home-notification-empty";
+    empty.textContent = "Keine Batterie-Entitäten gefunden";
+    mount.appendChild(empty);
+    return;
+  }
+
+  for (var i = 0; i < batteries.length; i++) {
+    var entity = batteries[i];
+    var value = Number(entity.state);
+    var row = document.createElement("div");
+    row.className = "battery-overview-row" + (!Number.isNaN(value) && value <= 20 ? " warn" : "");
+    row.innerHTML = '<span>' + (entity.name || entity.entityId) + '</span><b>' + formatEntityBatteryValue(entity) + '</b>';
+    mount.appendChild(row);
+  }
+}
+
+function formatEntityBatteryValue(entity) {
+  if (!entity) { return "unavailable"; }
+  var unit = entity.attributes && entity.attributes.unit_of_measurement ? entity.attributes.unit_of_measurement : "%";
+  return entity.state + " " + unit;
 }
 
 function updateTorVisual(mode, text) {
@@ -501,11 +711,14 @@ setLightCardState("light3CardModal", data.light3On);
             setText("torAutomatikStateSwitch", data.torAutomatik ? "Ein" : "Aus");
             setText("torDauerAufState", data.torDauerAuf ? "Ein" : "Aus");
           setText("updatedAt", "Letztes Update: " + (data.updatedAt || "unavailable"));
+          markRetryStatus("updatedAt", false);
         } catch (e) {
           setText("updatedAt", "Fehler beim Verarbeiten der Daten");
+          markRetryStatus("updatedAt", true);
         }
       } else {
         setText("updatedAt", "Fehler beim Laden");
+        markRetryStatus("updatedAt", true);
       }
     }
   };
@@ -536,7 +749,7 @@ function renderNotifications() {
   var entities = structure && structure.entities ? structure.entities : [];
 
   if (structure && structure.entities) {
-    notices.push(buildHomeSecurityNotice(entities));
+    renderHomeSecurityCard(buildHomeSecurityNotice(entities));
   }
 
   if (dashboard) {
@@ -558,7 +771,8 @@ function renderNotifications() {
         level: value <= 10 ? "danger" : "warn",
         priority: value <= 10 ? 10 + value : 100 + value,
         title: "Batterie niedrig",
-        text: (entity.name || entity.entityId) + ": " + value + " %"
+        text: (entity.name || entity.entityId) + ": " + value + " %",
+        action: "battery"
       });
     }
   }
@@ -580,6 +794,15 @@ function renderNotifications() {
   for (i = 0; i < Math.min(notices.length, 8); i++) {
     var item = document.createElement("div");
     item.className = "home-notification-item " + notices[i].level;
+    item.setAttribute("data-action", notices[i].action || "");
+    item.onclick = function () {
+      var action = this.getAttribute("data-action");
+      if (action === "security") {
+        window.location.href = "sicherheit.html";
+      } else if (action === "battery") {
+        openBatteryModal();
+      }
+    };
 
     var title = document.createElement("div");
     title.className = "home-notification-title";
@@ -699,7 +922,8 @@ updateClockTime();
 setInterval(loadDashboard, 1000);
 setInterval(updateClockTime, 1000);
 setInterval(function () {
-  if (currentCameraSourceMode === "live") {
+  var camera = currentCameras && currentCameras[currentCameraIndex];
+  if (currentCameraSourceMode === "live" && camera && !camera.streamUrl) {
     refreshActiveCameraImages();
   }
 }, liveCameraRefreshIntervalMs);

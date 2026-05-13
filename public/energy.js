@@ -5,7 +5,20 @@ function setEnergyText(id, value) {
   }
 }
 
+function setEnergyRetryStatus(active) {
+  var el = document.getElementById("energyUpdateState");
+  if (!el) { return; }
+  el.className = active ? "panel-meta energy-update-meta retry-status" : "panel-meta energy-update-meta";
+  el.title = active ? "Zum Neuladen tippen" : "";
+  el.onclick = active ? function () {
+    el.textContent = "Lade...";
+    el.className = "panel-meta energy-update-meta retry-status is-loading";
+    window.location.reload();
+  } : null;
+}
+
 var energyPageConfig = null;
+var energyBatteryEntities = [];
 
 function getEnergyConfig() {
   if (!energyPageConfig) { return null; }
@@ -109,6 +122,75 @@ function renderEnergyPage(data) {
   ]);
 
   setEnergyText("energyUpdateState", "Letztes Update: " + (data.updatedAt || new Date().toLocaleTimeString("de-DE")));
+  setEnergyRetryStatus(false);
+}
+
+function isIgnoredEnergyBatteryEntity(entity) {
+  var text = ((entity.name || "") + " " + (entity.entityId || "")).toLowerCase();
+  return text.indexOf("apple watch") !== -1 ||
+    text.indexOf("iphone") !== -1 ||
+    text.indexOf("macbook") !== -1 ||
+    text.indexOf("mac book") !== -1;
+}
+
+function renderEnergyBatteryOverview() {
+  var mount = document.getElementById("energyBatteryOverviewList");
+  if (!mount) { return; }
+  mount.innerHTML = "";
+
+  if (energyBatteryEntities.length === 0) {
+    var empty = document.createElement("div");
+    empty.className = "home-notification-empty";
+    empty.textContent = "Keine Batterie-Entitäten gefunden";
+    mount.appendChild(empty);
+    return;
+  }
+
+  for (var i = 0; i < energyBatteryEntities.length; i++) {
+    var entity = energyBatteryEntities[i];
+    var value = Number(entity.state);
+    var unit = entity.attributes && entity.attributes.unit_of_measurement ? entity.attributes.unit_of_measurement : "%";
+    var row = document.createElement("div");
+    row.className = "battery-overview-row" + (!Number.isNaN(value) && value <= 20 ? " warn" : "");
+    row.innerHTML = '<span>' + (entity.name || entity.entityId) + '</span><b>' + entity.state + ' ' + unit + '</b>';
+    mount.appendChild(row);
+  }
+}
+
+function loadEnergyBatteryEntities() {
+  apiGet("api/ha/structure", function (_error, structure) {
+    var entities = structure && structure.entities ? structure.entities : [];
+    energyBatteryEntities = [];
+    for (var i = 0; i < entities.length; i++) {
+      if (entities[i].deviceClass === "battery" && !isIgnoredEnergyBatteryEntity(entities[i])) {
+        energyBatteryEntities.push(entities[i]);
+      }
+    }
+    energyBatteryEntities.sort(function (a, b) {
+      var av = Number(a.state);
+      var bv = Number(b.state);
+      if (Number.isNaN(av)) { av = 999; }
+      if (Number.isNaN(bv)) { bv = 999; }
+      if (av !== bv) { return av - bv; }
+      return String(a.name || a.entityId).localeCompare(String(b.name || b.entityId), "de");
+    });
+    renderEnergyBatteryOverview();
+  });
+}
+
+function openEnergyBatteryModal() {
+  renderEnergyBatteryOverview();
+  var backdrop = document.getElementById("energyModalBackdrop");
+  var modal = document.getElementById("energyBatteryModal");
+  if (backdrop) { backdrop.className = "modal-backdrop open"; }
+  if (modal) { modal.className = "dashboard-modal open"; }
+}
+
+function closeEnergyBatteryModal() {
+  var backdrop = document.getElementById("energyModalBackdrop");
+  var modal = document.getElementById("energyBatteryModal");
+  if (backdrop) { backdrop.className = "modal-backdrop"; }
+  if (modal) { modal.className = "dashboard-modal"; }
 }
 
 function appendEnergySection(mount, title, metrics) {
@@ -122,6 +204,7 @@ function loadEnergyPage() {
   apiGet("api/energy", function (error, data) {
     if (error) {
       setEnergyText("energyUpdateState", "Fehler beim Laden");
+      setEnergyRetryStatus(true);
       return;
     }
     renderEnergyPage(data);
@@ -131,5 +214,7 @@ function loadEnergyPage() {
 apiGet("api/panel-config", function (_error, payload) {
   energyPageConfig = payload && payload.config ? payload.config : null;
   loadEnergyPage();
+  loadEnergyBatteryEntities();
 });
 setInterval(loadEnergyPage, 5000);
+setInterval(loadEnergyBatteryEntities, 30000);
