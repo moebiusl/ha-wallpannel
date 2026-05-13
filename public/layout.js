@@ -1,3 +1,15 @@
+if (!Number.isNaN) {
+  Number.isNaN = function (value) {
+    return typeof value === 'number' && isNaN(value);
+  };
+}
+
+if (!Number.isFinite) {
+  Number.isFinite = function (value) {
+    return typeof value === 'number' && isFinite(value);
+  };
+}
+
 function getTabletRoom() {
   var key = 'haWallpanel.tabletRoom';
   var existing = window.localStorage ? window.localStorage.getItem(key) : '';
@@ -249,6 +261,9 @@ function getVisiblePagesFromConfig(payload) {
   var config = payload && payload.config ? payload.config : null;
   var panelId = typeof getPanelId === 'function' ? getPanelId() : 'default';
   var panel = config && config.panels ? config.panels[panelId] : null;
+  if (!panel && config && config.panels) {
+    panel = config.panels.default || null;
+  }
   return panel && panel.visiblePages && panel.visiblePages.length ? panel.visiblePages : null;
 }
 
@@ -276,23 +291,18 @@ function formatGermanDateTime(value) {
     return 'unavailable';
   }
 
-  var rawParts = new Intl.DateTimeFormat('de-DE', {
-    timeZone: 'Europe/Berlin',
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: false
-  }).formatToParts(date);
-  var parts = {};
-  for (var i = 0; i < rawParts.length; i++) {
-    if (rawParts[i].type !== 'literal') {
-      parts[rawParts[i].type] = rawParts[i].value;
-    }
-  }
+  var day = date.getDate();
+  var month = date.getMonth() + 1;
+  var year = date.getFullYear();
+  var hour = date.getHours();
+  var minute = date.getMinutes();
 
-  return parts.day + '.' + parts.month + '.' + parts.year + ' ' + parts.hour + ':' + parts.minute + ' Uhr';
+  if (day < 10) { day = '0' + day; }
+  if (month < 10) { month = '0' + month; }
+  if (hour < 10) { hour = '0' + hour; }
+  if (minute < 10) { minute = '0' + minute; }
+
+  return day + '.' + month + '.' + year + ' ' + hour + ':' + minute + ' Uhr';
 }
 
 function renderSharedLayout() {
@@ -308,11 +318,11 @@ function renderSharedLayout() {
   body.setAttribute('data-room', activeRoom);
 
   if (headerMount) {
-    headerMount.innerHTML = buildHeader(activePage, tabletRoom, tabletRoom);
+    headerMount.innerHTML = buildHeader(activePage, activeRoom, activeRoom);
     loadSharedStructure(function (error, structure) {
       if (!error && structure) {
         loadPanelConfig(function (_configError, payload) {
-          headerMount.innerHTML = buildHeader(activePage, findAreaName(structure, tabletRoom), tabletRoom, getVisiblePagesFromConfig(payload));
+          headerMount.innerHTML = buildHeader(activePage, findAreaName(structure, activeRoom), activeRoom, getVisiblePagesFromConfig(payload));
           renderRoomsModal(structure);
         });
       }

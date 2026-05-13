@@ -44,6 +44,7 @@ const DEFAULT_CONFIG: PanelConfig = {
   }
 };
 
+const DEFAULT_VISIBLE_PAGES = ["home", "raum", "energie", "sicherheit"];
 function ensureConfigDir(): void {
   const dir = path.dirname(CONFIG_PATH);
   if (!fs.existsSync(dir)) {
@@ -51,28 +52,85 @@ function ensureConfigDir(): void {
   }
 }
 
+function cloneDefaultConfig(): PanelConfig {
+  return JSON.parse(JSON.stringify(DEFAULT_CONFIG)) as PanelConfig;
+}
+
+function uniqueStrings(value: unknown): string[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  return value
+    .map((entry) => String(entry || "").trim())
+    .filter((entry, index, list) => entry.length > 0 && list.indexOf(entry) === index);
+}
+
+function normalizePageConfig(pageId: string, page: Partial<PanelPageConfig> | null | undefined): PanelPageConfig {
+  const normalized = {
+    id: String(page?.id || pageId),
+    title: String(page?.title || pageId),
+    areaId: typeof page?.areaId === "string" ? page.areaId : "",
+    enabledCards: uniqueStrings(page?.enabledCards),
+    enabledDevices: uniqueStrings(page?.enabledDevices),
+    enabledEntities: uniqueStrings(page?.enabledEntities),
+    hiddenEntities: uniqueStrings(page?.hiddenEntities)
+  };
+
+  const hiddenSet = new Set(normalized.hiddenEntities);
+  normalized.enabledEntities = normalized.enabledEntities.filter((entityId) => !hiddenSet.has(entityId));
+  return normalized;
+}
+
+function normalizePanelConfig(config: Partial<PanelConfig> | null | undefined): PanelConfig {
+  if (!config || typeof config !== "object" || !config.panels || typeof config.panels !== "object") {
+    return cloneDefaultConfig();
+  }
+
+  const panels: PanelConfig["panels"] = {};
+  for (const [panelId, panel] of Object.entries(config.panels)) {
+    const sourcePanel = panel || {};
+    const pages: Record<string, PanelPageConfig> = {};
+    const sourcePages = sourcePanel.pages && typeof sourcePanel.pages === "object" ? sourcePanel.pages : {};
+    for (const [pageId, page] of Object.entries(sourcePages)) {
+      pages[pageId] = normalizePageConfig(pageId, page);
+    }
+    panels[panelId] = {
+      name: String(sourcePanel.name || panelId),
+      defaultPage: String(sourcePanel.defaultPage || "hof"),
+      visiblePages: uniqueStrings(sourcePanel.visiblePages).length > 0 ? uniqueStrings(sourcePanel.visiblePages) : DEFAULT_VISIBLE_PAGES.slice(),
+      pages
+    };
+  }
+
+  if (!panels.default) {
+    panels.default = cloneDefaultConfig().panels.default;
+  }
+  if (!panels.default.pages.hof) {
+    panels.default.pages.hof = cloneDefaultConfig().panels.default.pages.hof;
+  }
+
+  return { panels };
+}
+
 export function readPanelConfig(): PanelConfig {
   try {
     if (!fs.existsSync(CONFIG_PATH)) {
-      writePanelConfig(DEFAULT_CONFIG);
-      return DEFAULT_CONFIG;
+      const config = cloneDefaultConfig();
+      writePanelConfig(config);
+      return config;
     }
 
     const raw = fs.readFileSync(CONFIG_PATH, "utf8");
-    const parsed = JSON.parse(raw) as PanelConfig;
-    if (!parsed.panels || typeof parsed.panels !== "object") {
-      return DEFAULT_CONFIG;
-    }
-    return parsed;
+    return normalizePanelConfig(JSON.parse(raw) as Partial<PanelConfig>);
   } catch (error) {
     console.error("Panel-Konfiguration konnte nicht gelesen werden:", error);
-    return DEFAULT_CONFIG;
+    return cloneDefaultConfig();
   }
 }
 
 export function writePanelConfig(config: PanelConfig): void {
   ensureConfigDir();
-  fs.writeFileSync(CONFIG_PATH, JSON.stringify(config, null, 2), "utf8");
+  fs.writeFileSync(CONFIG_PATH, JSON.stringify(normalizePanelConfig(config), null, 2), "utf8");
 }
 
 export function getConfigPath(): string {

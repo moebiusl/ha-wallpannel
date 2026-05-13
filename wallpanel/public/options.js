@@ -158,6 +158,16 @@ function checkboxRow(id, label, checked, onchange) {
   return row;
 }
 
+function markOptionsChanged() {
+  var status = document.getElementById("settingsSaveState");
+  if (status) { status.innerHTML = "Ungespeicherte Änderungen"; }
+}
+
+function applyOptionChange(callback) {
+  callback();
+  markOptionsChanged();
+}
+
 function isStaticEntityPage() {
   return optionState.pageId === "energie" || optionState.pageId === "sicherheit";
 }
@@ -201,7 +211,6 @@ function getEnergyOptionEntities() {
   var list = [];
   if (!data) { return list; }
   pushEnergyMetricEntities(list, [
-    data.delta2.battery,
     data.delta2.status,
     data.delta2.totalInPower,
     data.delta2.totalOutPower,
@@ -218,6 +227,12 @@ function getEnergyOptionEntities() {
     data.powerstream.solarPower,
     data.powerstream.inverterOutputWatts,
     data.powerstream.batteryInputWatts,
+    data.powerstream.chargeTime,
+    data.powerstream.dischargeTime,
+    data.powerstream.fromBatteryToday,
+    data.powerstream.toBatteryToday,
+    data.powerstream.pv1Today,
+    data.powerstream.pv2Today,
     data.powerstream.smartPlugLoads,
     data.powerstream.otherLoads,
     data.powerstream.batteryStatus,
@@ -281,6 +296,7 @@ function getPageEntities() {
     return entities.filter(isOptionsSecurityEntity).sort(sortOptionEntities);
   }
   return entities.filter(function (entity) {
+    if (page.enabledEntities && hasItem(page.enabledEntities, entity.entityId)) { return true; }
     if (page.areaId && entity.areaId !== page.areaId) { return false; }
     return true;
   }).sort(sortOptionEntities);
@@ -313,6 +329,10 @@ function getPageDevices() {
 }
 
 function getCurrentPanel() {
+  if (!optionState.config.panels[optionState.panelId] && optionState.config.panels.default) {
+    optionState.panelId = "default";
+    setPanelId(optionState.panelId);
+  }
   if (!optionState.config.panels[optionState.panelId]) {
     optionState.config.panels[optionState.panelId] = {
       name: optionState.panelId,
@@ -449,7 +469,9 @@ function renderVisiblePages() {
   for (var i = 0; i < STATIC_PAGES.length; i++) {
     (function (page) {
       mount.appendChild(checkboxRow(page.id, page.name + " anzeigen", hasItem(panel.visiblePages, page.id), function (checked) {
-        toggleArrayValue(panel.visiblePages, page.id, checked);
+        applyOptionChange(function () {
+          toggleArrayValue(panel.visiblePages, page.id, checked);
+        });
       }));
     })(STATIC_PAGES[i]);
   }
@@ -457,6 +479,7 @@ function renderVisiblePages() {
 
 function renderAreaSelect() {
   var select = document.getElementById("areaSelect");
+  var cleanupButton = document.getElementById("cleanupRoomEntitiesButton");
   if (!select) { return; }
   var page = getCurrentPage();
   select.innerHTML = "";
@@ -466,9 +489,11 @@ function renderAreaSelect() {
     staticOption.innerHTML = optionState.pageId === "energie" ? "Energie-Entitäten" : "Sicherheits-Entitäten";
     select.appendChild(staticOption);
     select.disabled = true;
+    if (cleanupButton) { cleanupButton.style.display = "none"; }
     return;
   }
   select.disabled = false;
+  if (cleanupButton) { cleanupButton.style.display = "inline-flex"; }
   var empty = document.createElement("option");
   empty.value = "";
   empty.innerHTML = "Kein Raum festlegen";
@@ -493,9 +518,90 @@ function renderAreaSelect() {
     }
   }
   select.onchange = function () {
-    page.areaId = select.value;
+    applyOptionChange(function () {
+      page.areaId = select.value;
+    });
     renderDeviceAndEntityLists();
   };
+}
+
+function getEntityAreaMap() {
+  var entities = optionState.structure && optionState.structure.entities ? optionState.structure.entities : [];
+  var map = {};
+  for (var i = 0; i < entities.length; i++) {
+    map[entities[i].entityId] = entities[i].areaId || "";
+  }
+  return map;
+}
+
+function getDeviceAreaMap() {
+  var entities = optionState.structure && optionState.structure.entities ? optionState.structure.entities : [];
+  var map = {};
+  for (var i = 0; i < entities.length; i++) {
+    if (!entities[i].deviceId) { continue; }
+    if (!map[entities[i].deviceId]) {
+      map[entities[i].deviceId] = {};
+    }
+    map[entities[i].deviceId][entities[i].areaId || ""] = true;
+  }
+  return map;
+}
+
+function cleanupForeignRoomEntities() {
+  var page = getCurrentPage();
+  var status = document.getElementById("cleanupRoomEntitiesState");
+  if (status) { status.innerHTML = ""; }
+
+  if (isStaticEntityPage()) {
+    if (status) { status.innerHTML = "Für diese Seite nicht nötig"; }
+    return;
+  }
+  if (!page.areaId) {
+    if (status) { status.innerHTML = "Erst einen Raum wählen"; }
+    return;
+  }
+
+  var entityAreas = getEntityAreaMap();
+  var deviceAreas = getDeviceAreaMap();
+  var removedEntities = 0;
+  var removedHiddenEntities = 0;
+  var removedDevices = 0;
+
+  page.enabledEntities = (page.enabledEntities || []).filter(function (entityId) {
+    if (entityAreas[entityId] === page.areaId) { return true; }
+    removedEntities++;
+    return false;
+  });
+
+  page.hiddenEntities = (page.hiddenEntities || []).filter(function (entityId) {
+    if (entityAreas[entityId] === page.areaId) { return true; }
+    removedHiddenEntities++;
+    return false;
+  });
+
+  page.enabledDevices = (page.enabledDevices || []).filter(function (deviceId) {
+    if (deviceAreas[deviceId] && deviceAreas[deviceId][page.areaId]) { return true; }
+    removedDevices++;
+    return false;
+  });
+
+  renderDeviceAndEntityLists();
+
+  if (removedEntities === 0 && removedHiddenEntities === 0 && removedDevices === 0) {
+    if (status) { status.innerHTML = "Nichts zu bereinigen"; }
+    return;
+  }
+
+  markOptionsChanged();
+  apiPost("api/panel-config", optionState.config, function (error) {
+    if (status) {
+      status.innerHTML = error ? "Fehler beim Speichern" : "Entfernt: " + (removedEntities + removedHiddenEntities) + " Entitäten, " + removedDevices + " Geräte";
+    }
+    var saveStatus = document.getElementById("settingsSaveState");
+    if (saveStatus) {
+      saveStatus.innerHTML = error ? "Fehler beim Speichern" : "Gespeichert";
+    }
+  });
 }
 
 function renderCards() {
@@ -515,7 +621,9 @@ function renderCards() {
           renderCards();
           return;
         }
-        toggleArrayValue(page.enabledCards, card.id, checked);
+        applyOptionChange(function () {
+          toggleArrayValue(page.enabledCards, card.id, checked);
+        });
         renderCards();
       }));
     })(SPECIAL_CARDS[i]);
@@ -537,7 +645,9 @@ function renderDeviceAndEntityLists() {
   for (var i = 0; i < devices.length && shownDevices < 8; i++) {
     (function (device) {
       deviceMount.appendChild(checkboxRow(device.id, device.name + " <small>" + device.count + " Entitäten</small>", getDeviceChecked(device.id, page), function (checked) {
-        setDeviceVisible(device.id, checked, page);
+        applyOptionChange(function () {
+          setDeviceVisible(device.id, checked, page);
+        });
         renderDeviceAndEntityLists();
       }));
     })(devices[i]);
@@ -552,7 +662,9 @@ function renderDeviceAndEntityLists() {
       var checked = getEntityChecked(entity, page);
       var label = entity.name + " <small>" + entity.entityId + "</small>";
       entityMount.appendChild(checkboxRow(entity.entityId, label, checked, function (isChecked) {
-        setEntityVisible(entity, isChecked, page);
+        applyOptionChange(function () {
+          setEntityVisible(entity, isChecked, page);
+        });
         renderDeviceAndEntityLists();
       }));
     })(entities[j]);
@@ -574,7 +686,8 @@ function setEntityVisible(entity, isVisible, page) {
   if (isVisible) {
     toggleArrayValue(page.hiddenEntities, entity.entityId, false);
     if (!isStaticEntityPage()) {
-      toggleArrayValue(page.enabledEntities, entity.entityId, true);
+      var isDefaultRoomEntity = page.areaId && entity.areaId === page.areaId && entity.visibleByDefault;
+      toggleArrayValue(page.enabledEntities, entity.entityId, !isDefaultRoomEntity);
     } else {
       toggleArrayValue(page.enabledEntities, entity.entityId, false);
     }
@@ -605,8 +718,78 @@ function setDeviceVisible(deviceId, isVisible, page) {
   var ids = getDeviceEntityIds(deviceId);
   toggleArrayValue(page.enabledDevices, deviceId, isVisible && !isStaticEntityPage());
   for (var i = 0; i < ids.length; i++) {
+    if (!isVisible) {
+      toggleArrayValue(page.enabledEntities, ids[i], false);
+    }
     toggleArrayValue(page.hiddenEntities, ids[i], !isVisible);
   }
+}
+
+function getFilteredPickerItems() {
+  var search = document.getElementById("optionsPickerSearch");
+  var query = search ? String(search.value || "").toLowerCase() : "";
+  if (optionState.pickerType === "devices") {
+    return getPageDevices().filter(function (device) {
+      return !query || (device.name + " " + device.id).toLowerCase().indexOf(query) !== -1;
+    });
+  }
+  return getPageEntities().filter(function (entity) {
+    return !query || ((entity.name || "") + " " + entity.entityId + " " + (entity.domain || "")).toLowerCase().indexOf(query) !== -1;
+  });
+}
+
+function setDevicesVisible(devices, isVisible) {
+  var page = getCurrentPage();
+  applyOptionChange(function () {
+    for (var i = 0; i < devices.length; i++) {
+      setDeviceVisible(devices[i].id, isVisible, page);
+    }
+  });
+}
+
+function setEntitiesVisible(entities, isVisible) {
+  var page = getCurrentPage();
+  applyOptionChange(function () {
+    for (var i = 0; i < entities.length; i++) {
+      setEntityVisible(entities[i], isVisible, page);
+    }
+  });
+}
+
+function setAllVisibleDevices(isVisible) {
+  setDevicesVisible(getPageDevices(), isVisible);
+  renderDeviceAndEntityLists();
+}
+
+function setAllVisibleEntities(isVisible) {
+  var entities = getPageEntities();
+  if (!isVisible && !isStaticEntityPage()) {
+    var page = getCurrentPage();
+    var byId = {};
+    for (var i = 0; i < entities.length; i++) {
+      byId[entities[i].entityId] = true;
+    }
+    for (var j = 0; j < (page.enabledEntities || []).length; j++) {
+      if (!byId[page.enabledEntities[j]]) {
+        var explicit = findEntityById(page.enabledEntities[j]);
+        if (explicit) {
+          entities.push(explicit);
+        }
+      }
+    }
+  }
+  setEntitiesVisible(entities, isVisible);
+  renderDeviceAndEntityLists();
+}
+
+function setAllPickerItems(isVisible) {
+  var items = getFilteredPickerItems();
+  if (optionState.pickerType === "devices") {
+    setDevicesVisible(items, isVisible);
+  } else {
+    setEntitiesVisible(items, isVisible);
+  }
+  renderOptionsPickerList();
 }
 
 function openOptionsPicker(type) {
@@ -639,26 +822,26 @@ function renderOptionsPickerList() {
   mount.innerHTML = "";
 
   if (optionState.pickerType === "devices") {
-    items = getPageDevices().filter(function (device) {
-      return !query || (device.name + " " + device.id).toLowerCase().indexOf(query) !== -1;
-    });
+    items = getFilteredPickerItems();
     for (i = 0; i < items.length; i++) {
       (function (device) {
         mount.appendChild(checkboxRow(device.id, device.name + " <small>" + device.count + " Entitäten · " + device.id + "</small>", getDeviceChecked(device.id, page), function (checked) {
-          setDeviceVisible(device.id, checked, page);
+          applyOptionChange(function () {
+            setDeviceVisible(device.id, checked, page);
+          });
           renderOptionsPickerList();
         }));
       })(items[i]);
     }
   } else {
-    items = getPageEntities().filter(function (entity) {
-      return !query || ((entity.name || "") + " " + entity.entityId + " " + (entity.domain || "")).toLowerCase().indexOf(query) !== -1;
-    });
+    items = getFilteredPickerItems();
     for (i = 0; i < items.length; i++) {
       (function (entity) {
         var label = entity.name + " <small>" + entity.entityId + " · " + entity.domain + "</small>";
         mount.appendChild(checkboxRow(entity.entityId, label, getEntityChecked(entity, page), function (isChecked) {
-          setEntityVisible(entity, isChecked, page);
+          applyOptionChange(function () {
+            setEntityVisible(entity, isChecked, page);
+          });
           renderOptionsPickerList();
         }));
       })(items[i]);
@@ -701,6 +884,10 @@ function initOptionsPage() {
     apiGet("api/panel-config", function (configError, payload) {
       if (configError) { return; }
       optionState.config = payload.config || { panels: {} };
+      if (!optionState.config.panels[optionState.panelId] && optionState.config.panels.default) {
+        optionState.panelId = "default";
+        setPanelId(optionState.panelId);
+      }
       apiGet("api/energy", function (_energyError, energyData) {
         optionState.energyData = energyData || null;
         renderOptions();

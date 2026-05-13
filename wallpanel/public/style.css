@@ -2184,6 +2184,44 @@ a:active {
   display: block;
 }
 
+.room-page-panel {
+  position: relative;
+}
+
+.room-page-panel.is-loading-room {
+  pointer-events: none;
+}
+
+.room-loading-overlay {
+  position: absolute;
+  inset: 54px 12px 12px;
+  z-index: 5;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 12px;
+  border: 1px solid rgba(93, 217, 199, 0.26);
+  border-radius: 14px;
+  background: rgba(9, 17, 31, 0.92);
+  color: #eef4ff;
+}
+
+.room-loading-spinner {
+  width: 34px;
+  height: 34px;
+  border: 3px solid rgba(93, 217, 199, 0.25);
+  border-top-color: #5dd9c7;
+  border-radius: 999px;
+  animation: retry-spin 0.8s linear infinite;
+}
+
+.room-loading-title {
+  color: #94a7c6;
+  font-size: 14px;
+  font-weight: bold;
+}
+
 .settings-section {
   margin-top: 18px;
   padding: 16px;
@@ -2245,6 +2283,29 @@ a:active {
 .settings-check input {
   margin-right: 10px;
   transform: scale(1.15);
+}
+
+.settings-bulk-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.settings-bulk-actions .pill-button {
+  min-height: 36px;
+  padding: 8px 10px;
+  font-size: 12px;
+}
+
+.settings-picker-actions {
+  margin-top: 10px;
+}
+
+.settings-debug-button {
+  justify-content: center;
+  margin-top: 12px;
+  width: 100%;
 }
 
 .settings-actions {
@@ -3193,7 +3254,7 @@ a:active {
 .dynamic-card-grid {
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 20px;
   padding-bottom: 16px;
 }
 
@@ -3202,7 +3263,7 @@ a:active {
 }
 
 .room-section-title {
-  margin-bottom: 8px;
+  margin: 0 0 10px;
   color: #94a7c6;
   font-size: 12px;
   font-weight: bold;
@@ -3213,7 +3274,7 @@ a:active {
 
 .room-details-section {
   border-top: 1px solid #263a57;
-  padding-top: 12px;
+  padding-top: 16px;
 }
 
 .room-details-section summary {
@@ -3221,7 +3282,7 @@ a:active {
 }
 
 .device-entity-group {
-  margin-bottom: 12px;
+  margin-bottom: 16px;
 }
 
 .device-group-title {
@@ -3322,8 +3383,8 @@ a:active {
 .control-card-grid .dynamic-special-card {
   display: inline-block;
   vertical-align: top;
-  width: 23.8%;
-  margin: 5px;
+  width: 48%;
+  margin: 5px 1%;
 }
 
 .special-card-grid .dynamic-special-card {
@@ -3333,8 +3394,8 @@ a:active {
 .compact-entity-grid .compact-entity-row {
   display: inline-block;
   vertical-align: top;
-  width: 23.2%;
-  margin: 4px;
+  width: 48%;
+  margin: 4px 1%;
 }
 
 @media screen and (max-width: 1100px) {
@@ -3344,7 +3405,7 @@ a:active {
 
   .control-card-grid .dynamic-entity-card,
   .control-card-grid .dynamic-special-card {
-    width: 23%;
+    width: 48%;
     min-height: 92px;
   }
 
@@ -3353,7 +3414,7 @@ a:active {
   }
 
   .compact-entity-grid .compact-entity-row {
-    width: 23%;
+    width: 48%;
     min-height: 38px;
     padding: 7px 8px;
   }
@@ -3362,6 +3423,27 @@ a:active {
   .compact-entity-value {
     font-size: 12px;
   }
+}
+
+@media screen and (max-width: 1100px) {
+  @supports (display: grid) {
+    .control-card-grid,
+    .compact-entity-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+}
+
+.compact-entity-stack .balanced-grid-row.count-1 > * {
+  flex: 0 1 calc(50% - 4px);
+}
+
+.compact-entity-stack .balanced-grid-row.count-2 > * {
+  flex: 0 1 calc(50% - 4px);
+}
+
+.compact-entity-stack .balanced-grid-row.count-3 > * {
+  flex: 0 1 calc(33.333% - 6px);
 }
 
 @supports (display: grid) {

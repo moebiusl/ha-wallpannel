@@ -73,6 +73,8 @@
                 <label class="select-label settings-label-spaced" for="areaSelect">Home-Assistant-Bereich/Raum</label>
                 <select id="areaSelect" class="room-select"></select>
                 <div class="settings-hint">Für Energie und Sicherheit kannst du hier ebenfalls einzelne Entitäten ein- oder ausblenden.</div>
+                <button id="cleanupRoomEntitiesButton" class="pill-button settings-debug-button" type="button" onclick="cleanupForeignRoomEntities()">DEBUG: nicht zugehörige Entitäten entfernen</button>
+                <span id="cleanupRoomEntitiesState" class="settings-save-state"></span>
               </section>
 
               <section class="settings-section">
@@ -82,12 +84,20 @@
 
               <section class="settings-section">
                 <div class="settings-title">Geräte</div>
+                <div class="settings-bulk-actions">
+                  <button class="pill-button" type="button" onclick="setAllVisibleDevices(true)">Alle auswählen</button>
+                  <button class="pill-button" type="button" onclick="setAllVisibleDevices(false)">Alle abwählen</button>
+                </div>
                 <div id="devicesMount" class="dynamic-list settings-preview-list"></div>
                 <button class="pill-button settings-more-button" type="button" onclick="openOptionsPicker('devices')">Alle Geräte anzeigen</button>
               </section>
 
               <section class="settings-section settings-section-wide">
                 <div class="settings-title">Entitäten</div>
+                <div class="settings-bulk-actions">
+                  <button class="pill-button" type="button" onclick="setAllVisibleEntities(true)">Alle auswählen</button>
+                  <button class="pill-button" type="button" onclick="setAllVisibleEntities(false)">Alle abwählen</button>
+                </div>
                 <div id="entitiesMount" class="dynamic-list settings-preview-list"></div>
                 <button class="pill-button settings-more-button" type="button" onclick="openOptionsPicker('entities')">Alle Entitäten anzeigen</button>
               </section>
@@ -115,6 +125,10 @@
         <button class="modal-close" type="button" onclick="closeOptionsPicker()">×</button>
       </div>
       <input id="optionsPickerSearch" class="room-select settings-picker-search" type="search" placeholder="Suchen" oninput="renderOptionsPickerList()">
+      <div class="settings-bulk-actions settings-picker-actions">
+        <button class="pill-button" type="button" onclick="setAllPickerItems(true)">Alle auswählen</button>
+        <button class="pill-button" type="button" onclick="setAllPickerItems(false)">Alle abwählen</button>
+      </div>
       <div id="optionsPickerList" class="settings-picker-grid"></div>
     </div>
   </div>

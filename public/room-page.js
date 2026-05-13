@@ -4,8 +4,47 @@ var roomPageState = {
   structure: null,
   dashboard: null
 };
-var roomPageRequestActive = false;
-var roomPageReloadQueued = false;
+var roomPageRequestSerial = 0;
+
+function setRoomLoading(active, roomName) {
+  var panel = document.querySelector(".room-page-panel");
+  var overlay = document.getElementById("roomLoadingOverlay");
+  var title = document.getElementById("roomTitle");
+  var pinned = document.getElementById("roomPinnedStatus");
+  var cards = document.getElementById("roomCardsMount");
+  var status = document.getElementById("roomUpdateState");
+
+  if (panel) {
+    panel.className = active ? "panel large-page-panel room-page-panel dynamic-room-panel is-loading-room" : "panel large-page-panel room-page-panel dynamic-room-panel";
+  }
+  if (overlay) {
+    overlay.style.display = active ? "flex" : "none";
+    var loadingTitle = overlay.querySelector(".room-loading-title");
+    if (loadingTitle) {
+      loadingTitle.textContent = roomName ? "Lade " + roomName + "..." : "Lade Raum...";
+    }
+  }
+  if (title && active) {
+    title.textContent = roomName || "Raum";
+  }
+  if (pinned && active) {
+    pinned.innerHTML = "";
+  }
+  if (cards && active) {
+    cards.innerHTML = "";
+  }
+  if (status && active) {
+    status.innerHTML = "Lade...";
+    status.className = "panel-meta retry-status is-loading";
+  }
+}
+
+function getRoomLabel(roomId) {
+  if (roomPageState.structure && typeof findAreaName === "function") {
+    return findAreaName(roomPageState.structure, roomId);
+  }
+  return roomId || "Raum";
+}
 
 function getInitialRoomId() {
   if (typeof getActiveRoom === "function") {
@@ -743,7 +782,7 @@ function renderEntityLayout(cards, entities, mount) {
   }
 
   if (switches.length > 0 || climateEntities.length > 0) {
-    renderControlCollection("Schalter & Geräte", switches.concat(climateEntities), mount, true);
+    renderControlCollection("Schalter & Geräte", switches.concat(climateEntities), mount, false);
   }
 
   if (binaryEntities.length > 0) {
@@ -778,6 +817,7 @@ function renderEntityLayout(cards, entities, mount) {
 }
 
 function renderRoomPayload(payload) {
+  setRoomLoading(false);
   var title = document.getElementById("roomTitle");
   if (title && payload.page) { title.innerHTML = payload.page.title || payload.pageId; }
 
@@ -798,34 +838,34 @@ function renderRoomPayload(payload) {
 }
 
 function loadRoomPage() {
-  if (roomPageRequestActive) {
-    roomPageReloadQueued = true;
-    return;
+  var select = document.getElementById("roomSelect");
+  if (select && select.value && select.value !== roomPageState.pageId) {
+    roomPageState.pageId = select.value;
+    if (typeof setTabletRoom === "function") {
+      setTabletRoom(roomPageState.pageId);
+    }
   }
-  roomPageRequestActive = true;
   document.body.setAttribute("data-room", roomPageState.pageId);
   if (roomPageState.structure && typeof refreshRoomNavigation === "function") {
     refreshRoomNavigation(roomPageState.structure, roomPageState.pageId);
   }
-  apiGet("api/page/" + encodeURIComponent(roomPageState.panelId) + "/" + encodeURIComponent(roomPageState.pageId), function (error, payload) {
-    roomPageRequestActive = false;
+  var requestedPageId = roomPageState.pageId;
+  var requestSerial = ++roomPageRequestSerial;
+  setRoomLoading(true, getRoomLabel(requestedPageId));
+  apiGet("api/page/" + encodeURIComponent(roomPageState.panelId) + "/" + encodeURIComponent(requestedPageId), function (error, payload) {
+    if (requestSerial !== roomPageRequestSerial || requestedPageId !== roomPageState.pageId) {
+      return;
+    }
     if (error) {
+      setRoomLoading(false);
       var status = document.getElementById("roomUpdateState");
       if (status) {
         status.innerHTML = "Fehler beim Laden";
         setRetryStatus(status, true);
       }
-      if (roomPageReloadQueued) {
-        roomPageReloadQueued = false;
-        loadRoomPage();
-      }
       return;
     }
     renderRoomPayload(payload);
-    if (roomPageReloadQueued) {
-      roomPageReloadQueued = false;
-      loadRoomPage();
-    }
   });
 }
 
@@ -865,11 +905,23 @@ function fillRoomSelect() {
     select.value = selectedRoom;
   }
   roomPageState.pageId = selectedRoom;
+  if (select.value !== selectedRoom) {
+    select.value = selectedRoom;
+  }
   document.body.setAttribute("data-room", selectedRoom);
   if (typeof refreshRoomNavigation === "function") {
     refreshRoomNavigation(roomPageState.structure, selectedRoom);
   }
-  select.onchange = loadRoomPage;
+  select.onchange = function () {
+    roomPageState.pageId = select.value;
+    if (typeof setTabletRoom === "function") {
+      setTabletRoom(roomPageState.pageId);
+    }
+    if (window.history && window.history.replaceState) {
+      window.history.replaceState(null, "", "raum.html?room=" + encodeURIComponent(roomPageState.pageId));
+    }
+    loadRoomPage();
+  };
 }
 
 function initRoomPage() {

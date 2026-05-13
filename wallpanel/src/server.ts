@@ -893,6 +893,9 @@ function buildPagePayload(panelId: string, pageId: string, structure: Awaited<Re
   const hiddenEntitySet = new Set(page.hiddenEntities || []);
 
   const entities = structure.entities.filter((entity: any) => {
+    if (page.areaId && entity.areaId !== page.areaId) {
+      return false;
+    }
     if (hiddenEntitySet.has(entity.entityId)) {
       return false;
     }
@@ -1057,6 +1060,7 @@ app.get("/api/panel-config", (_req: Request, res: Response) => {
 app.post("/api/panel-config", (req: Request, res: Response) => {
   try {
     writePanelConfig(req.body);
+    invalidateHaCaches();
     res.json({ ok: true, configPath: getConfigPath() });
   } catch (error) {
     console.error("Fehler beim Speichern der Panel-Konfiguration:", error);
