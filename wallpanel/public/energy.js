@@ -82,33 +82,27 @@ function renderEnergyPage(data) {
   if (!data || !data.summary) { return; }
 
   setEnergyText("energyPageSolar", data.summary.solarPowerDisplay);
+  setEnergyText("energyPageConsumption", data.summary.consumptionDisplay);
   setEnergyText("energyPageGrid", data.summary.gridPowerDisplay);
-  setEnergyText("energyPageDeltaBattery", data.summary.deltaBatteryDisplay);
   setEnergyText("energyPagePowerstreamBattery", data.summary.powerstreamBatteryDisplay);
+  setEnergyText("energyPageFromBatteryToday", data.summary.fromBatteryTodayDisplay);
 
   var mount = document.getElementById("energySections");
   if (!mount) { return; }
   mount.innerHTML = "";
 
-  appendEnergySection(mount, "Delta2", [
-    data.delta2.battery,
-    data.delta2.status,
-    data.delta2.totalInPower,
-    data.delta2.totalOutPower,
-    data.delta2.solarInPower,
-    data.delta2.acInPower,
-    data.delta2.acOutPower,
-    data.delta2.remainingTime,
-    data.delta2.batteryTemperature,
-    data.delta2.cycles
-  ]);
-
   appendEnergySection(mount, "Powerstream", [
     data.powerstream.batteryCharge,
-    data.powerstream.status,
     data.powerstream.solarPower,
     data.powerstream.inverterOutputWatts,
     data.powerstream.batteryInputWatts,
+    data.powerstream.chargeTime,
+    data.powerstream.dischargeTime,
+    data.powerstream.fromBatteryToday,
+    data.powerstream.toBatteryToday,
+    data.powerstream.pv1Today,
+    data.powerstream.pv2Today,
+    data.powerstream.status,
     data.powerstream.smartPlugLoads,
     data.powerstream.otherLoads,
     data.powerstream.batteryStatus,
@@ -121,6 +115,18 @@ function renderEnergyPage(data) {
     data.grid.feedIn,
     data.grid.consumption,
     data.grid.feedInTotal
+  ]);
+
+  appendEnergySection(mount, "Delta2", [
+    data.delta2.status,
+    data.delta2.totalInPower,
+    data.delta2.totalOutPower,
+    data.delta2.solarInPower,
+    data.delta2.acInPower,
+    data.delta2.acOutPower,
+    data.delta2.remainingTime,
+    data.delta2.batteryTemperature,
+    data.delta2.cycles
   ]);
 
   setEnergyText("energyUpdateState", "Letztes Update: " + (data.updatedAt || formatGermanDateTime(new Date())));

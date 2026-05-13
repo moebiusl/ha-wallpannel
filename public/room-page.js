@@ -608,8 +608,10 @@ function openSpecialCardModal(cardId) {
       infoBox("Solar aktuell", energy.solarPowerDisplay) +
       infoBox("Netzleistung", energy.gridPowerDisplay) +
       infoBox("Verbrauch", energy.consumptionDisplay) +
-      infoBox("Delta2 Akku", energy.deltaBatteryDisplay) +
       infoBox("Powerstream Akku", energy.powerstreamBatteryDisplay) +
+      infoBox("Bis voll", energy.chargeTimeDisplay) +
+      infoBox("Bis leer", energy.dischargeTimeDisplay) +
+      infoBox("Akku heute", energy.fromBatteryTodayDisplay) +
       infoBox("Einspeisung", energy.feedInDisplay) +
       '</div>';
   } else if (cardId === "gate") {

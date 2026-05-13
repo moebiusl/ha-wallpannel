@@ -545,13 +545,17 @@ function renderEnergy(energy) {
   var summary = energy.summary;
   var solarDisplay = summary.solarPowerDisplay || "unavailable";
   var consumptionDisplay = summary.consumptionDisplay || summary.gridPowerDisplay || "unavailable";
+  var gridDisplay = summary.gridPowerDisplay || "unavailable";
+  var batteryDisplay = summary.powerstreamBatteryDisplay || "unavailable";
   setText("energySolarPower", summary.solarPowerDisplay || "unavailable");
-  setText("energyHomeSummary", "IN " + solarDisplay + " · OUT " + consumptionDisplay);
+  setText("energyHomeSummary", "Verbr. " + consumptionDisplay + " · Netz " + gridDisplay + " · Akku " + batteryDisplay);
   setText("energySolarPowerModal", summary.solarPowerDisplay || "unavailable");
   setText("energyGridPowerModal", summary.gridPowerDisplay || "unavailable");
   setText("energyConsumptionModal", consumptionDisplay);
-  setText("energyDeltaBatteryModal", summary.deltaBatteryDisplay || "unavailable");
   setText("energyPowerstreamBatteryModal", summary.powerstreamBatteryDisplay || "unavailable");
+  setText("energyChargeTimeModal", summary.chargeTimeDisplay || "unavailable");
+  setText("energyDischargeTimeModal", summary.dischargeTimeDisplay || "unavailable");
+  setText("energyFromBatteryTodayModal", summary.fromBatteryTodayDisplay || "unavailable");
 }
 
 function renderLights(lights) {
