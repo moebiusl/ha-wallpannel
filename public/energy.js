@@ -19,6 +19,8 @@ function setEnergyRetryStatus(active) {
 
 var energyPageConfig = null;
 var energyBatteryEntities = [];
+var energyPageRequestActive = false;
+var energyBatteryRequestActive = false;
 
 function getEnergyConfig() {
   if (!energyPageConfig) { return null; }
@@ -121,7 +123,7 @@ function renderEnergyPage(data) {
     data.grid.feedInTotal
   ]);
 
-  setEnergyText("energyUpdateState", "Letztes Update: " + (data.updatedAt || new Date().toLocaleTimeString("de-DE")));
+  setEnergyText("energyUpdateState", "Letztes Update: " + (data.updatedAt || formatGermanDateTime(new Date())));
   setEnergyRetryStatus(false);
 }
 
@@ -158,7 +160,10 @@ function renderEnergyBatteryOverview() {
 }
 
 function loadEnergyBatteryEntities() {
+  if (energyBatteryRequestActive) { return; }
+  energyBatteryRequestActive = true;
   apiGet("api/ha/structure", function (_error, structure) {
+    energyBatteryRequestActive = false;
     var entities = structure && structure.entities ? structure.entities : [];
     energyBatteryEntities = [];
     for (var i = 0; i < entities.length; i++) {
@@ -201,7 +206,10 @@ function appendEnergySection(mount, title, metrics) {
 }
 
 function loadEnergyPage() {
+  if (energyPageRequestActive) { return; }
+  energyPageRequestActive = true;
   apiGet("api/energy", function (error, data) {
+    energyPageRequestActive = false;
     if (error) {
       setEnergyText("energyUpdateState", "Fehler beim Laden");
       setEnergyRetryStatus(true);
@@ -216,5 +224,5 @@ apiGet("api/panel-config", function (_error, payload) {
   loadEnergyPage();
   loadEnergyBatteryEntities();
 });
-setInterval(loadEnergyPage, 5000);
-setInterval(loadEnergyBatteryEntities, 30000);
+setInterval(loadEnergyPage, 10000);
+setInterval(loadEnergyBatteryEntities, 60000);

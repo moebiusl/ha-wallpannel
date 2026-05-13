@@ -4,6 +4,8 @@ var roomPageState = {
   structure: null,
   dashboard: null
 };
+var roomPageRequestActive = false;
+var roomPageReloadQueued = false;
 
 function getInitialRoomId() {
   if (typeof getActiveRoom === "function") {
@@ -153,6 +155,9 @@ function getEntityPriority(entity) {
 }
 
 function getEntityIcon(entity) {
+  if (typeof iconForEntity === "function") {
+    return iconForEntity(entity);
+  }
   if (!entity) { return "?"; }
   if (entity.domain === "light") { return "L"; }
   if (entity.domain === "switch" || entity.domain === "input_boolean") { return "I/O"; }
@@ -353,7 +358,7 @@ function renderEntityCard(entity, variant) {
 
   var icon = document.createElement("div");
   icon.className = "entity-card-icon";
-  icon.textContent = getEntityIcon(entity);
+  icon.innerHTML = getEntityIcon(entity);
   card.appendChild(icon);
 
   var title = document.createElement("div");
@@ -390,7 +395,7 @@ function renderCompactEntity(entity) {
 
   var name = document.createElement("div");
   name.className = "compact-entity-name";
-  name.textContent = getEntityIcon(entity) + "  " + (entity.name || entity.entityId);
+  name.innerHTML = getEntityIcon(entity) + '<span>' + (entity.name || entity.entityId) + '</span>';
   row.appendChild(name);
 
   var value = document.createElement("div");
@@ -511,7 +516,8 @@ function renderSpecialCard(cardId, mount) {
   };
   var dashboard = roomPageState.dashboard || {};
   var now = new Date();
-  var html = '<div class="entity-card-icon">' + (cardId === "weather" ? "°C" : cardId === "waste" ? "BIN" : cardId === "gate" ? "TOR" : cardId === "datetime" ? "ZEIT" : "W") + '</div>' +
+  var specialIcon = typeof iconForSpecialCard === "function" ? iconForSpecialCard(cardId) : (cardId === "weather" ? "°C" : cardId === "waste" ? "BIN" : cardId === "gate" ? "TOR" : cardId === "datetime" ? "ZEIT" : "W");
+  var html = '<div class="entity-card-icon">' + specialIcon + '</div>' +
     '<div class="dynamic-entity-title">' + (names[cardId] || cardId) + '</div>';
 
   if (cardId === "weather" && dashboard.weather) {
@@ -784,26 +790,40 @@ function renderRoomPayload(payload) {
 
   var status = document.getElementById("roomUpdateState");
   if (status) {
-    status.innerHTML = "Letztes Update: " + new Date().toLocaleTimeString("de-DE");
+    status.innerHTML = "Letztes Update: " + formatGermanDateTime(new Date());
     setRetryStatus(status, false);
   }
 }
 
 function loadRoomPage() {
+  if (roomPageRequestActive) {
+    roomPageReloadQueued = true;
+    return;
+  }
+  roomPageRequestActive = true;
   document.body.setAttribute("data-room", roomPageState.pageId);
   if (roomPageState.structure && typeof refreshRoomNavigation === "function") {
     refreshRoomNavigation(roomPageState.structure, roomPageState.pageId);
   }
   apiGet("api/page/" + encodeURIComponent(roomPageState.panelId) + "/" + encodeURIComponent(roomPageState.pageId), function (error, payload) {
+    roomPageRequestActive = false;
     if (error) {
       var status = document.getElementById("roomUpdateState");
       if (status) {
         status.innerHTML = "Fehler beim Laden";
         setRetryStatus(status, true);
       }
+      if (roomPageReloadQueued) {
+        roomPageReloadQueued = false;
+        loadRoomPage();
+      }
       return;
     }
     renderRoomPayload(payload);
+    if (roomPageReloadQueued) {
+      roomPageReloadQueued = false;
+      loadRoomPage();
+    }
   });
 }
 
@@ -853,20 +873,31 @@ function fillRoomSelect() {
 function initRoomPage() {
   roomPageState.panelId = getPanelId();
   roomPageState.pageId = getInitialRoomId();
+  var dashboardReady = false;
+  var structureReady = false;
+
+  function loadWhenReady() {
+    if (dashboardReady && structureReady) {
+      loadRoomPage();
+    }
+  }
+
   apiGetQuiet("api/dashboard", function (_error, dashboard) {
     if (dashboard) {
       roomPageState.dashboard = dashboard;
-      loadRoomPage();
     }
+    dashboardReady = true;
+    loadWhenReady();
   });
   apiGet("api/ha/structure", function (error, structure) {
     if (!error) {
       roomPageState.structure = structure;
       fillRoomSelect();
     }
-    loadRoomPage();
+    structureReady = true;
+    loadWhenReady();
   });
-  setInterval(loadRoomPage, 5000);
+  setInterval(loadRoomPage, 10000);
 }
 
 initRoomPage();

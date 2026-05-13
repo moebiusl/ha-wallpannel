@@ -4,6 +4,7 @@ var currentCameraSourceMode = "event";
 var liveCameraRefreshIntervalMs = 750;
 var cameraManualHoldUntil = 0;
 var cameraWebrtcFallbackTimer = null;
+var dashboardRequestActive = false;
 var notificationState = {
   dashboard: null,
   structure: null
@@ -366,6 +367,10 @@ function renderWeather(weather) {
   setText("weatherPressure", pressure);
   setText("weatherDewPoint", dewPoint);
   setText("weatherUvIndex", uvIndex);
+  var weatherIcon = document.querySelector(".weather-icon");
+  if (weatherIcon && typeof iconForSpecialCard === "function") {
+    weatherIcon.innerHTML = iconForSpecialCard("weather", "ha-icon-large");
+  }
 }
 
 function renderWaste(data) {
@@ -554,6 +559,14 @@ function renderLights(lights) {
     return;
   }
 
+  if (typeof iconForSpecialCard === "function") {
+    var lightIconIds = ["light1IconModal", "light2IconModal", "light3IconModal"];
+    for (var i = 0; i < lightIconIds.length; i++) {
+      var icon = document.getElementById(lightIconIds[i]);
+      if (icon) { icon.innerHTML = iconForSpecialCard("light"); }
+    }
+  }
+
   if (lights[0]) {
     var light1Name = lights[0].name || "Licht 1";
     var light1State = lights[0].state || "unavailable";
@@ -642,7 +655,8 @@ function renderBatteryOverview() {
     var value = Number(entity.state);
     var row = document.createElement("div");
     row.className = "battery-overview-row" + (!Number.isNaN(value) && value <= 20 ? " warn" : "");
-    row.innerHTML = '<span>' + (entity.name || entity.entityId) + '</span><b>' + formatEntityBatteryValue(entity) + '</b>';
+    row.innerHTML = (typeof iconForEntity === "function" ? iconForEntity(entity) : "") +
+      '<span class="battery-overview-name">' + (entity.name || entity.entityId) + '</span><b>' + formatEntityBatteryValue(entity) + '</b>';
     mount.appendChild(row);
   }
 }
@@ -668,11 +682,16 @@ function updateTorVisual(mode, text) {
 }
 
 function loadDashboard() {
+  if (dashboardRequestActive) {
+    return;
+  }
+  dashboardRequestActive = true;
   var xhr = new XMLHttpRequest();
   xhr.open("GET", "api/dashboard", true);
 
   xhr.onreadystatechange = function () {
     if (xhr.readyState === 4) {
+      dashboardRequestActive = false;
       if (xhr.status === 200) {
         try {
           var data = JSON.parse(xhr.responseText);
@@ -919,7 +938,7 @@ updateCameraSourceButtons();
 loadDashboard();
 loadHomeStructure();
 updateClockTime();
-setInterval(loadDashboard, 1000);
+setInterval(loadDashboard, 3000);
 setInterval(updateClockTime, 1000);
 setInterval(function () {
   var camera = currentCameras && currentCameras[currentCameraIndex];

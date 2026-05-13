@@ -193,6 +193,19 @@ button {
   line-height: 1.1;
 }
 
+.ha-icon {
+  display: inline-block;
+  width: 1.1em;
+  height: 1.1em;
+  vertical-align: -0.18em;
+  fill: currentColor;
+}
+
+.ha-icon-large {
+  width: 1em;
+  height: 1em;
+}
+
 .layout {
   position: absolute;
   top: 96px;
@@ -1001,6 +1014,7 @@ button {
 }
 
 .light-card {
+  position: relative;
   float: left;
   width: 31%;
   height: 100%;
@@ -1009,6 +1023,14 @@ button {
   border-radius: 18px;
   background: #18263c;
   border: 1px solid #263a57;
+}
+
+.light-card-icon {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  color: #5dd9c7;
+  font-size: 22px;
 }
 
 .light-card:last-child {
@@ -2046,11 +2068,14 @@ a:active {
 }
 
 .security-entity-icon {
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   margin-right: 8px;
   color: #5dd9c7;
-  font-size: 11px;
+  font-size: 18px;
   font-weight: bold;
+  vertical-align: middle;
 }
 
 .security-entity-name {
@@ -2720,12 +2745,19 @@ a:active {
   background: #132238;
 }
 
+.battery-overview-row .ha-icon {
+  flex: 0 0 auto;
+  color: #5dd9c7;
+  font-size: 20px;
+}
+
 .battery-overview-row.warn {
   border-color: #f5c451;
   background: rgba(245, 196, 81, 0.12);
 }
 
-.battery-overview-row span {
+.battery-overview-row .battery-overview-name {
+  flex: 1 1 auto;
   min-width: 0;
   overflow: hidden;
   color: #eef4ff;
@@ -3116,18 +3148,21 @@ a:active {
 }
 
 .room-status-pill span {
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
   max-width: 28%;
   margin-right: 7px;
   color: #5dd9c7;
-  font-size: 11px;
+  font-size: 18px;
   font-weight: bold;
   vertical-align: top;
 }
 
 @supports (display: grid) {
   .room-status-pill span {
-    display: block;
+    display: inline-flex;
     grid-row: 1 / span 2;
     align-self: center;
     max-width: none;
@@ -3379,16 +3414,20 @@ Legacy declarations kept below only for browsers that understand Grid but not
   position: absolute;
   top: 10px;
   right: 10px;
-  min-width: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  min-width: 30px;
   height: 28px;
-  padding: 0 6px;
+  padding: 0;
   border: 1px solid #345071;
   border-radius: 999px;
   background: #0f172a;
   color: #5dd9c7;
-  font-size: 10px;
+  font-size: 18px;
   font-weight: bold;
-  line-height: 26px;
+  line-height: 1;
   text-align: center;
 }
 
@@ -3537,6 +3576,9 @@ Legacy declarations kept below only for browsers that understand Grid but not
 }
 
 .compact-entity-name {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   min-width: 0;
   color: #eef4ff;
   font-size: 13px;
@@ -3545,6 +3587,18 @@ Legacy declarations kept below only for browsers that understand Grid but not
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.compact-entity-name .ha-icon {
+  flex: 0 0 auto;
+  color: #5dd9c7;
+  font-size: 17px;
+}
+
+.compact-entity-name span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .compact-entity-value {

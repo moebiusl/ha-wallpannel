@@ -39,6 +39,30 @@ const HA_TOKEN = process.env.HA_TOKEN || process.env.SUPERVISOR_TOKEN || process
 ]);
 const SETTINGS_PIN = process.env.SETTINGS_PIN || "1310";
 const GO2RTC_PUBLIC_URL = process.env.GO2RTC_PUBLIC_URL || "";
+const HA_TIMEOUT_MS = Number(process.env.HA_TIMEOUT_MS || 15000);
+const HA_STATES_CACHE_MS = Number(process.env.HA_STATES_CACHE_MS || 2000);
+const HA_STRUCTURE_CACHE_MS = Number(process.env.HA_STRUCTURE_CACHE_MS || 15000);
+
+function formatGermanDateTime(value: Date | string | number): string {
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return "unavailable";
+  }
+
+  const datePart = date.toLocaleDateString("de-DE", {
+    timeZone: "Europe/Berlin",
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric"
+  });
+  const timePart = date.toLocaleTimeString("de-DE", {
+    timeZone: "Europe/Berlin",
+    hour: "2-digit",
+    minute: "2-digit"
+  });
+
+  return `${datePart}, ${timePart} Uhr`;
+}
 
 function envValue(name: string, fallback: string): string {
   const value = process.env[name];
@@ -55,8 +79,23 @@ const ha = axios.create({
     Authorization: `Bearer ${HA_TOKEN}`,
     "Content-Type": "application/json"
   },
-  timeout: 5000
+  timeout: HA_TIMEOUT_MS
 });
+
+type HaStructure = {
+  floors: unknown[];
+  areas: Array<Record<string, unknown> & { area_id?: string; name?: string }>;
+  devices: unknown[];
+  entityRegistry: unknown[];
+  states: HaState[];
+  entities: Array<Record<string, unknown>>;
+  tree: Array<Record<string, unknown>>;
+};
+
+let statesCache: { at: number; data: HaState[] } | null = null;
+let statesRequest: Promise<HaState[]> | null = null;
+let structureCache: { at: number; data: HaStructure } | null = null;
+let structureRequest: Promise<HaStructure> | null = null;
 
 export type HaState = {
   entity_id: string;
@@ -335,7 +374,7 @@ function mapCamera(
     webrtcFallbackUrl,
     mjpegUrl,
     mjpegFallbackUrl,
-    eventUpdatedAt: eventDate ? new Date(eventDate).toLocaleString("de-DE") : "unavailable",
+    eventUpdatedAt: eventDate ? formatGermanDateTime(eventDate) : "unavailable",
     eventTimestamp: eventDate || ""
   };
 }
@@ -450,8 +489,8 @@ function sumMetrics(states: Map<string, HaState>, entityIds: string[]): number |
   return hasValue ? sum : null;
 }
 
-async function buildEnergySummary() {
-  const stateMap = new Map((await getAllStates()).map((state) => [state.entity_id, state]));
+async function buildEnergySummary(stateMap?: Map<string, HaState>) {
+  stateMap = stateMap || await getStateMap();
   const deltaSolar = numericState(readStateFromMap(stateMap, ENERGY_ENTITIES.delta2.solarInPower));
   const powerstreamSolar = sumMetrics(stateMap, [
     ENERGY_ENTITIES.powerstream.solar1,
@@ -519,7 +558,7 @@ async function buildEnergySummary() {
       consumption: metricFromState(stateMap, ENERGY_ENTITIES.grid.consumption, "Zähler Verbrauch"),
       feedInTotal: metricFromState(stateMap, ENERGY_ENTITIES.grid.feedInTotal, "Zähler Einspeisung")
     },
-    updatedAt: new Date().toLocaleString("de-DE")
+    updatedAt: formatGermanDateTime(new Date())
   };
 }
 
@@ -529,11 +568,38 @@ async function callService(
   data: Record<string, unknown>
 ): Promise<void> {
   await ha.post(`/api/services/${domain}/${service}`, data);
+  invalidateHaCaches();
 }
 
-async function getAllStates(): Promise<HaState[]> {
-  const response = await ha.get("/api/states");
-  return Array.isArray(response.data) ? response.data : [];
+async function getAllStates(options: { force?: boolean } = {}): Promise<HaState[]> {
+  const now = Date.now();
+  if (!options.force && statesCache && now - statesCache.at < HA_STATES_CACHE_MS) {
+    return statesCache.data;
+  }
+  if (!options.force && statesRequest) {
+    return statesRequest;
+  }
+
+  statesRequest = ha.get("/api/states")
+    .then((response) => {
+      const data = Array.isArray(response.data) ? response.data as HaState[] : [];
+      statesCache = { at: Date.now(), data };
+      return data;
+    })
+    .finally(() => {
+      statesRequest = null;
+    });
+
+  return statesRequest;
+}
+
+async function getStateMap(options: { force?: boolean } = {}): Promise<Map<string, HaState>> {
+  return new Map((await getAllStates(options)).map((state) => [state.entity_id, state]));
+}
+
+function invalidateHaCaches(): void {
+  statesCache = null;
+  structureCache = null;
 }
 
 function getDeviceName(device: { name?: string | null; name_by_user?: string | null; manufacturer?: string | null; model?: string | null } | undefined): string {
@@ -558,7 +624,7 @@ function sortFloors<T extends { name?: string | null; level?: number | null }>(i
   });
 }
 
-async function buildHaStructure() {
+async function buildHaStructureFresh(): Promise<HaStructure> {
   const [states, registries] = await Promise.all([
     getAllStates(),
     getHaRegistries(HA_URL!, HA_TOKEN!)
@@ -724,6 +790,27 @@ async function buildHaStructure() {
     entities: mergedEntities,
     tree
   };
+}
+
+async function buildHaStructure(): Promise<HaStructure> {
+  const now = Date.now();
+  if (structureCache && now - structureCache.at < HA_STRUCTURE_CACHE_MS) {
+    return structureCache.data;
+  }
+  if (structureRequest) {
+    return structureRequest;
+  }
+
+  structureRequest = buildHaStructureFresh()
+    .then((data) => {
+      structureCache = { at: Date.now(), data };
+      return data;
+    })
+    .finally(() => {
+      structureRequest = null;
+    });
+
+  return structureRequest;
 }
 
 function getServiceForToggle(entityId: string, currentState?: string): { domain: string; service: string } | null {
@@ -932,7 +1019,7 @@ app.get("/api/ha/states", async (_req: Request, res: Response) => {
   try {
     res.json(await getAllStates());
   } catch (error) {
-    console.error("Fehler beim Laden der HA-States:", error);
+    console.error(`Fehler beim Laden der HA-States: ${describeError(error)}`);
     res.status(500).json({ ok: false, message: "states unavailable" });
   }
 });
@@ -941,7 +1028,7 @@ app.get("/api/ha/structure", async (_req: Request, res: Response) => {
   try {
     res.json(await buildHaStructure());
   } catch (error) {
-    console.error("Fehler beim Laden der HA-Struktur:", error);
+    console.error(`Fehler beim Laden der HA-Struktur: ${describeError(error)}`);
     res.status(500).json({ ok: false, message: "structure unavailable" });
   }
 });
@@ -974,7 +1061,7 @@ app.get("/api/page/:panelId/:pageId", async (req: Request, res: Response) => {
     const structure = await buildHaStructure();
     res.json(buildPagePayload(String(req.params.panelId), String(req.params.pageId), structure));
   } catch (error) {
-    console.error("Fehler beim Laden der dynamischen Seite:", error);
+    console.error(`Fehler beim Laden der dynamischen Seite: ${describeError(error)}`);
     res.status(500).json({ ok: false });
   }
 });
@@ -983,7 +1070,7 @@ app.get("/api/energy", async (_req: Request, res: Response) => {
   try {
     res.json(await buildEnergySummary());
   } catch (error) {
-    console.error("Fehler beim Laden der Energiedaten:", error);
+    console.error(`Fehler beim Laden der Energiedaten: ${describeError(error)}`);
     res.status(500).json({ ok: false, message: "energy unavailable" });
   }
 });
@@ -1000,7 +1087,7 @@ app.post("/api/entity/:entityId/toggle", async (req: Request, res: Response) => 
     await callService(action.domain, action.service, { entity_id: entityId });
     res.json({ ok: true, domain: action.domain, service: action.service });
   } catch (error) {
-    console.error("Fehler beim Toggeln der Entität:", error);
+    console.error(`Fehler beim Toggeln der Entität: ${describeError(error)}`);
     res.status(500).json({ ok: false });
   }
 });
@@ -1096,53 +1183,29 @@ app.get("/api/camera-stream/:entityId", async (req: Request, res: Response) => {
 });
 
 app.get("/api/dashboard", async (_req: Request, res: Response) => {
-  const [
-    weatherSummary,
-    livingTemp,
-    livingHumidity,
-    mainLight,
-    stehlampe,
-    bulb,
-    esstischKueche,
-    esstischWohnzimmer,
-    einfahrtEventImage,
-    hofEventImage,
-    hofVonGarageEventImage,
-    werkstattRichtungGartenEventImage,
-    klingelEventImage,
-    torStatus,
-    smartControl,
-    torAutomatik,
-    torDauerAuf,
-    schliessZeit,
-    fahrZeit,
-    gelbeTonneNaechsteLeerung,
-    blaueTonneNaechsteLeerung,
-    restmuellNaechsteLeerung
-  ] = await Promise.all([
-    getEntity(ENTITIES.weather.summary),
-    getEntity(ENTITIES.sensors.livingTemp),
-    getEntity(ENTITIES.sensors.livingHumidity),
-    getEntity(ENTITIES.lights.main),
-    getEntity(ENTITIES.lights.stehlampe),
-    ENTITIES.lights.bulb ? getEntity(ENTITIES.lights.bulb, true) : Promise.resolve(null),
-    getEntity(ENTITIES.lightGroups.esstischKueche),
-    getEntity(ENTITIES.lightGroups.esstischWohnzimmer),
-    getEntity(ENTITIES.cameras.einfahrtEventImage),
-    getEntity(ENTITIES.cameras.hofEventImage),
-    getEntity(ENTITIES.cameras.hofVonGarageEventImage),
-    getEntity(ENTITIES.cameras.werkstattRichtungGartenEventImage),
-    getEntity(ENTITIES.cameras.klingelEventImage),
-    getEntity(ENTITIES.sensors.torStatus),
-    getEntity(ENTITIES.switches.smartControl),
-    getEntity(ENTITIES.switches.torAutomatik),
-    getEntity(ENTITIES.switches.torDauerAuf),
-    getEntity(ENTITIES.sensors.schliessZeit),
-    getEntity(ENTITIES.sensors.fahrZeit),
-    getEntity(ENTITIES.sensors.gelbeTonneNaechsteLeerung),
-    getEntity(ENTITIES.sensors.blaueTonneNaechsteLeerung),
-    getEntity(ENTITIES.sensors.restmuellNaechsteLeerung)
-  ]);
+  const stateMap = await getStateMap();
+  const weatherSummary = readStateFromMap(stateMap, ENTITIES.weather.summary);
+  const livingTemp = readStateFromMap(stateMap, ENTITIES.sensors.livingTemp);
+  const livingHumidity = readStateFromMap(stateMap, ENTITIES.sensors.livingHumidity);
+  const mainLight = readStateFromMap(stateMap, ENTITIES.lights.main);
+  const stehlampe = readStateFromMap(stateMap, ENTITIES.lights.stehlampe);
+  const bulb = ENTITIES.lights.bulb ? readStateFromMap(stateMap, ENTITIES.lights.bulb) : null;
+  const esstischKueche = readStateFromMap(stateMap, ENTITIES.lightGroups.esstischKueche);
+  const esstischWohnzimmer = readStateFromMap(stateMap, ENTITIES.lightGroups.esstischWohnzimmer);
+  const einfahrtEventImage = readStateFromMap(stateMap, ENTITIES.cameras.einfahrtEventImage);
+  const hofEventImage = readStateFromMap(stateMap, ENTITIES.cameras.hofEventImage);
+  const hofVonGarageEventImage = readStateFromMap(stateMap, ENTITIES.cameras.hofVonGarageEventImage);
+  const werkstattRichtungGartenEventImage = readStateFromMap(stateMap, ENTITIES.cameras.werkstattRichtungGartenEventImage);
+  const klingelEventImage = readStateFromMap(stateMap, ENTITIES.cameras.klingelEventImage);
+  const torStatus = readStateFromMap(stateMap, ENTITIES.sensors.torStatus);
+  const smartControl = readStateFromMap(stateMap, ENTITIES.switches.smartControl);
+  const torAutomatik = readStateFromMap(stateMap, ENTITIES.switches.torAutomatik);
+  const torDauerAuf = readStateFromMap(stateMap, ENTITIES.switches.torDauerAuf);
+  const schliessZeit = readStateFromMap(stateMap, ENTITIES.sensors.schliessZeit);
+  const fahrZeit = readStateFromMap(stateMap, ENTITIES.sensors.fahrZeit);
+  const gelbeTonneNaechsteLeerung = readStateFromMap(stateMap, ENTITIES.sensors.gelbeTonneNaechsteLeerung);
+  const blaueTonneNaechsteLeerung = readStateFromMap(stateMap, ENTITIES.sensors.blaueTonneNaechsteLeerung);
+  const restmuellNaechsteLeerung = readStateFromMap(stateMap, ENTITIES.sensors.restmuellNaechsteLeerung);
 
   const torVisual = getTorVisual(torStatus?.state);
   const weather = extractWeatherSummary(weatherSummary);
@@ -1164,7 +1227,7 @@ app.get("/api/dashboard", async (_req: Request, res: Response) => {
     ),
     mapCamera(klingelEventImage, CAMERA_CONFIGS[4].name, CAMERA_CONFIGS[4].liveCameraEntityId)
   ];
-  const energy = await buildEnergySummary();
+  const energy = await buildEnergySummary(stateMap);
 
   res.json({
     livingTemp: livingTemp?.state ?? "unavailable",
@@ -1197,7 +1260,7 @@ app.get("/api/dashboard", async (_req: Request, res: Response) => {
     blaueTonneNaechsteLeerung: blaueTonneNaechsteLeerung?.state ?? "unavailable",
     restmuellNaechsteLeerung: restmuellNaechsteLeerung?.state ?? "unavailable",
 
-    updatedAt: new Date().toLocaleString("de-DE")
+    updatedAt: formatGermanDateTime(new Date())
   });
 });
 

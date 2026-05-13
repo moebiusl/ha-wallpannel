@@ -1,7 +1,8 @@
 var securityState = {
   cameras: [],
   activeCameraIndex: 0,
-  config: null
+  config: null,
+  requestActive: false
 };
 
 function securityText(id, value) {
@@ -104,6 +105,9 @@ function securityCategory(entity) {
 }
 
 function securityIcon(entity) {
+  if (typeof iconForEntity === "function") {
+    return iconForEntity(entity);
+  }
   if (entity.domain === "alarm_control_panel") { return "ALARM"; }
   if (entity.domain === "lock") { return "LOCK"; }
   if (entity.deviceClass === "door") { return "DOOR"; }
@@ -206,7 +210,7 @@ function renderSecurityEntity(entity) {
 
   var icon = document.createElement("div");
   icon.className = "security-entity-icon";
-  icon.textContent = securityIcon(entity);
+  icon.innerHTML = securityIcon(entity);
   card.appendChild(icon);
 
   var name = document.createElement("div");
@@ -317,26 +321,29 @@ function renderSecurityCameras(cameras) {
 }
 
 function loadSecurityPage() {
+  if (securityState.requestActive) { return; }
+  securityState.requestActive = true;
   apiGet("api/dashboard", function (_dashboardError, dashboard) {
     if (dashboard && dashboard.cameras) {
       renderSecurityCameras(dashboard.cameras);
     }
   });
 
-  apiGet("api/panel-config", function (_configError, payload) {
-    securityState.config = payload && payload.config ? payload.config : null;
-    apiGet("api/ha/structure", function (error, structure) {
-      if (error) {
-        securityText("securityUpdateState", "Fehler beim Laden");
-        setSecurityRetryStatus(true);
-        return;
-      }
-      renderSecuritySensors(structure);
-      securityText("securityUpdateState", "Letztes Update: " + new Date().toLocaleTimeString("de-DE"));
-      setSecurityRetryStatus(false);
-    });
+  apiGet("api/ha/structure", function (error, structure) {
+    securityState.requestActive = false;
+    if (error) {
+      securityText("securityUpdateState", "Fehler beim Laden");
+      setSecurityRetryStatus(true);
+      return;
+    }
+    renderSecuritySensors(structure);
+    securityText("securityUpdateState", "Letztes Update: " + formatGermanDateTime(new Date()));
+    setSecurityRetryStatus(false);
   });
 }
 
-loadSecurityPage();
-setInterval(loadSecurityPage, 5000);
+apiGet("api/panel-config", function (_configError, payload) {
+  securityState.config = payload && payload.config ? payload.config : null;
+  loadSecurityPage();
+});
+setInterval(loadSecurityPage, 10000);

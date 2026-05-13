@@ -349,16 +349,19 @@
       <div class="modal-content">
         <div class="light-cards modal-light-cards">
   <div id="light1CardModal" class="light-card active light-toggle-card" data-base-class="light-card active light-toggle-card" onclick="toggleLightCard('light1CardModal', 'api/light/main/on', 'api/light/main/off')">
+    <div class="light-card-icon" id="light1IconModal"></div>
     <div class="light-card-title" id="light1NameModal">Licht 1</div>
     <div class="light-card-state" id="light1StateModal">unavailable</div>
   </div>
 
   <div id="light2CardModal" class="light-card light-toggle-card" data-base-class="light-card light-toggle-card" onclick="toggleLightCard('light2CardModal', 'api/light/stehlampe/on', 'api/light/stehlampe/off')">
+    <div class="light-card-icon" id="light2IconModal"></div>
     <div class="light-card-title" id="light2NameModal">Licht 2</div>
     <div class="light-card-state" id="light2StateModal">unavailable</div>
   </div>
 
   <div id="light3CardModal" class="light-card accent light-toggle-card" data-base-class="light-card accent light-toggle-card" onclick="toggleLightCard('light3CardModal', 'api/light/bulb/on', 'api/light/bulb/off')">
+    <div class="light-card-icon" id="light3IconModal"></div>
     <div class="light-card-title" id="light3NameModal">Licht 3</div>
     <div class="light-card-state" id="light3StateModal">unavailable</div>
   </div>
@@ -429,6 +432,7 @@
       </div>
     </div>
   </div>
+  <script src="icons.js"></script>
   <script src="layout.js"></script>
   <script src="app.js"></script>
 </body>

@@ -38,7 +38,7 @@ function buildHeader(activePage, roomLabel, roomId, visiblePages) {
     links += navLink('Home', 'index.html', 'home');
   }
   if (pageVisible('raum')) {
-    links += '<button class="topnav-link topnav-button" type="button" onclick="openRoomsModal()">Räume</button>';
+    links += '<a class="topnav-link" href="#" onclick="openRoomsModal(); return false;">Räume</a>';
   }
   if (pageVisible('energie')) {
     links += navLink('Energie', 'energie.html', 'energie');
@@ -268,6 +268,27 @@ function updateClockTime() {
   if (s < 10) s = '0' + s;
 
   el.innerHTML = h + ':' + m + ':' + s;
+}
+
+function formatGermanDateTime(value) {
+  var date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return 'unavailable';
+  }
+
+  var datePart = date.toLocaleDateString('de-DE', {
+    timeZone: 'Europe/Berlin',
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric'
+  });
+  var timePart = date.toLocaleTimeString('de-DE', {
+    timeZone: 'Europe/Berlin',
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+
+  return datePart + ', ' + timePart + ' Uhr';
 }
 
 function renderSharedLayout() {
