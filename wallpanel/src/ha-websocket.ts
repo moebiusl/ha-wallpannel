@@ -53,11 +53,25 @@ export type HaRegistries = {
 
 function wsUrlFromHaUrl(haUrl: string): string {
   const parsed = new URL(haUrl);
+  const basePath = parsed.pathname.replace(/\/$/, "");
   parsed.protocol = parsed.protocol === "https:" ? "wss:" : "ws:";
-  parsed.pathname = "/api/websocket";
+  parsed.pathname = `${basePath}/api/websocket`;
   parsed.search = "";
   parsed.hash = "";
   return parsed.toString();
+}
+
+function describeWsError(error: unknown, wsUrl: string): Error {
+  if (error instanceof Error) {
+    return error;
+  }
+
+  if (error && typeof error === "object") {
+    const event = error as { message?: string; type?: string };
+    return new Error(`Home-Assistant-WebSocket konnte nicht verbunden werden (${wsUrl}${event.type ? `, ${event.type}` : ""}${event.message ? `: ${event.message}` : ""})`);
+  }
+
+  return new Error(`Home-Assistant-WebSocket konnte nicht verbunden werden (${wsUrl}): ${String(error)}`);
 }
 
 export async function getHaRegistries(haUrl: string, token: string): Promise<HaRegistries> {
@@ -138,7 +152,7 @@ export async function getHaRegistries(haUrl: string, token: string): Promise<HaR
 
     ws.onerror = (error: unknown) => {
       clearTimeout(timeout);
-      reject(error instanceof Error ? error : new Error(String(error)));
+      reject(describeWsError(error, wsUrl));
     };
   });
 }
