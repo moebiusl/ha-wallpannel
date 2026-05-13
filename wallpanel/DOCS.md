@@ -19,6 +19,8 @@ Damit spricht die App intern mit Home Assistant.
 
 Diese Werte kannst du im Add-on unter **Konfiguration** setzen:
 
+- `ha_url` – normalerweise leer lassen. Optional eine eigene Home-Assistant-URL setzen.
+- `ha_token` – normalerweise leer lassen. Nur als Fallback nutzen, falls dein HA-System dem Add-on keinen Supervisor-Token bereitstellt.
 - `go2rtc_public_url` – externe go2rtc-Adresse, die das iPad erreichen kann, z.B. `http://homeassistant.local:1984` oder `http://192.168.178.10:1984`
 - `go2rtc_port` – Port fuer automatische go2rtc-Ableitung, Standard `1984`
 - `settings_pin` – PIN fuer die Optionen im Wallpanel

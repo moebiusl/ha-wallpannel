@@ -1,6 +1,7 @@
 import express, { Request, Response } from "express";
 import axios from "axios";
 import dotenv from "dotenv";
+import fs from "fs";
 import path from "path";
 import { getHaRegistries } from "./ha-websocket";
 import { readPanelConfig, writePanelConfig, getConfigPath } from "./panel-config";
@@ -10,9 +11,32 @@ dotenv.config();
 
 const app = express();
 
+function readFirstExistingFile(paths: string[]): string {
+  for (const filePath of paths) {
+    try {
+      if (fs.existsSync(filePath)) {
+        const value = fs.readFileSync(filePath, "utf8").trim();
+        if (value) {
+          return value;
+        }
+      }
+    } catch (_error) {
+      // Ignore unreadable environment files and continue with the next source.
+    }
+  }
+  return "";
+}
+
 const PORT = Number(process.env.PORT || 3000);
 const HA_URL = process.env.HA_URL || "http://supervisor/core";
-const HA_TOKEN = process.env.HA_TOKEN || process.env.SUPERVISOR_TOKEN || process.env.HASSIO_TOKEN;
+const HA_TOKEN = process.env.HA_TOKEN || process.env.SUPERVISOR_TOKEN || process.env.HASSIO_TOKEN || readFirstExistingFile([
+  "/var/run/s6/container_environment/HA_TOKEN",
+  "/var/run/s6/container_environment/SUPERVISOR_TOKEN",
+  "/var/run/s6/container_environment/HASSIO_TOKEN",
+  "/run/s6/container_environment/HA_TOKEN",
+  "/run/s6/container_environment/SUPERVISOR_TOKEN",
+  "/run/s6/container_environment/HASSIO_TOKEN"
+]);
 const SETTINGS_PIN = process.env.SETTINGS_PIN || "1310";
 const GO2RTC_PUBLIC_URL = process.env.GO2RTC_PUBLIC_URL || "";
 

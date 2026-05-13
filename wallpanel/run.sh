@@ -5,6 +5,20 @@ export PORT="${PORT:-3000}"
 export HA_URL="${HA_URL:-http://supervisor/core}"
 export HA_TOKEN="${HA_TOKEN:-${SUPERVISOR_TOKEN:-${HASSIO_TOKEN:-}}}"
 
+load_token_file() {
+  if [ -z "$HA_TOKEN" ] && [ -f "$1" ]; then
+    HA_TOKEN="$(cat "$1")"
+    export HA_TOKEN
+  fi
+}
+
+load_token_file /var/run/s6/container_environment/HA_TOKEN
+load_token_file /var/run/s6/container_environment/SUPERVISOR_TOKEN
+load_token_file /var/run/s6/container_environment/HASSIO_TOKEN
+load_token_file /run/s6/container_environment/HA_TOKEN
+load_token_file /run/s6/container_environment/SUPERVISOR_TOKEN
+load_token_file /run/s6/container_environment/HASSIO_TOKEN
+
 if [ -f /data/options.json ]; then
   node <<'NODE' > /tmp/wallpanel-options-env
 const fs = require("fs");
@@ -16,6 +30,8 @@ if (!fs.existsSync(file)) {
 
 const cfg = JSON.parse(fs.readFileSync(file, "utf8"));
 const optionMap = {
+  ha_url: "HA_URL",
+  ha_token: "HA_TOKEN",
   go2rtc_public_url: "GO2RTC_PUBLIC_URL",
   go2rtc_port: "GO2RTC_PORT",
   settings_pin: "SETTINGS_PIN",

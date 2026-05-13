@@ -1,6 +1,6 @@
 name: "HA Wallpanel"
 description: "Touch-optimiertes Home-Assistant-Wallpanel fuer iPad und Tablet."
-version: "1.0.2"
+version: "1.0.3"
 slug: "wallpanel"
 init: false
 
@@ -25,6 +25,8 @@ ports_description:
   3000/tcp: "Wallpanel Weboberflaeche"
 
 options:
+  ha_url: ""
+  ha_token: ""
   go2rtc_public_url: ""
   go2rtc_port: "1984"
   settings_pin: "1310"
@@ -59,6 +61,8 @@ options:
   camera_klingel_stream: ""
 
 schema:
+  ha_url: str?
+  ha_token: password?
   go2rtc_public_url: str?
   go2rtc_port: str?
   settings_pin: str?
