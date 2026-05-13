@@ -276,19 +276,23 @@ function formatGermanDateTime(value) {
     return 'unavailable';
   }
 
-  var datePart = date.toLocaleDateString('de-DE', {
+  var rawParts = new Intl.DateTimeFormat('de-DE', {
     timeZone: 'Europe/Berlin',
     day: '2-digit',
     month: '2-digit',
-    year: 'numeric'
-  });
-  var timePart = date.toLocaleTimeString('de-DE', {
-    timeZone: 'Europe/Berlin',
+    year: 'numeric',
     hour: '2-digit',
-    minute: '2-digit'
-  });
+    minute: '2-digit',
+    hour12: false
+  }).formatToParts(date);
+  var parts = {};
+  for (var i = 0; i < rawParts.length; i++) {
+    if (rawParts[i].type !== 'literal') {
+      parts[rawParts[i].type] = rawParts[i].value;
+    }
+  }
 
-  return datePart + ', ' + timePart + ' Uhr';
+  return parts.day + '.' + parts.month + '.' + parts.year + ' ' + parts.hour + ':' + parts.minute + ' Uhr';
 }
 
 function renderSharedLayout() {

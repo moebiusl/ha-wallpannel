@@ -49,19 +49,22 @@ function formatGermanDateTime(value: Date | string | number): string {
     return "unavailable";
   }
 
-  const datePart = date.toLocaleDateString("de-DE", {
+  const parts = new Intl.DateTimeFormat("de-DE", {
     timeZone: "Europe/Berlin",
     day: "2-digit",
     month: "2-digit",
-    year: "numeric"
-  });
-  const timePart = date.toLocaleTimeString("de-DE", {
-    timeZone: "Europe/Berlin",
+    year: "numeric",
     hour: "2-digit",
-    minute: "2-digit"
-  });
+    minute: "2-digit",
+    hour12: false
+  }).formatToParts(date).reduce<Record<string, string>>((acc, part) => {
+    if (part.type !== "literal") {
+      acc[part.type] = part.value;
+    }
+    return acc;
+  }, {});
 
-  return `${datePart}, ${timePart} Uhr`;
+  return `${parts.day}.${parts.month}.${parts.year} ${parts.hour}:${parts.minute} Uhr`;
 }
 
 function envValue(name: string, fallback: string): string {
