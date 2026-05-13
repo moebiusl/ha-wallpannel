@@ -1,6 +1,6 @@
 name: "HA Wallpanel"
 description: "Touch-optimiertes Home-Assistant-Wallpanel fuer iPad und Tablet."
-version: "1.0.1"
+version: "1.0.2"
 slug: "wallpanel"
 init: false
 
@@ -11,6 +11,7 @@ arch:
 startup: application
 boot: auto
 homeassistant_api: true
+hassio_api: true
 
 ingress: true
 ingress_port: 3000

@@ -3,7 +3,7 @@ set -e
 
 export PORT="${PORT:-3000}"
 export HA_URL="${HA_URL:-http://supervisor/core}"
-export HA_TOKEN="${HA_TOKEN:-${SUPERVISOR_TOKEN}}"
+export HA_TOKEN="${HA_TOKEN:-${SUPERVISOR_TOKEN:-${HASSIO_TOKEN:-}}}"
 
 if [ -f /data/options.json ]; then
   node <<'NODE' > /tmp/wallpanel-options-env

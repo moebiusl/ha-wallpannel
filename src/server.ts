@@ -11,8 +11,8 @@ dotenv.config();
 const app = express();
 
 const PORT = Number(process.env.PORT || 3000);
-const HA_URL = process.env.HA_URL || (process.env.SUPERVISOR_TOKEN ? "http://supervisor/core" : undefined);
-const HA_TOKEN = process.env.HA_TOKEN || process.env.SUPERVISOR_TOKEN;
+const HA_URL = process.env.HA_URL || "http://supervisor/core";
+const HA_TOKEN = process.env.HA_TOKEN || process.env.SUPERVISOR_TOKEN || process.env.HASSIO_TOKEN;
 const SETTINGS_PIN = process.env.SETTINGS_PIN || "1310";
 const GO2RTC_PUBLIC_URL = process.env.GO2RTC_PUBLIC_URL || "";
 
@@ -21,8 +21,8 @@ function envValue(name: string, fallback: string): string {
   return value && value.trim() ? value.trim() : fallback;
 }
 
-if (!HA_URL || !HA_TOKEN) {
-  throw new Error("HA_URL/HA_TOKEN fehlt. Im Home-Assistant-Add-on wird SUPERVISOR_TOKEN automatisch genutzt.");
+if (!HA_TOKEN) {
+  throw new Error("HA_TOKEN fehlt. Im Home-Assistant-Add-on muss homeassistant_api aktiviert sein, damit der Supervisor-Token bereitsteht.");
 }
 
 const ha = axios.create({
