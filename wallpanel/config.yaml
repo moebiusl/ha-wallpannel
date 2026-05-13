@@ -12,6 +12,12 @@ arch:
 startup: application
 boot: auto
 homeassistant_api: true
+build_from:
+  amd64: ghcr.io/hassio-addons/base/amd64:latest
+  aarch64: ghcr.io/hassio-addons/base/aarch64:latest
+  armv7: ghcr.io/hassio-addons/base/armv7:latest
+  armhf: ghcr.io/hassio-addons/base/armhf:latest
+  i386: ghcr.io/hassio-addons/base/i386:latest
 ingress: true
 ingress_port: 3000
 panel_icon: mdi:tablet-dashboard
