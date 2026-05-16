@@ -42,6 +42,7 @@ const GO2RTC_PUBLIC_URL = process.env.GO2RTC_PUBLIC_URL || "";
 const HA_TIMEOUT_MS = Number(process.env.HA_TIMEOUT_MS || 15000);
 const HA_STATES_CACHE_MS = Number(process.env.HA_STATES_CACHE_MS || 2000);
 const HA_STRUCTURE_CACHE_MS = Number(process.env.HA_STRUCTURE_CACHE_MS || 15000);
+const WEATHER_FORECAST_CACHE_MS = Number(process.env.WEATHER_FORECAST_CACHE_MS || 30 * 60 * 1000);
 
 function formatGermanDateTime(value: Date | string | number): string {
   const date = value instanceof Date ? value : new Date(value);
@@ -99,6 +100,7 @@ let statesCache: { at: number; data: HaState[] } | null = null;
 let statesRequest: Promise<HaState[]> | null = null;
 let structureCache: { at: number; data: HaStructure } | null = null;
 let structureRequest: Promise<HaStructure> | null = null;
+let weatherForecastCache: { entityId: string; at: number; data: WeatherForecastDay[] } | null = null;
 
 export type HaState = {
   entity_id: string;
@@ -128,6 +130,17 @@ type WeatherSummary = {
   windSpeed: string;
   windBearing: string;
   visibility: string;
+  forecast: WeatherForecastDay[];
+};
+
+type WeatherForecastDay = {
+  datetime: string;
+  weekday: string;
+  condition: string;
+  conditionLabel: string;
+  temperature: string;
+  templow: string;
+  precipitation: string;
 };
 
 type LightSummary = {
@@ -417,7 +430,7 @@ function inferGo2RtcUrlFromHaUrl(): string {
   }
 }
 
-function extractWeatherSummary(entity: HaState | null): WeatherSummary {
+function extractWeatherSummary(entity: HaState | null, forecast: WeatherForecastDay[] = []): WeatherSummary {
   return {
     state: entity?.state ?? "unavailable",
     stateLabel: translateWeatherState(entity?.state),
@@ -429,8 +442,67 @@ function extractWeatherSummary(entity: HaState | null): WeatherSummary {
     pressure: readStringAttribute(entity, ["pressure"], "unavailable"),
     windSpeed: readStringAttribute(entity, ["wind_speed"], "unavailable"),
     windBearing: readStringAttribute(entity, ["wind_bearing"], "unavailable"),
-    visibility: readStringAttribute(entity, ["visibility"], "unavailable")
+    visibility: readStringAttribute(entity, ["visibility"], "unavailable"),
+    forecast
   };
+}
+
+async function getWeatherForecast(entityId: string): Promise<WeatherForecastDay[]> {
+  const now = Date.now();
+  if (weatherForecastCache && weatherForecastCache.entityId === entityId && now - weatherForecastCache.at < WEATHER_FORECAST_CACHE_MS) {
+    return weatherForecastCache.data;
+  }
+  try {
+    const response = await ha.post("/api/services/weather/get_forecasts?return_response", {
+      entity_id: entityId,
+      type: "daily"
+    });
+    const forecast = normalizeWeatherForecastResponse(response.data, entityId);
+    weatherForecastCache = { entityId, at: Date.now(), data: forecast };
+    return forecast;
+  } catch (error) {
+    console.warn(`Wettervorhersage nicht verfügbar: ${describeError(error)}`);
+    weatherForecastCache = { entityId, at: Date.now(), data: [] };
+    return [];
+  }
+}
+
+function normalizeWeatherForecastResponse(payload: unknown, entityId: string): WeatherForecastDay[] {
+  const data = payload as any;
+  const byEntity = data?.service_response?.[entityId] || data?.response?.[entityId] || data?.[entityId] || data;
+  const forecast = Array.isArray(byEntity?.forecast) ? byEntity.forecast : Array.isArray(byEntity) ? byEntity : [];
+  return forecast.slice(0, 5).map(normalizeWeatherForecastDay);
+}
+
+function normalizeWeatherForecastDay(entry: any): WeatherForecastDay {
+  const datetime = String(entry?.datetime || "");
+  return {
+    datetime,
+    weekday: formatForecastWeekday(datetime),
+    condition: String(entry?.condition || "unavailable"),
+    conditionLabel: translateWeatherState(String(entry?.condition || "")),
+    temperature: formatForecastNumber(entry?.temperature),
+    templow: formatForecastNumber(entry?.templow),
+    precipitation: formatForecastNumber(entry?.precipitation)
+  };
+}
+
+function formatForecastNumber(value: unknown): string {
+  if (value === undefined || value === null || value === "") {
+    return "unavailable";
+  }
+  return String(value);
+}
+
+function formatForecastWeekday(value: string): string {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return "--";
+  }
+  return new Intl.DateTimeFormat("de-DE", {
+    timeZone: "Europe/Berlin",
+    weekday: "short"
+  }).format(date).replace(".", "");
 }
 
 function translateWeatherState(state: string | undefined): string {
@@ -1229,7 +1301,8 @@ app.get("/api/dashboard", async (_req: Request, res: Response) => {
   const restmuellNaechsteLeerung = readStateFromMap(stateMap, ENTITIES.sensors.restmuellNaechsteLeerung);
 
   const torVisual = getTorVisual(torStatus?.state);
-  const weather = extractWeatherSummary(weatherSummary);
+  const weatherForecast = await getWeatherForecast(ENTITIES.weather.summary);
+  const weather = extractWeatherSummary(weatherSummary, weatherForecast);
   const lights = [
     mapLight(mainLight, "Hof"),
     mapLight(stehlampe, "Stehlampe"),

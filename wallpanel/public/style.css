@@ -403,6 +403,11 @@ button {
   background: rgba(255, 107, 107, 0.14);
 }
 
+.security-home-panel.warn {
+  border-color: #ffd166;
+  background: rgba(255, 209, 102, 0.16);
+}
+
 .security-home-title {
   color: #eef4ff;
   font-size: 22px;
@@ -654,6 +659,64 @@ button {
   float: right;
   font-size: 40px;
   line-height: 1;
+}
+
+.weather-forecast-block {
+  margin-top: 18px;
+}
+
+.weather-forecast-list {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.weather-forecast-item {
+  min-width: 0;
+  padding: 12px 8px;
+  border: 1px solid #2d445f;
+  border-radius: 12px;
+  background: #132238;
+  text-align: center;
+}
+
+.weather-forecast-day {
+  color: #94a7c6;
+  font-size: 12px;
+  font-weight: bold;
+  text-transform: uppercase;
+}
+
+.weather-forecast-symbol {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 34px;
+  margin-top: 8px;
+  color: #ffd166;
+}
+
+.weather-forecast-icon {
+  width: 30px;
+  height: 30px;
+}
+
+.weather-forecast-temp {
+  margin-top: 6px;
+  color: #eef4ff;
+  font-size: 16px;
+  font-weight: bold;
+  line-height: 1.1;
+}
+
+.weather-forecast-state {
+  margin-top: 5px;
+  color: #94a7c6;
+  font-size: 11px;
+  line-height: 1.15;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .metric-value {
@@ -1992,6 +2055,10 @@ a:active {
 
   .climate-overview-grid {
     grid-template-columns: 1fr;
+  }
+
+  .weather-forecast-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 

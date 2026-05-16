@@ -369,8 +369,42 @@ function renderWeather(weather) {
   setText("weatherUvIndex", uvIndex);
   var weatherIcon = document.querySelector(".weather-icon");
   if (weatherIcon && typeof iconForSpecialCard === "function") {
-    weatherIcon.innerHTML = iconForSpecialCard("weather", "ha-icon-large");
+    weatherIcon.innerHTML = typeof iconForWeatherState === "function"
+      ? iconForWeatherState(weather.state, "ha-icon-large")
+      : iconForSpecialCard("weather", "ha-icon-large");
   }
+  renderWeatherForecast(weather.forecast || []);
+}
+
+function renderWeatherForecast(forecast) {
+  var mount = document.getElementById("weatherForecastList");
+  if (!mount) { return; }
+  mount.innerHTML = "";
+  if (!forecast || forecast.length === 0) {
+    var empty = document.createElement("div");
+    empty.className = "home-notification-empty";
+    empty.textContent = "Keine Vorhersage verfügbar";
+    mount.appendChild(empty);
+    return;
+  }
+
+  for (var i = 0; i < Math.min(forecast.length, 5); i++) {
+    var day = forecast[i];
+    var item = document.createElement("div");
+    var icon = typeof iconForWeatherState === "function" ? iconForWeatherState(day.condition, "weather-forecast-icon") : "";
+    item.className = "weather-forecast-item";
+    item.innerHTML = '<div class="weather-forecast-day">' + escapeHtml(day.weekday || "--") + '</div>' +
+      '<div class="weather-forecast-symbol">' + icon + '</div>' +
+      '<div class="weather-forecast-temp">' + escapeHtml(formatForecastTemp(day)) + '</div>' +
+      '<div class="weather-forecast-state">' + escapeHtml(day.conditionLabel || day.condition || "unavailable") + '</div>';
+    mount.appendChild(item);
+  }
+}
+
+function formatForecastTemp(day) {
+  var high = day && day.temperature && day.temperature !== "unavailable" ? day.temperature + "°" : "--";
+  var low = day && day.templow && day.templow !== "unavailable" ? day.templow + "°" : "";
+  return low ? high + " / " + low : high;
 }
 
 function renderWaste(data) {
@@ -475,7 +509,6 @@ function isHomeSecurityEntity(entity) {
 
 function getHomeSecuritySeverity(entity) {
   if (entity.state === "unavailable" || entity.state === "unknown") {
-    if (["smoke", "gas", "carbon_monoxide", "carbon_dioxide"].indexOf(entity.deviceClass) !== -1) { return "danger"; }
     return "warn";
   }
   if (entity.domain === "alarm_control_panel") {
@@ -502,11 +535,16 @@ function buildHomeSecurityNotice(entities) {
   var hazardCount = 0;
   var warningCount = 0;
   var dangerCount = 0;
+  var offlineCount = 0;
 
   for (var i = 0; i < entities.length; i++) {
     var entity = entities[i];
     if (!isHomeSecurityEntity(entity)) { continue; }
     securityEntities.push(entity);
+    if (entity.state === "unavailable" || entity.state === "unknown") {
+      offlineCount++;
+      continue;
+    }
     if ((entity.deviceClass === "door" || entity.deviceClass === "opening") && entity.state === "on") { openDoors++; }
     if (entity.deviceClass === "window" && entity.state === "on") { openWindows++; }
     if ((entity.deviceClass === "motion" || entity.deviceClass === "occupancy") && entity.state === "on") { activeMotion++; }
@@ -523,12 +561,13 @@ function buildHomeSecurityNotice(entities) {
   ];
   if (hazardCount > 0) { parts.push("Warnmelder " + hazardCount); }
   if (activeMotion > 0) { parts.push("Bewegung " + activeMotion); }
+  if (offlineCount > 0) { parts.push("Offline " + offlineCount); }
   if (securityEntities.length === 0) { parts.push("keine Sensoren"); }
 
   return {
-    level: dangerCount > 0 || hazardCount > 0 ? "danger security-summary" : (notSecure ? "warn security-summary" : "ok security-summary"),
-    priority: dangerCount > 0 || hazardCount > 0 ? -30 : (notSecure ? -20 : -10),
-    title: notSecure ? "NICHT SICHER" : "SICHER",
+    level: notSecure ? "danger security-summary" : (offlineCount > 0 ? "warn security-summary" : "ok security-summary"),
+    priority: notSecure ? -30 : (offlineCount > 0 ? -20 : -10),
+    title: notSecure ? "NICHT SICHER" : (offlineCount > 0 ? "PRÜFEN" : "SICHER"),
     text: parts.join(" · "),
     action: "security"
   };
@@ -537,9 +576,9 @@ function buildHomeSecurityNotice(entities) {
 function renderHomeSecurityCard(notice) {
   var panel = document.getElementById("homeSecurityPanel");
   if (!panel || !notice) { return; }
-  var level = notice.title === "SICHER" ? "ok" : "danger";
+  var level = notice.level && notice.level.indexOf("warn") !== -1 ? "warn" : (notice.title === "SICHER" ? "ok" : "danger");
   panel.className = "panel security-home-panel dashboard-clickable " + level;
-  setText("homeSecurityMeta", notice.title === "SICHER" ? "Alles ok" : "Prüfen");
+  setText("homeSecurityMeta", notice.title === "SICHER" ? "Alles ok" : (level === "warn" ? "Offline" : "Prüfen"));
   setText("homeSecurityTitle", notice.title);
   setText("homeSecurityText", notice.text);
 }
