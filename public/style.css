@@ -1793,12 +1793,39 @@ a:active {
 .climate-bulk-bar {
   display: flex;
   align-items: center;
-  gap: 10px;
+  justify-content: space-between;
+  gap: 14px;
   margin-top: 16px;
-  padding: 12px;
+  padding: 14px;
   border: 1px solid #2d445f;
   border-radius: 14px;
-  background: #132238;
+  background: linear-gradient(135deg, #132238 0%, #173143 100%);
+}
+
+.climate-bulk-info {
+  min-width: 0;
+}
+
+.climate-bulk-title {
+  color: #eef4ff;
+  font-size: 18px;
+  font-weight: bold;
+  line-height: 1.1;
+}
+
+.climate-bulk-subtitle {
+  margin-top: 4px;
+  color: #94a7c6;
+  font-size: 12px;
+}
+
+.climate-bulk-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  flex: 1 1 auto;
+  min-width: 0;
 }
 
 .climate-bulk-target {
@@ -1812,7 +1839,7 @@ a:active {
 }
 
 .climate-bulk-target input {
-  width: 82px;
+  width: 76px;
   min-height: 38px;
   padding: 6px 10px;
   border: 1px solid #345071;
@@ -1821,11 +1848,18 @@ a:active {
   color: #eef4ff;
   font-size: 18px;
   font-weight: bold;
+  text-align: center;
+}
+
+.climate-off-button {
+  border-color: #8a3f4a;
+  background: #3a1d2a;
+  color: #ffd7de;
 }
 
 .climate-overview-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
   gap: 12px;
   margin-top: 16px;
   padding-bottom: 16px;
@@ -1845,9 +1879,9 @@ a:active {
 }
 
 .climate-card-top {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: flex-start;
-  justify-content: space-between;
   gap: 12px;
 }
 
@@ -1856,7 +1890,9 @@ a:active {
   font-size: 16px;
   font-weight: bold;
   line-height: 1.15;
-  overflow-wrap: anywhere;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .climate-card-area,
@@ -1868,12 +1904,16 @@ a:active {
 
 .climate-card-state {
   min-width: 54px;
+  max-width: 92px;
   margin-top: 0;
   padding: 5px 8px;
   border: 1px solid #345071;
   border-radius: 999px;
   text-align: center;
   text-transform: uppercase;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .climate-card-values {
@@ -1916,6 +1956,11 @@ a:active {
   margin-top: 14px;
 }
 
+.climate-card-controls .entity-range {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
 .climate-card-actions {
   display: flex;
   gap: 8px;
@@ -1924,6 +1969,30 @@ a:active {
 
 .climate-card-actions .pill-button {
   flex: 1 1 0;
+}
+
+@media screen and (max-width: 760px) {
+  .climate-bulk-bar,
+  .climate-bulk-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .climate-bulk-actions {
+    width: 100%;
+  }
+
+  .climate-bulk-target {
+    justify-content: space-between;
+  }
+
+  .climate-bulk-target input {
+    flex: 0 0 96px;
+  }
+
+  .climate-overview-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 .energy-sections {

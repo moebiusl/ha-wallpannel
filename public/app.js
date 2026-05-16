@@ -428,8 +428,12 @@ function isIgnoredBatteryEntity(entity) {
   var text = ((entity.name || "") + " " + (entity.entityId || "")).toLowerCase();
   return text.indexOf("apple watch") !== -1 ||
     text.indexOf("iphone") !== -1 ||
+    text.indexOf("ipad") !== -1 ||
     text.indexOf("macbook") !== -1 ||
-    text.indexOf("mac book") !== -1;
+    text.indexOf("mac book") !== -1 ||
+    text.indexOf("powerstream-8801") !== -1 ||
+    text.indexOf("powerstream_8801") !== -1 ||
+    text.indexOf("powerstream 8801") !== -1;
 }
 
 function isExcludedHomeSecurityEntity(entity) {

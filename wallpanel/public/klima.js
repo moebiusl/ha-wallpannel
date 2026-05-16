@@ -1,5 +1,22 @@
 var climateEntities = [];
 var climateRequestActive = false;
+var climatePageConfig = null;
+
+function getClimatePageConfig() {
+  var panelId = typeof getPanelId === "function" ? getPanelId() : "default";
+  var panel = climatePageConfig && climatePageConfig.panels && climatePageConfig.panels[panelId] ? climatePageConfig.panels[panelId] : null;
+  if (!panel && climatePageConfig && climatePageConfig.panels) {
+    panel = climatePageConfig.panels.default || null;
+  }
+  return panel && panel.pages ? panel.pages.klima : null;
+}
+
+function isClimateEntityVisible(entity) {
+  var page = getClimatePageConfig();
+  if (!page || !entity) { return true; }
+  if (page.hiddenEntities && page.hiddenEntities.indexOf(entity.entityId) !== -1) { return false; }
+  return true;
+}
 
 function climateNumberAttribute(entity, key, fallback) {
   var value = entity && entity.attributes ? entity.attributes[key] : null;
@@ -196,7 +213,7 @@ function loadClimatePage() {
     }
     var entities = structure && structure.entities ? structure.entities : [];
     climateEntities = entities.filter(function (entity) {
-      return entity.domain === "climate";
+      return entity.domain === "climate" && isClimateEntityVisible(entity);
     }).sort(function (a, b) {
       var areaCompare = String(a.areaName || "").localeCompare(String(b.areaName || ""), "de");
       if (areaCompare !== 0) { return areaCompare; }
@@ -207,5 +224,8 @@ function loadClimatePage() {
   });
 }
 
-loadClimatePage();
+apiGet("api/panel-config", function (_configError, payload) {
+  climatePageConfig = payload && payload.config ? payload.config : null;
+  loadClimatePage();
+});
 setInterval(loadClimatePage, 10000);

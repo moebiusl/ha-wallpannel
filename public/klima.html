@@ -21,12 +21,18 @@
             </div>
 
             <div class="climate-bulk-bar">
-              <button class="pill-button pill-button-large" type="button" onclick="turnOffAllClimate()">Alle aus</button>
-              <label class="climate-bulk-target">
-                <span>Zieltemperatur</span>
-                <input id="climateBulkTemperature" type="number" min="5" max="30" step="0.5" value="20">
-              </label>
-              <button class="pill-button pill-button-large active" type="button" onclick="setAllClimateTemperature()">Alle setzen</button>
+              <div class="climate-bulk-info">
+                <div class="climate-bulk-title">Alle Heizungen</div>
+                <div class="climate-bulk-subtitle">Zentrale Steuerung</div>
+              </div>
+              <div class="climate-bulk-actions">
+                <button class="pill-button pill-button-large climate-off-button" type="button" onclick="turnOffAllClimate()">Alle aus</button>
+                <label class="climate-bulk-target">
+                  <span>Ziel</span>
+                  <input id="climateBulkTemperature" type="number" min="5" max="30" step="0.5" value="20">
+                </label>
+                <button class="pill-button pill-button-large active" type="button" onclick="setAllClimateTemperature()">Alle setzen</button>
+              </div>
             </div>
 
             <div id="climateOverview" class="climate-overview-grid"></div>
