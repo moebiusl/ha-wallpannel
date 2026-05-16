@@ -108,6 +108,9 @@ function formatEntityState(entity) {
       return current + " °C";
     }
   }
+  if (entity.domain === "media_player") {
+    return getMediaPlayerSummary(entity);
+  }
   if (entity.domain === "binary_sensor") {
     if (entity.deviceClass === "window" || entity.deviceClass === "door" || entity.deviceClass === "garage_door" || entity.deviceClass === "opening") {
       return entity.state === "on" ? "offen" : "zu";
@@ -151,7 +154,7 @@ function entityCanToggle(entity) {
 }
 
 function isOnEntity(entity) {
-  return entity && (entity.state === "on" || entity.state === "open" || entity.state === "unlocked");
+  return entity && (entity.state === "on" || entity.state === "open" || entity.state === "unlocked" || entity.state === "playing");
 }
 
 function getEntityKind(entity) {
@@ -164,6 +167,9 @@ function getEntityKind(entity) {
   }
   if (entity.domain === "climate") {
     return "climate";
+  }
+  if (entity.domain === "media_player") {
+    return "media";
   }
   if (entity.domain === "binary_sensor") {
     return "binary";
@@ -183,6 +189,7 @@ function getEntityPriority(entity) {
     lock: 45,
     input_boolean: 50,
     climate: 60,
+    media_player: 65,
     button: 70,
     scene: 75,
     script: 80,
@@ -205,6 +212,7 @@ function getEntityIcon(entity) {
   if (entity.domain === "cover") { return "ROL"; }
   if (entity.domain === "lock") { return "LOCK"; }
   if (entity.domain === "climate") { return "°C"; }
+  if (entity.domain === "media_player") { return "MEDIA"; }
   if (entity.domain === "button") { return "GO"; }
   if (entity.domain === "scene" || entity.domain === "script") { return "▶"; }
   if (entity.domain === "binary_sensor") {
@@ -272,6 +280,62 @@ function callEntityService(entityId, service, data) {
   }, function () {
     setTimeout(loadRoomPage, 500);
   });
+}
+
+function getMediaPlayerSummary(entity) {
+  var title = getAttribute(entity, "media_title", "");
+  var artist = getAttribute(entity, "media_artist", "");
+  var source = getAttribute(entity, "source", "") || getAttribute(entity, "app_name", "");
+  if (title && artist) { return title + " · " + artist; }
+  if (title) { return title; }
+  if (source) { return source; }
+  if (entity.state === "playing") { return "läuft"; }
+  if (entity.state === "paused") { return "pausiert"; }
+  if (entity.state === "idle") { return "bereit"; }
+  if (entity.state === "off") { return "aus"; }
+  return entity.state || "unavailable";
+}
+
+function mediaPlayerStateLabel(entity) {
+  if (!entity) { return "unavailable"; }
+  if (entity.state === "playing") { return "Wiedergabe"; }
+  if (entity.state === "paused") { return "Pausiert"; }
+  if (entity.state === "idle") { return "Bereit"; }
+  if (entity.state === "off") { return "Aus"; }
+  return entity.state || "unavailable";
+}
+
+function appendMediaPlayerControls(card, entity) {
+  var controls = document.createElement("div");
+  var detail = document.createElement("div");
+  var actions = document.createElement("div");
+  var volume = getNumberAttribute(entity, "volume_level", null);
+
+  controls.className = "entity-inline-controls media-inline-controls";
+  controls.onclick = stopEntityControlEvent;
+
+  detail.className = "media-player-detail";
+  detail.textContent = "HomePod · " + mediaPlayerStateLabel(entity) + (volume !== null ? " · " + Math.round(volume * 100) + " %" : "");
+  controls.appendChild(detail);
+
+  actions.className = "media-player-actions";
+  appendMediaPlayerButton(actions, entity, entity.state === "playing" ? "media_pause" : "media_play", entity.state === "playing" ? "Pause" : "Play", entity.state === "playing" ? "pause" : "play");
+  appendMediaPlayerButton(actions, entity, "media_stop", "Stop", "stop");
+  controls.appendChild(actions);
+  card.appendChild(controls);
+}
+
+function appendMediaPlayerButton(mount, entity, service, label, iconName) {
+  var button = document.createElement("button");
+  button.className = "media-control-button";
+  button.type = "button";
+  button.title = label;
+  button.innerHTML = typeof haIcon === "function" ? haIcon(iconName) : label;
+  button.onclick = function (event) {
+    stopEntityControlEvent(event);
+    callEntityService(entity.entityId, service, {});
+  };
+  mount.appendChild(button);
 }
 
 function appendLightControls(card, entity) {
@@ -395,6 +459,9 @@ function renderEntityCard(entity, variant) {
   var card = document.createElement("article");
   var on = isOnEntity(entity);
   card.className = "dynamic-entity-card " + (variant || "entity-card-normal") + (on ? " is-on" : "");
+  if (entity.domain === "media_player") {
+    card.className += " media-player-card";
+  }
 
   var icon = document.createElement("div");
   icon.className = "entity-card-icon";
@@ -413,7 +480,7 @@ function renderEntityCard(entity, variant) {
 
   var meta = document.createElement("div");
   meta.className = "dynamic-entity-meta";
-  meta.textContent = entity.domain;
+  meta.textContent = entity.domain === "media_player" ? "HomePod" : entity.domain;
   card.appendChild(meta);
 
   if (entity.domain === "light") {
@@ -422,6 +489,10 @@ function renderEntityCard(entity, variant) {
 
   if (entity.domain === "climate") {
     appendClimateControls(card, entity);
+  }
+
+  if (entity.domain === "media_player") {
+    appendMediaPlayerControls(card, entity);
   }
 
   appendEntityClick(card, entity);
@@ -740,6 +811,7 @@ function renderEntityLayout(cards, entities, mount) {
   var switches = [];
   var actionEntities = [];
   var climateEntities = [];
+  var mediaEntities = [];
   var binaryEntities = [];
   var sensorEntities = [];
   var otherEntities = [];
@@ -754,6 +826,7 @@ function renderEntityLayout(cards, entities, mount) {
     }
     else if (kind === "action") { actionEntities.push(entities[i]); }
     else if (kind === "climate") { climateEntities.push(entities[i]); }
+    else if (kind === "media") { mediaEntities.push(entities[i]); }
     else if (kind === "binary") { binaryEntities.push(entities[i]); }
     else if (kind === "sensor") { sensorEntities.push(entities[i]); }
     else { otherEntities.push(entities[i]); }
@@ -784,6 +857,10 @@ function renderEntityLayout(cards, entities, mount) {
 
   if (switches.length > 0 || climateEntities.length > 0) {
     renderControlCollection("Schalter & Geräte", switches.concat(climateEntities), mount, false);
+  }
+
+  if (mediaEntities.length > 0) {
+    renderControlCollection("Medien", mediaEntities, mount, false);
   }
 
   if (binaryEntities.length > 0) {

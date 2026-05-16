@@ -3732,6 +3732,30 @@ Legacy declarations kept below only for browsers that understand Grid but not
   border-color: #5dd9c7;
 }
 
+.dynamic-entity-card.media-player-card {
+  border-color: #4f7bc5;
+  background: linear-gradient(135deg, #17253f 0%, #243158 58%, #173143 100%);
+}
+
+.dynamic-entity-card.media-player-card.is-on {
+  border-color: #74a7ff;
+  background: linear-gradient(135deg, #1b3f63 0%, #25376c 54%, #1d4f5b 100%);
+}
+
+.dynamic-entity-card.media-player-card .entity-card-icon {
+  border-color: rgba(116, 167, 255, 0.72);
+  background: #12213b;
+  color: #9fc2ff;
+}
+
+.dynamic-entity-card.media-player-card .dynamic-entity-value {
+  color: #9fc2ff;
+}
+
+.dynamic-entity-card.media-player-card .dynamic-entity-meta {
+  color: #c9dcff;
+}
+
 .dynamic-entity-card.is-clickable,
 .dynamic-special-card.is-clickable,
 .compact-entity-row.is-clickable {
@@ -3806,6 +3830,41 @@ Legacy declarations kept below only for browsers that understand Grid but not
 .climate-inline-controls .entity-range {
   width: calc(100% - 78px);
   margin: 0 7px;
+}
+
+.media-player-detail {
+  color: #c9dcff;
+  font-size: 12px;
+  font-weight: bold;
+  line-height: 1.25;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.media-player-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.media-control-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1 1 0;
+  min-width: 0;
+  height: 36px;
+  border: 1px solid rgba(159, 194, 255, 0.72);
+  border-radius: 999px;
+  background: rgba(18, 33, 59, 0.84);
+  color: #eef4ff;
+  cursor: pointer;
+}
+
+.media-control-button .ha-icon {
+  width: 19px;
+  height: 19px;
 }
 
 .entity-step-button {
