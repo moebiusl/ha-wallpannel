@@ -28,7 +28,7 @@ const DEFAULT_CONFIG: PanelConfig = {
     "default": {
       name: "Standard Wallpanel",
       defaultPage: "hof",
-      visiblePages: ["home", "raum", "energie", "sicherheit"],
+      visiblePages: ["home", "raum", "energie", "klima", "sicherheit"],
       pages: {
         hof: {
           id: "hof",
@@ -44,7 +44,7 @@ const DEFAULT_CONFIG: PanelConfig = {
   }
 };
 
-const DEFAULT_VISIBLE_PAGES = ["home", "raum", "energie", "sicherheit"];
+const DEFAULT_VISIBLE_PAGES = ["home", "raum", "energie", "klima", "sicherheit"];
 function ensureConfigDir(): void {
   const dir = path.dirname(CONFIG_PATH);
   if (!fs.existsSync(dir)) {
@@ -81,6 +81,23 @@ function normalizePageConfig(pageId: string, page: Partial<PanelPageConfig> | nu
   return normalized;
 }
 
+function normalizeVisiblePages(value: unknown): string[] {
+  const pages = uniqueStrings(value);
+  if (pages.length === 0) {
+    return DEFAULT_VISIBLE_PAGES.slice();
+  }
+  if (
+    pages.indexOf("klima") === -1 &&
+    pages.indexOf("home") !== -1 &&
+    pages.indexOf("raum") !== -1 &&
+    pages.indexOf("energie") !== -1 &&
+    pages.indexOf("sicherheit") !== -1
+  ) {
+    pages.splice(pages.indexOf("sicherheit"), 0, "klima");
+  }
+  return pages;
+}
+
 function normalizePanelConfig(config: Partial<PanelConfig> | null | undefined): PanelConfig {
   if (!config || typeof config !== "object" || !config.panels || typeof config.panels !== "object") {
     return cloneDefaultConfig();
@@ -97,7 +114,7 @@ function normalizePanelConfig(config: Partial<PanelConfig> | null | undefined): 
     panels[panelId] = {
       name: String(sourcePanel.name || panelId),
       defaultPage: String(sourcePanel.defaultPage || "hof"),
-      visiblePages: uniqueStrings(sourcePanel.visiblePages).length > 0 ? uniqueStrings(sourcePanel.visiblePages) : DEFAULT_VISIBLE_PAGES.slice(),
+      visiblePages: normalizeVisiblePages(sourcePanel.visiblePages),
       pages
     };
   }

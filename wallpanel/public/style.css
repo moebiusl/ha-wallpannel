@@ -1748,7 +1748,8 @@ a:active {
   font-style: normal;
 }
 
-.energy-page-panel {
+.energy-page-panel,
+.climate-page-panel {
   overflow: auto;
   -webkit-overflow-scrolling: touch;
 }
@@ -1787,6 +1788,142 @@ a:active {
   font-weight: bold;
   line-height: 1.1;
   overflow-wrap: anywhere;
+}
+
+.climate-bulk-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 16px;
+  padding: 12px;
+  border: 1px solid #2d445f;
+  border-radius: 14px;
+  background: #132238;
+}
+
+.climate-bulk-target {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #94a7c6;
+  font-size: 12px;
+  font-weight: bold;
+  text-transform: uppercase;
+}
+
+.climate-bulk-target input {
+  width: 82px;
+  min-height: 38px;
+  padding: 6px 10px;
+  border: 1px solid #345071;
+  border-radius: 10px;
+  background: #0f172a;
+  color: #eef4ff;
+  font-size: 18px;
+  font-weight: bold;
+}
+
+.climate-overview-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+  margin-top: 16px;
+  padding-bottom: 16px;
+}
+
+.climate-overview-card {
+  min-width: 0;
+  padding: 14px;
+  border: 1px solid #2d445f;
+  border-radius: 16px;
+  background: #132238;
+}
+
+.climate-overview-card.is-active {
+  border-color: #5dd9c7;
+  background: #173143;
+}
+
+.climate-card-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.climate-card-title {
+  color: #eef4ff;
+  font-size: 16px;
+  font-weight: bold;
+  line-height: 1.15;
+  overflow-wrap: anywhere;
+}
+
+.climate-card-area,
+.climate-card-state {
+  margin-top: 5px;
+  color: #94a7c6;
+  font-size: 12px;
+}
+
+.climate-card-state {
+  min-width: 54px;
+  margin-top: 0;
+  padding: 5px 8px;
+  border: 1px solid #345071;
+  border-radius: 999px;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.climate-card-values {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.climate-card-values span {
+  padding: 10px;
+  border: 1px solid #263a57;
+  border-radius: 12px;
+  background: #0f172a;
+}
+
+.climate-card-values b,
+.climate-card-values em {
+  display: block;
+  font-style: normal;
+}
+
+.climate-card-values b {
+  color: #5dd9c7;
+  font-size: 24px;
+  line-height: 1.1;
+}
+
+.climate-card-values em {
+  margin-top: 4px;
+  color: #94a7c6;
+  font-size: 11px;
+  text-transform: uppercase;
+}
+
+.climate-card-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.climate-card-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.climate-card-actions .pill-button {
+  flex: 1 1 0;
 }
 
 .energy-sections {

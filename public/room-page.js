@@ -2,11 +2,12 @@ var roomPageState = {
   panelId: "default",
   pageId: "hof",
   structure: null,
-  dashboard: null
+  dashboard: null,
+  lastRenderedPageId: null
 };
 var roomPageRequestSerial = 0;
 
-function setRoomLoading(active, roomName) {
+function setRoomLoading(active, roomName, clearContent) {
   var panel = document.querySelector(".room-page-panel");
   var overlay = document.getElementById("roomLoadingOverlay");
   var title = document.getElementById("roomTitle");
@@ -27,10 +28,10 @@ function setRoomLoading(active, roomName) {
   if (title && active) {
     title.textContent = roomName || "Raum";
   }
-  if (pinned && active) {
+  if (pinned && active && clearContent) {
     pinned.innerHTML = "";
   }
-  if (cards && active) {
+  if (cards && active && clearContent) {
     cards.innerHTML = "";
   }
   if (status && active) {
@@ -816,19 +817,28 @@ function renderEntityLayout(cards, entities, mount) {
   }
 }
 
-function renderRoomPayload(payload) {
+function renderRoomPayload(payload, preserveScroll) {
   setRoomLoading(false);
   var title = document.getElementById("roomTitle");
   if (title && payload.page) { title.innerHTML = payload.page.title || payload.pageId; }
 
   var mount = document.getElementById("roomCardsMount");
   if (!mount) { return; }
+  var scrollY = window.pageYOffset || document.documentElement.scrollTop || document.body.scrollTop || 0;
   mount.innerHTML = "";
 
   var cards = payload.cards || [];
   var entities = payload.entities || [];
   renderPinnedStatus(entities);
   renderEntityLayout(cards, entities, mount);
+  roomPageState.lastRenderedPageId = payload.pageId;
+
+  if (preserveScroll && scrollY > 0 && window.requestAnimationFrame) {
+    window.requestAnimationFrame(function () {
+      var maxScroll = Math.max(0, document.documentElement.scrollHeight - window.innerHeight);
+      window.scrollTo(0, Math.min(scrollY, maxScroll));
+    });
+  }
 
   var status = document.getElementById("roomUpdateState");
   if (status) {
@@ -851,7 +861,16 @@ function loadRoomPage() {
   }
   var requestedPageId = roomPageState.pageId;
   var requestSerial = ++roomPageRequestSerial;
-  setRoomLoading(true, getRoomLabel(requestedPageId));
+  var shouldClearContent = roomPageState.lastRenderedPageId !== requestedPageId;
+  if (shouldClearContent) {
+    setRoomLoading(true, getRoomLabel(requestedPageId), true);
+  } else {
+    var refreshStatus = document.getElementById("roomUpdateState");
+    if (refreshStatus) {
+      refreshStatus.innerHTML = "Aktualisiere...";
+      refreshStatus.className = "panel-meta";
+    }
+  }
   apiGet("api/page/" + encodeURIComponent(roomPageState.panelId) + "/" + encodeURIComponent(requestedPageId), function (error, payload) {
     if (requestSerial !== roomPageRequestSerial || requestedPageId !== roomPageState.pageId) {
       return;
@@ -865,7 +884,7 @@ function loadRoomPage() {
       }
       return;
     }
-    renderRoomPayload(payload);
+    renderRoomPayload(payload, !shouldClearContent);
   });
 }
 

@@ -22,6 +22,7 @@ var STATIC_PAGES = [
   { id: "home", name: "Home" },
   { id: "raum", name: "Raum" },
   { id: "energie", name: "Energie" },
+  { id: "klima", name: "Klima" },
   { id: "sicherheit", name: "Sicherheit" }
 ];
 
@@ -169,7 +170,7 @@ function applyOptionChange(callback) {
 }
 
 function isStaticEntityPage() {
-  return optionState.pageId === "energie" || optionState.pageId === "sicherheit";
+  return optionState.pageId === "energie" || optionState.pageId === "klima" || optionState.pageId === "sicherheit";
 }
 
 function findEntityById(entityId) {
@@ -292,6 +293,11 @@ function getPageEntities() {
   if (optionState.pageId === "energie") {
     return getEnergyOptionEntities().sort(sortOptionEntities);
   }
+  if (optionState.pageId === "klima") {
+    return entities.filter(function (entity) {
+      return entity.domain === "climate";
+    }).sort(sortOptionEntities);
+  }
   if (optionState.pageId === "sicherheit") {
     return entities.filter(isOptionsSecurityEntity).sort(sortOptionEntities);
   }
@@ -337,7 +343,7 @@ function getCurrentPanel() {
     optionState.config.panels[optionState.panelId] = {
       name: optionState.panelId,
       defaultPage: optionState.pageId,
-      visiblePages: ["home", "raum", "energie", "sicherheit"],
+      visiblePages: ["home", "raum", "energie", "klima", "sicherheit"],
       pages: {}
     };
   }
@@ -486,7 +492,7 @@ function renderAreaSelect() {
   if (isStaticEntityPage()) {
     var staticOption = document.createElement("option");
     staticOption.value = "";
-    staticOption.innerHTML = optionState.pageId === "energie" ? "Energie-Entitäten" : "Sicherheits-Entitäten";
+    staticOption.innerHTML = optionState.pageId === "energie" ? "Energie-Entitäten" : optionState.pageId === "klima" ? "Klima-Entitäten" : "Sicherheits-Entitäten";
     select.appendChild(staticOption);
     select.disabled = true;
     if (cleanupButton) { cleanupButton.style.display = "none"; }
