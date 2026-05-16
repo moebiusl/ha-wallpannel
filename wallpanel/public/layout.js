@@ -55,6 +55,9 @@ function buildHeader(activePage, roomLabel, roomId, visiblePages) {
   if (pageVisible('energie')) {
     links += navLink('Energie', 'energie.html', 'energie');
   }
+  if (pageVisible('klima')) {
+    links += navLink('Klima', 'klima.html', 'klima');
+  }
   if (pageVisible('sicherheit')) {
     links += navLink('Sicherheit', 'sicherheit.html', 'sicherheit');
   }

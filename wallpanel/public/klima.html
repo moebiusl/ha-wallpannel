@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <title>HA Wallpanel - Klima</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body data-page="klima" data-room="hof">
+  <div class="app-shell">
+    <div id="headerMount"></div>
+
+    <div class="layout">
+      <main class="dashboard-main">
+        <section class="single-page-grid">
+          <article class="panel large-page-panel climate-page-panel">
+            <div class="panel-header">
+              <span class="panel-kicker">Klima</span>
+              <span id="climateUpdateState" class="panel-meta climate-update-meta">Lade...</span>
+            </div>
+
+            <div class="climate-bulk-bar">
+              <div class="climate-bulk-info">
+                <div class="climate-bulk-title">Alle Heizungen</div>
+                <div class="climate-bulk-subtitle">Zentrale Steuerung</div>
+              </div>
+              <div class="climate-bulk-actions">
+                <button class="pill-button pill-button-large climate-off-button" type="button" onclick="turnOffAllClimate()">Alle aus</button>
+                <label class="climate-bulk-target">
+                  <span>Ziel</span>
+                  <input id="climateBulkTemperature" type="number" min="5" max="30" step="0.5" value="20">
+                </label>
+                <button class="pill-button pill-button-large active" type="button" onclick="setAllClimateTemperature()">Alle setzen</button>
+              </div>
+            </div>
+
+            <div id="climateOverview" class="climate-overview-grid"></div>
+          </article>
+        </section>
+      </main>
+    </div>
+  </div>
+
+  <script src="icons.js"></script>
+  <script src="layout.js"></script>
+  <script src="api.js"></script>
+  <script src="klima.js"></script>
+</body>
+</html>
