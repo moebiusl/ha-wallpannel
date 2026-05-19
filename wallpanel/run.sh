@@ -19,6 +19,23 @@ load_token_file /run/s6/container_environment/HA_TOKEN
 load_token_file /run/s6/container_environment/SUPERVISOR_TOKEN
 load_token_file /run/s6/container_environment/HASSIO_TOKEN
 
+# Supervisor-Token separat exportieren, damit er auch nach ha_token-Überschreibung verfügbar bleibt
+load_supervisor_token() {
+  [ -n "$SUPERVISOR_TOKEN" ] && return
+  for _f in \
+    /var/run/s6/container_environment/SUPERVISOR_TOKEN \
+    /var/run/s6/container_environment/HASSIO_TOKEN \
+    /run/s6/container_environment/SUPERVISOR_TOKEN \
+    /run/s6/container_environment/HASSIO_TOKEN; do
+    if [ -f "$_f" ]; then
+      SUPERVISOR_TOKEN="$(cat "$_f")"
+      export SUPERVISOR_TOKEN
+      return
+    fi
+  done
+}
+load_supervisor_token
+
 if [ -f /data/options.json ]; then
   node <<'NODE' > /tmp/wallpanel-options-env
 const fs = require("fs");

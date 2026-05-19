@@ -1,3 +1,7 @@
+## 1.3.2
+
+- Boiler-Timer: `[boiler-timer] state changed` wird nicht mehr ins Server-Protokoll geschrieben
+
 ## 1.3.1
 
 ### Add-on-Seite — 401-Fehler behoben
