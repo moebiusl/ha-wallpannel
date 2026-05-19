@@ -1,3 +1,9 @@
+## 1.3.3
+
+### Add-on-Seite — HTTP 403 behoben
+- `hassio_role: manager` in `config.yaml` ergänzt
+- Ohne diese Role liefert der Supervisor `GET /addons` einen 403-Fehler, auch wenn der Token korrekt ist
+
 ## 1.3.2
 
 - Boiler-Timer: `[boiler-timer] state changed` wird nicht mehr ins Server-Protokoll geschrieben
