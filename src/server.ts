@@ -86,6 +86,25 @@ const ha = axios.create({
   timeout: HA_TIMEOUT_MS
 });
 
+const supervisor = axios.create({
+  baseURL: "http://supervisor",
+  headers: {
+    Authorization: `Bearer ${HA_TOKEN}`,
+    "Content-Type": "application/json"
+  },
+  timeout: 6000
+});
+
+function readLocalVersion(): string {
+  try {
+    const content = fs.readFileSync(path.join(__dirname, "../wallpanel/config.yaml"), "utf8");
+    const match = content.match(/^version:\s*["']?([^"'\n\r]+)["']?/m);
+    return match ? match[1].trim() : "unbekannt";
+  } catch {
+    return "unbekannt";
+  }
+}
+
 type HaStructure = {
   floors: unknown[];
   areas: Array<Record<string, unknown> & { area_id?: string; name?: string }>;
@@ -1642,6 +1661,32 @@ app.get("/api/ha-logbook", async (_req: Request, res: Response) => {
   } catch (error) {
     console.error("Fehler beim Laden des HA-Logbuchs:", describeError(error));
     res.status(500).json([]);
+  }
+});
+
+app.get("/api/addon-info", async (_req: Request, res: Response) => {
+  const version = readLocalVersion();
+  try {
+    const response = await supervisor.get("/addons/self/info");
+    const data = response.data?.data ?? {};
+    res.json({
+      version,
+      version_latest: String(data.version_latest ?? version),
+      update_available: !!data.update_available,
+      name: String(data.name ?? "HA Wallpanel"),
+      slug: String(data.slug ?? "wallpanel")
+    });
+  } catch {
+    res.json({ version, version_latest: version, update_available: false, name: "HA Wallpanel", slug: "wallpanel" });
+  }
+});
+
+app.get("/api/changelog", (_req: Request, res: Response) => {
+  try {
+    const content = fs.readFileSync(path.join(__dirname, "../wallpanel/CHANGELOG.md"), "utf8");
+    res.type("text/plain").send(content);
+  } catch {
+    res.status(404).send("");
   }
 });
 

@@ -327,6 +327,7 @@ function renderSharedLayout() {
         loadPanelConfig(function (_configError, payload) {
           headerMount.innerHTML = buildHeader(activePage, findAreaName(structure, activeRoom), activeRoom, getVisiblePagesFromConfig(payload));
           renderRoomsModal(structure);
+          checkAddonUpdate();
         });
       }
     });
@@ -370,6 +371,31 @@ function setupIdleHomeRedirect() {
   }
   resetTimer();
 }
+
+/* ── Add-on Update-Check ─────────────────────────────────────────── */
+var _addonInfo = null;
+
+function checkAddonUpdate() {
+  var xhr = new XMLHttpRequest();
+  xhr.open('GET', 'api/addon-info', true);
+  xhr.onreadystatechange = function () {
+    if (xhr.readyState !== 4 || xhr.status !== 200) { return; }
+    try {
+      var info = JSON.parse(xhr.responseText);
+      _addonInfo = info;
+      if (info.update_available) {
+        var link = document.querySelector('a[href="optionen.html"]');
+        if (link && link.className.indexOf('update-badge') === -1) {
+          link.className += ' has-update';
+          link.title = 'Update verfügbar: v' + info.version_latest;
+        }
+      }
+    } catch (_e) { /* ignore */ }
+  };
+  xhr.send();
+}
+
+window.getAddonInfo = function () { return _addonInfo; };
 
 /* ── Offline-Banner ──────────────────────────────────────────────── */
 function ensureOfflineBanner() {

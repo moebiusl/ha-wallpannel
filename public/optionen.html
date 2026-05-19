@@ -177,6 +177,15 @@
               <div class="settings-layout-grid">
 
                 <section class="settings-section settings-section-wide">
+                  <div class="settings-title">Über das Add-on</div>
+                  <div id="addonInfoMount" class="addon-info-block">
+                    <div class="settings-empty">Lade…</div>
+                  </div>
+                  <button class="pill-button" style="margin-top:10px" type="button" onclick="toggleChangelog()">Changelog anzeigen</button>
+                  <div id="changelogMount" class="changelog-block" style="display:none"></div>
+                </section>
+
+                <section class="settings-section settings-section-wide">
                   <div class="settings-title">Mitteilungs-Schwellwerte</div>
                   <div class="settings-threshold-grid">
                     <div class="settings-threshold-row">

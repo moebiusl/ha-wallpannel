@@ -83,7 +83,7 @@ function showSettingsTab(tab) {
     if (btn) { btn.className = t === tab ? "settings-tab active" : "settings-tab"; }
   }
   if (tab === "automationen") { loadAutomations(); }
-  if (tab === "system") { loadNotificationSettings(); showLog("gate"); }
+  if (tab === "system") { loadAddonInfo(); loadNotificationSettings(); showLog("gate"); }
 }
 
 function loadAutomations() {
@@ -1066,6 +1066,81 @@ function initOptionsPage() {
       });
     });
   });
+}
+
+/* ── Add-on Info & Changelog ──────────────────────────────────── */
+function loadAddonInfo() {
+  var mount = document.getElementById("addonInfoMount");
+  if (!mount) { return; }
+  var cached = typeof getAddonInfo === "function" ? getAddonInfo() : null;
+  if (cached) {
+    renderAddonInfo(mount, cached);
+    return;
+  }
+  mount.innerHTML = '<div class="settings-empty">Lade…</div>';
+  apiGet("api/addon-info", function (error, info) {
+    if (error || !info) {
+      mount.innerHTML = '<div class="settings-empty">Versionsinformationen nicht verfügbar</div>';
+      return;
+    }
+    renderAddonInfo(mount, info);
+  });
+}
+
+function renderAddonInfo(mount, info) {
+  var html = '<div class="addon-info-name">' + escapeHtml(info.name || "HA Wallpanel") + '</div>';
+  html += '<div class="addon-info-version">Version ' + escapeHtml(info.version || "–") + '</div>';
+  if (info.update_available) {
+    html += '<div class="addon-info-update">Update verfügbar: v' + escapeHtml(info.version_latest) + '</div>';
+  } else {
+    html += '<div class="addon-info-current">Aktuell — neueste Version installiert</div>';
+  }
+  mount.innerHTML = html;
+}
+
+function toggleChangelog() {
+  var mount = document.getElementById("changelogMount");
+  if (!mount) { return; }
+  if (mount.style.display !== "none") {
+    mount.style.display = "none";
+    return;
+  }
+  if (mount.innerHTML) {
+    mount.style.display = "";
+    return;
+  }
+  mount.style.display = "";
+  mount.innerHTML = '<div class="settings-empty">Lade Changelog…</div>';
+  apiGet("api/changelog", function (error, _ignored) {
+    // apiGet parses JSON — use raw XHR for plain text
+  });
+  var xhr = new XMLHttpRequest();
+  xhr.open("GET", "api/changelog", true);
+  xhr.onreadystatechange = function () {
+    if (xhr.readyState !== 4) { return; }
+    if (xhr.status === 200) {
+      mount.innerHTML = renderChangelogText(xhr.responseText);
+    } else {
+      mount.innerHTML = '<div class="settings-empty">Changelog nicht verfügbar</div>';
+    }
+  };
+  xhr.send();
+}
+
+function renderChangelogText(text) {
+  var lines = text.split("\n");
+  var html = "";
+  for (var i = 0; i < lines.length; i++) {
+    var line = lines[i];
+    if (line.indexOf("## ") === 0) {
+      html += '<div class="cl-version">' + escapeHtml(line.slice(3)) + '</div>';
+    } else if (line.indexOf("### ") === 0) {
+      html += '<div class="cl-category">' + escapeHtml(line.slice(4)) + '</div>';
+    } else if (line.indexOf("- ") === 0) {
+      html += '<div class="cl-item">' + escapeHtml(line.slice(2)) + '</div>';
+    }
+  }
+  return html || '<div class="settings-empty">Kein Inhalt</div>';
 }
 
 /* ── Mitteilungs-Schwellwerte ──────────────────────────────────── */
