@@ -83,6 +83,7 @@ function showSettingsTab(tab) {
     if (btn) { btn.className = t === tab ? "settings-tab active" : "settings-tab"; }
   }
   if (tab === "automationen") { loadAutomations(); }
+  if (tab === "system") { loadNotificationSettings(); showLog("gate"); }
 }
 
 function loadAutomations() {
@@ -1065,6 +1066,159 @@ function initOptionsPage() {
       });
     });
   });
+}
+
+/* ── Mitteilungs-Schwellwerte ──────────────────────────────────── */
+function loadNotificationSettings() {
+  var defaults = { batteryThreshold: 20, wasteDaysAhead: 1 };
+  var stored = null;
+  try {
+    stored = window.localStorage ? JSON.parse(window.localStorage.getItem("haWallpanel.notificationSettings") || "null") : null;
+  } catch (_e) { stored = null; }
+  var s = stored || defaults;
+  var bt = document.getElementById("notifBatteryThreshold");
+  var wd = document.getElementById("notifWasteDays");
+  if (bt) { bt.value = s.batteryThreshold; }
+  if (wd) { wd.value = s.wasteDaysAhead; }
+}
+
+function saveNotificationSettings() {
+  function intVal(id, fallback) {
+    var el = document.getElementById(id);
+    var v = el ? parseInt(el.value, 10) : fallback;
+    return Number.isFinite(v) ? v : fallback;
+  }
+  var settings = {
+    batteryThreshold: Math.min(100, Math.max(1, intVal("notifBatteryThreshold", 20))),
+    wasteDaysAhead:   Math.min(7,   Math.max(0, intVal("notifWasteDays", 1)))
+  };
+  if (window.localStorage) {
+    window.localStorage.setItem("haWallpanel.notificationSettings", JSON.stringify(settings));
+  }
+  var state = document.getElementById("notifSaveState");
+  if (state) { state.textContent = "Gespeichert"; setTimeout(function () { if (state) { state.textContent = ""; } }, 2000); }
+}
+
+/* ── Aktivitäts-Log ───────────────────────────────────────────── */
+var currentLogFilter = "gate";
+
+function showLog(filter) {
+  currentLogFilter = filter;
+  var filters = ["gate", "automationen", "all"];
+  for (var i = 0; i < filters.length; i++) {
+    var btn = document.getElementById("logFilterBtn-" + filters[i]);
+    if (btn) { btn.className = filters[i] === filter ? "pill-button active" : "pill-button"; }
+  }
+  if (filter === "automationen") {
+    loadHaLogbook();
+  } else {
+    loadActivityLog(filter === "all" ? "" : filter);
+  }
+}
+
+function loadActivityLog(category) {
+  var mount = document.getElementById("activityLogMount");
+  if (!mount) { return; }
+  mount.innerHTML = '<div class="settings-empty">Lade…</div>';
+  var url = "api/activity-log" + (category ? "?category=" + encodeURIComponent(category) : "");
+  apiGet(url, function (error, data) {
+    mount.innerHTML = "";
+    if (error || !Array.isArray(data) || data.length === 0) {
+      mount.innerHTML = '<div class="settings-empty">' + (error ? "Fehler beim Laden" : "Keine Einträge") + "</div>";
+      return;
+    }
+    for (var i = 0; i < data.length; i++) {
+      mount.appendChild(renderActivityEntry(data[i]));
+    }
+  });
+}
+
+function loadHaLogbook() {
+  var mount = document.getElementById("activityLogMount");
+  if (!mount) { return; }
+  mount.innerHTML = '<div class="settings-empty">Lade HA-Logbuch…</div>';
+  apiGet("api/ha-logbook?hours=24", function (error, data) {
+    mount.innerHTML = "";
+    if (error || !Array.isArray(data) || data.length === 0) {
+      mount.innerHTML = '<div class="settings-empty">' + (error ? "Fehler beim Laden" : "Keine Automationen in den letzten 24h") + "</div>";
+      return;
+    }
+    for (var i = data.length - 1; i >= 0; i--) {
+      mount.appendChild(renderHaLogEntry(data[i]));
+    }
+  });
+}
+
+function renderActivityEntry(entry) {
+  var row = document.createElement("div");
+  row.className = "activity-row" + (entry.ok ? "" : " is-error");
+
+  var time = document.createElement("div");
+  time.className = "activity-time";
+  time.textContent = formatGermanDateTime(entry.ts);
+  row.appendChild(time);
+
+  var info = document.createElement("div");
+  info.className = "activity-info";
+
+  var action = document.createElement("div");
+  action.className = "activity-action";
+  action.textContent = entry.action;
+  info.appendChild(action);
+
+  if (entry.context) {
+    var ctx = document.createElement("div");
+    ctx.className = "activity-context";
+    ctx.textContent = "Torstatus: " + entry.context;
+    info.appendChild(ctx);
+  }
+  if (!entry.ok && entry.detail) {
+    var det = document.createElement("div");
+    det.className = "activity-context activity-error-text";
+    det.textContent = entry.detail;
+    info.appendChild(det);
+  }
+  row.appendChild(info);
+
+  var badge = document.createElement("div");
+  badge.className = "activity-badge " + (entry.ok ? "ok" : "err");
+  badge.textContent = entry.ok ? "OK" : "Fehler";
+  row.appendChild(badge);
+
+  return row;
+}
+
+function renderHaLogEntry(entry) {
+  var row = document.createElement("div");
+  row.className = "activity-row";
+
+  var time = document.createElement("div");
+  time.className = "activity-time";
+  time.textContent = entry.when ? formatGermanDateTime(entry.when) : "–";
+  row.appendChild(time);
+
+  var info = document.createElement("div");
+  info.className = "activity-info";
+
+  var action = document.createElement("div");
+  action.className = "activity-action";
+  action.textContent = entry.name || entry.entity_id || "Automation";
+  info.appendChild(action);
+
+  if (entry.message) {
+    var msg = document.createElement("div");
+    msg.className = "activity-context";
+    msg.textContent = entry.message;
+    info.appendChild(msg);
+  }
+  row.appendChild(info);
+
+  var badge = document.createElement("div");
+  badge.className = "activity-badge ok";
+  badge.textContent = "ausgelöst";
+  row.appendChild(badge);
+
+  return row;
 }
 
 initOptionsPage();

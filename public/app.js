@@ -11,6 +11,15 @@ var notificationState = {
 };
 var boilerTimerState = null;
 var boilerCountdownInterval = null;
+
+function getNotificationSettings() {
+  var defaults = { batteryThreshold: 20, wasteDaysAhead: 1 };
+  if (!window.localStorage) { return defaults; }
+  try {
+    var stored = window.localStorage.getItem("haWallpanel.notificationSettings");
+    return stored ? JSON.parse(stored) : defaults;
+  } catch (_e) { return defaults; }
+}
 function openModal(id) {
   var backdrop = document.getElementById("modalBackdrop");
   var modal = document.getElementById(id);
@@ -861,12 +870,13 @@ function getWasteNotification(label, value) {
   if (!value || value === "unavailable") { return null; }
   var text = String(value);
   var days = parseWasteUrgency(text);
-  if (days > 1) { return null; }
+  var threshold = getNotificationSettings().wasteDaysAhead;
+  if (days > threshold) { return null; }
   return {
     level: days === 0 ? "danger waste-urgent" : "warn waste-urgent",
     priority: days,
     title: label,
-    text: days === 0 ? "Heute Leerung" : "Morgen Leerung"
+    text: days === 0 ? "Heute Leerung" : (days === 1 ? "Morgen Leerung" : "Leerung in " + days + " Tagen")
   };
 }
 
@@ -908,7 +918,8 @@ function renderNotifications() {
     if (entity.deviceClass !== "battery") { continue; }
     if (isIgnoredBatteryEntity(entity)) { continue; }
     var value = Number(entity.state);
-    if (!Number.isNaN(value) && value <= 20) {
+    var batteryThreshold = getNotificationSettings().batteryThreshold;
+    if (!Number.isNaN(value) && value <= batteryThreshold) {
       notices.push({
         level: value <= 10 ? "danger" : "warn",
         priority: value <= 10 ? 10 + value : 100 + value,

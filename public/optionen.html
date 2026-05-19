@@ -175,12 +175,50 @@
             <!-- ── Tab: System ───────────────────────────────────── -->
             <div id="settingsTab-system" class="settings-tab-panel" style="display:none">
               <div class="settings-layout-grid">
+
+                <section class="settings-section settings-section-wide">
+                  <div class="settings-title">Mitteilungs-Schwellwerte</div>
+                  <div class="settings-threshold-grid">
+                    <div class="settings-threshold-row">
+                      <label class="select-label" for="notifBatteryThreshold">Batterie warnen unter</label>
+                      <div class="settings-threshold-input-row">
+                        <input type="number" id="notifBatteryThreshold" class="settings-time-input" min="1" max="100" value="20">
+                        <span class="settings-threshold-unit">%</span>
+                      </div>
+                    </div>
+                    <div class="settings-threshold-row">
+                      <label class="select-label" for="notifWasteDays">Abfall ankündigen</label>
+                      <div class="settings-threshold-input-row">
+                        <input type="number" id="notifWasteDays" class="settings-time-input" min="0" max="7" value="1">
+                        <span class="settings-threshold-unit">Tag(e) vorher</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div style="margin-top:12px">
+                    <button class="pill-button active" type="button" onclick="saveNotificationSettings()">Speichern</button>
+                    <span id="notifSaveState" class="settings-save-state"></span>
+                  </div>
+                </section>
+
+                <section class="settings-section settings-section-wide">
+                  <div class="settings-tab-header" style="margin-bottom:12px">
+                    <div class="settings-title">Aktivitäts-Log</div>
+                    <div class="log-filter-buttons">
+                      <button id="logFilterBtn-gate"        class="pill-button active" type="button" onclick="showLog('gate')">Tor</button>
+                      <button id="logFilterBtn-automationen" class="pill-button"       type="button" onclick="showLog('automationen')">Automationen</button>
+                      <button id="logFilterBtn-all"          class="pill-button"       type="button" onclick="showLog('all')">Alle</button>
+                    </div>
+                  </div>
+                  <div id="activityLogMount" class="activity-log-list"></div>
+                </section>
+
                 <section class="settings-section settings-section-wide">
                   <div class="settings-title">Wartung</div>
                   <div class="settings-hint" style="margin-bottom:14px;">Entfernt Entitäten aus dem gewählten Raum (Inhalte → Seite wählen), die nicht zu diesem Bereich gehören.</div>
                   <button id="cleanupRoomEntitiesButton" class="pill-button" type="button" onclick="cleanupForeignRoomEntities()">Nicht zugehörige Entitäten entfernen</button>
                   <span id="cleanupRoomEntitiesState" class="settings-save-state"></span>
                 </section>
+
               </div>
             </div>
 

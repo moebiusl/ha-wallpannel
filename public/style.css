@@ -4297,6 +4297,118 @@ body.night-mode-active {
   margin-top: 3px;
 }
 
+/* ── Schwellwert-Eingaben (System-Tab) ───────────────────────────── */
+.settings-threshold-grid {
+  display: -webkit-flex;
+  display: flex;
+  -webkit-flex-wrap: wrap;
+  flex-wrap: wrap;
+  margin: 8px -8px 0;
+}
+
+.settings-threshold-row {
+  -webkit-flex: 1 1 180px;
+  flex: 1 1 180px;
+  margin: 0 8px 14px;
+}
+
+.settings-threshold-input-row {
+  display: -webkit-flex;
+  display: flex;
+  -webkit-align-items: center;
+  align-items: center;
+  margin-top: 6px;
+}
+
+.settings-threshold-unit {
+  color: #94a7c6;
+  font-size: 13px;
+  margin-left: 8px;
+  white-space: nowrap;
+}
+
+/* ── Aktivitäts-Log ──────────────────────────────────────────────── */
+.log-filter-buttons {
+  display: -webkit-flex;
+  display: flex;
+  gap: 6px;
+}
+
+.activity-log-list {
+  max-height: 420px;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.activity-row {
+  display: -webkit-flex;
+  display: flex;
+  -webkit-align-items: flex-start;
+  align-items: flex-start;
+  padding: 10px 0;
+  border-bottom: 1px solid #1a2740;
+}
+
+.activity-row:last-child {
+  border-bottom: none;
+}
+
+.activity-row.is-error {
+  background: rgba(255, 80, 80, 0.04);
+  border-radius: 6px;
+  padding: 10px 6px;
+}
+
+.activity-time {
+  color: #5a7a9a;
+  font-size: 11px;
+  min-width: 128px;
+  padding-top: 2px;
+  white-space: nowrap;
+}
+
+.activity-info {
+  -webkit-flex: 1 1 auto;
+  flex: 1 1 auto;
+  min-width: 0;
+  margin: 0 10px;
+}
+
+.activity-action {
+  color: #eef4ff;
+  font-size: 13px;
+  font-weight: bold;
+}
+
+.activity-context {
+  color: #94a7c6;
+  font-size: 11px;
+  margin-top: 2px;
+}
+
+.activity-error-text {
+  color: #e07070;
+}
+
+.activity-badge {
+  border-radius: 6px;
+  font-size: 10px;
+  font-weight: bold;
+  letter-spacing: 0.04em;
+  padding: 3px 8px;
+  white-space: nowrap;
+}
+
+.activity-badge.ok {
+  background: rgba(93, 217, 199, 0.12);
+  color: #5dd9c7;
+}
+
+.activity-badge.err {
+  background: rgba(255, 80, 80, 0.15);
+  color: #e07070;
+}
+
 /* ── Lade-Animation für Karten ───────────────────────────────────── */
 @-webkit-keyframes cardPulse {
   from { opacity: 1; }

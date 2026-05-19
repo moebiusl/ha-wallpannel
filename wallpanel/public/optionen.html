@@ -14,6 +14,8 @@
     <div class="layout">
       <main class="dashboard-main single-page-main">
         <section class="single-page-grid">
+
+          <!-- PIN-Sperre -->
           <article id="settingsLock" class="panel large-page-panel settings-panel dynamic-settings-panel">
             <div class="panel-header">
               <span class="panel-kicker">Optionen</span>
@@ -41,97 +43,185 @@
             </div>
           </article>
 
+          <!-- Einstellungen (nach PIN-Freigabe) -->
           <article id="settingsContent" class="panel large-page-panel settings-panel dynamic-settings-panel" style="display: none;">
             <div class="panel-header">
               <span class="panel-kicker">Optionen</span>
               <span class="panel-meta">Wallpanel Konfiguration</span>
             </div>
-            <div class="settings-sticky-actions">
-              <button class="pill-button active" type="button" onclick="savePanelOptions()">Speichern</button>
-              <span id="settingsSaveState" class="settings-save-state"></span>
-            </div>
 
-            <div class="settings-layout-grid">
-              <section class="settings-section">
-                <div class="settings-title">Allgemein fürs Tablet</div>
-                <label class="select-label" for="panelSelect">Panel wählen</label>
-                <select id="panelSelect" class="room-select"></select>
-                <div class="settings-hint">Die Auswahl wird lokal auf diesem Tablet gespeichert.</div>
-                <label class="select-label settings-label-spaced" for="tabletRoomSelect">Tablet hängt in Raum</label>
-                <select id="tabletRoomSelect" class="room-select"></select>
-              </section>
+            <!-- Tab-Navigation -->
+            <nav class="settings-tabs">
+              <button id="settingsTabBtn-tablet"      class="settings-tab active" type="button" onclick="showSettingsTab('tablet')">Dieses Tablet</button>
+              <button id="settingsTabBtn-inhalte"     class="settings-tab"        type="button" onclick="showSettingsTab('inhalte')">Inhalte</button>
+              <button id="settingsTabBtn-automationen" class="settings-tab"       type="button" onclick="showSettingsTab('automationen')">Automationen</button>
+              <button id="settingsTabBtn-system"      class="settings-tab"        type="button" onclick="showSettingsTab('system')">System</button>
+            </nav>
 
-              <section class="settings-section">
-                <div class="settings-title">Navigation</div>
-                <div id="visiblePagesMount" class="dynamic-list settings-compact-checks"></div>
-              </section>
+            <!-- ── Tab: Dieses Tablet ─────────────────────────────── -->
+            <div id="settingsTab-tablet" class="settings-tab-panel">
+              <div class="settings-layout-grid">
 
-              <section class="settings-section">
-                <div class="settings-title">Nachtmodus</div>
-                <label class="settings-check" style="margin-bottom:10px;">
-                  <input type="checkbox" id="nightModeEnabled" onchange="saveNightModeSettings()">
-                  <span>Nachtmodus aktivieren</span>
-                </label>
-                <div id="nightModeConfig" style="display:none">
-                  <div class="select-label">Beginn</div>
-                  <div class="settings-time-row">
-                    <input type="number" id="nightModeStartHour" class="settings-time-input" min="0" max="23" value="22" onchange="saveNightModeSettings()">
-                    <span>:</span>
-                    <input type="number" id="nightModeStartMinute" class="settings-time-input" min="0" max="59" value="0" onchange="saveNightModeSettings()">
+                <section class="settings-section">
+                  <div class="settings-title">Panel &amp; Raum</div>
+                  <label class="select-label" for="panelSelect">Panel wählen</label>
+                  <select id="panelSelect" class="room-select"></select>
+                  <div class="settings-hint">Wird lokal auf diesem Tablet gespeichert.</div>
+                  <label class="select-label settings-label-spaced" for="tabletRoomSelect">Tablet hängt in Raum</label>
+                  <select id="tabletRoomSelect" class="room-select"></select>
+                </section>
+
+                <section class="settings-section">
+                  <div class="settings-title">Navigation</div>
+                  <div id="visiblePagesMount" class="dynamic-list settings-compact-checks"></div>
+                </section>
+
+                <section class="settings-section settings-section-wide">
+                  <div class="settings-title">Nachtmodus</div>
+                  <label class="settings-check" style="margin-bottom:12px;">
+                    <input type="checkbox" id="nightModeEnabled" onchange="saveNightModeSettings()">
+                    <span>Nachtmodus aktivieren</span>
+                  </label>
+                  <div id="nightModeConfig" style="display:none">
+                    <div class="settings-layout-grid" style="margin-top:8px">
+                      <section class="settings-section">
+                        <div class="select-label">Beginn</div>
+                        <div class="settings-time-row">
+                          <input type="number" id="nightModeStartHour"   class="settings-time-input" min="0" max="23" value="22" onchange="saveNightModeSettings()">
+                          <span>:</span>
+                          <input type="number" id="nightModeStartMinute" class="settings-time-input" min="0" max="59" value="0"  onchange="saveNightModeSettings()">
+                        </div>
+                      </section>
+                      <section class="settings-section">
+                        <div class="select-label">Ende</div>
+                        <div class="settings-time-row">
+                          <input type="number" id="nightModeEndHour"   class="settings-time-input" min="0" max="23" value="7" onchange="saveNightModeSettings()">
+                          <span>:</span>
+                          <input type="number" id="nightModeEndMinute" class="settings-time-input" min="0" max="59" value="0" onchange="saveNightModeSettings()">
+                        </div>
+                      </section>
+                      <section class="settings-section settings-section-wide">
+                        <div class="select-label">Helligkeit: <span id="nightModeBrightnessValue">15</span>%</div>
+                        <input type="range" id="nightModeBrightness" class="entity-range" min="2" max="50" value="15"
+                          oninput="document.getElementById('nightModeBrightnessValue').textContent=this.value"
+                          onchange="saveNightModeSettings()">
+                      </section>
+                    </div>
                   </div>
-                  <div class="select-label settings-label-spaced">Ende</div>
-                  <div class="settings-time-row">
-                    <input type="number" id="nightModeEndHour" class="settings-time-input" min="0" max="23" value="7" onchange="saveNightModeSettings()">
-                    <span>:</span>
-                    <input type="number" id="nightModeEndMinute" class="settings-time-input" min="0" max="59" value="0" onchange="saveNightModeSettings()">
+                </section>
+
+              </div>
+            </div>
+
+            <!-- ── Tab: Inhalte ──────────────────────────────────── -->
+            <div id="settingsTab-inhalte" class="settings-tab-panel" style="display:none">
+              <div class="settings-sticky-actions">
+                <button class="pill-button active" type="button" onclick="savePanelOptions()">Speichern</button>
+                <span id="settingsSaveState" class="settings-save-state"></span>
+              </div>
+              <div class="settings-layout-grid">
+
+                <section class="settings-section settings-section-wide">
+                  <div class="settings-title">Diese Seite bearbeiten</div>
+                  <label class="select-label" for="pageSelect">Seite wählen</label>
+                  <select id="pageSelect" class="room-select"></select>
+                  <label class="select-label settings-label-spaced" for="areaSelect">Home-Assistant-Bereich/Raum</label>
+                  <select id="areaSelect" class="room-select"></select>
+                  <div class="settings-hint">Für Energie und Sicherheit kannst du hier ebenfalls einzelne Entitäten ein- oder ausblenden.</div>
+                </section>
+
+                <section class="settings-section">
+                  <div class="settings-title">Spezialkarten</div>
+                  <div id="cardsMount" class="dynamic-list settings-compact-checks"></div>
+                </section>
+
+                <section class="settings-section">
+                  <div class="settings-title">Geräte</div>
+                  <div class="settings-bulk-actions">
+                    <button class="pill-button" type="button" onclick="setAllVisibleDevices(true)">Alle auswählen</button>
+                    <button class="pill-button" type="button" onclick="setAllVisibleDevices(false)">Alle abwählen</button>
+                    <button class="pill-button" id="hideUnavailableDevicesButton" type="button" onclick="toggleHideUnavailable()">Nicht verfügbare ausblenden</button>
                   </div>
-                  <div class="select-label settings-label-spaced">Helligkeit: <span id="nightModeBrightnessValue">15</span>%</div>
-                  <input type="range" id="nightModeBrightness" class="entity-range" min="2" max="50" value="15" oninput="document.getElementById('nightModeBrightnessValue').textContent=this.value" onchange="saveNightModeSettings()">
-                </div>
-              </section>
+                  <div id="devicesMount" class="dynamic-list settings-preview-list"></div>
+                  <button class="pill-button settings-more-button" type="button" onclick="openOptionsPicker('devices')">Alle Geräte anzeigen</button>
+                </section>
 
-              <section class="settings-section settings-section-wide">
-                <div class="settings-title">Diese Seite bearbeiten</div>
-                <label class="select-label" for="pageSelect">Seite wählen</label>
-                <select id="pageSelect" class="room-select"></select>
-                <label class="select-label settings-label-spaced" for="areaSelect">Home-Assistant-Bereich/Raum</label>
-                <select id="areaSelect" class="room-select"></select>
-                <div class="settings-hint">Für Energie und Sicherheit kannst du hier ebenfalls einzelne Entitäten ein- oder ausblenden.</div>
-                <button id="cleanupRoomEntitiesButton" class="pill-button settings-debug-button" type="button" onclick="cleanupForeignRoomEntities()">DEBUG: nicht zugehörige Entitäten entfernen</button>
-                <span id="cleanupRoomEntitiesState" class="settings-save-state"></span>
-              </section>
+                <section class="settings-section settings-section-wide">
+                  <div class="settings-title">Entitäten</div>
+                  <div class="settings-bulk-actions">
+                    <button class="pill-button" type="button" onclick="setAllVisibleEntities(true)">Alle auswählen</button>
+                    <button class="pill-button" type="button" onclick="setAllVisibleEntities(false)">Alle abwählen</button>
+                    <button class="pill-button" id="hideUnavailableEntitiesButton" type="button" onclick="toggleHideUnavailable()">Nicht verfügbare ausblenden</button>
+                  </div>
+                  <div id="entitiesMount" class="dynamic-list settings-preview-list"></div>
+                  <button class="pill-button settings-more-button" type="button" onclick="openOptionsPicker('entities')">Alle Entitäten anzeigen</button>
+                </section>
 
-              <section class="settings-section">
-                <div class="settings-title">Spezialkarten</div>
-                <div id="cardsMount" class="dynamic-list settings-compact-checks"></div>
-              </section>
-
-              <section class="settings-section">
-                <div class="settings-title">Geräte</div>
-                <div class="settings-bulk-actions">
-                  <button class="pill-button" type="button" onclick="setAllVisibleDevices(true)">Alle auswählen</button>
-                  <button class="pill-button" type="button" onclick="setAllVisibleDevices(false)">Alle abwählen</button>
-                  <button class="pill-button" id="hideUnavailableDevicesButton" type="button" onclick="toggleHideUnavailable()">Nicht verfügbare ausblenden</button>
-                </div>
-                <div id="devicesMount" class="dynamic-list settings-preview-list"></div>
-                <button class="pill-button settings-more-button" type="button" onclick="openOptionsPicker('devices')">Alle Geräte anzeigen</button>
-              </section>
-
-              <section class="settings-section settings-section-wide">
-                <div class="settings-title">Entitäten</div>
-                <div class="settings-bulk-actions">
-                  <button class="pill-button" type="button" onclick="setAllVisibleEntities(true)">Alle auswählen</button>
-                  <button class="pill-button" type="button" onclick="setAllVisibleEntities(false)">Alle abwählen</button>
-                  <button class="pill-button" id="hideUnavailableEntitiesButton" type="button" onclick="toggleHideUnavailable()">Nicht verfügbare ausblenden</button>
-                </div>
-                <div id="entitiesMount" class="dynamic-list settings-preview-list"></div>
-                <button class="pill-button settings-more-button" type="button" onclick="openOptionsPicker('entities')">Alle Entitäten anzeigen</button>
-              </section>
+              </div>
+              <div class="settings-actions">
+                <button class="pill-button active" type="button" onclick="savePanelOptions()">Speichern</button>
+              </div>
             </div>
 
-            <div class="settings-actions">
-              <button class="pill-button active" type="button" onclick="savePanelOptions()">Speichern</button>
+            <!-- ── Tab: Automationen ─────────────────────────────── -->
+            <div id="settingsTab-automationen" class="settings-tab-panel" style="display:none">
+              <div class="settings-tab-header">
+                <div class="settings-title">HA-Automationen</div>
+                <button class="pill-button" type="button" onclick="loadAutomations()">Aktualisieren</button>
+              </div>
+              <div id="automationsMount" class="automations-list"></div>
             </div>
+
+            <!-- ── Tab: System ───────────────────────────────────── -->
+            <div id="settingsTab-system" class="settings-tab-panel" style="display:none">
+              <div class="settings-layout-grid">
+
+                <section class="settings-section settings-section-wide">
+                  <div class="settings-title">Mitteilungs-Schwellwerte</div>
+                  <div class="settings-threshold-grid">
+                    <div class="settings-threshold-row">
+                      <label class="select-label" for="notifBatteryThreshold">Batterie warnen unter</label>
+                      <div class="settings-threshold-input-row">
+                        <input type="number" id="notifBatteryThreshold" class="settings-time-input" min="1" max="100" value="20">
+                        <span class="settings-threshold-unit">%</span>
+                      </div>
+                    </div>
+                    <div class="settings-threshold-row">
+                      <label class="select-label" for="notifWasteDays">Abfall ankündigen</label>
+                      <div class="settings-threshold-input-row">
+                        <input type="number" id="notifWasteDays" class="settings-time-input" min="0" max="7" value="1">
+                        <span class="settings-threshold-unit">Tag(e) vorher</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div style="margin-top:12px">
+                    <button class="pill-button active" type="button" onclick="saveNotificationSettings()">Speichern</button>
+                    <span id="notifSaveState" class="settings-save-state"></span>
+                  </div>
+                </section>
+
+                <section class="settings-section settings-section-wide">
+                  <div class="settings-tab-header" style="margin-bottom:12px">
+                    <div class="settings-title">Aktivitäts-Log</div>
+                    <div class="log-filter-buttons">
+                      <button id="logFilterBtn-gate"        class="pill-button active" type="button" onclick="showLog('gate')">Tor</button>
+                      <button id="logFilterBtn-automationen" class="pill-button"       type="button" onclick="showLog('automationen')">Automationen</button>
+                      <button id="logFilterBtn-all"          class="pill-button"       type="button" onclick="showLog('all')">Alle</button>
+                    </div>
+                  </div>
+                  <div id="activityLogMount" class="activity-log-list"></div>
+                </section>
+
+                <section class="settings-section settings-section-wide">
+                  <div class="settings-title">Wartung</div>
+                  <div class="settings-hint" style="margin-bottom:14px;">Entfernt Entitäten aus dem gewählten Raum (Inhalte → Seite wählen), die nicht zu diesem Bereich gehören.</div>
+                  <button id="cleanupRoomEntitiesButton" class="pill-button" type="button" onclick="cleanupForeignRoomEntities()">Nicht zugehörige Entitäten entfernen</button>
+                  <span id="cleanupRoomEntitiesState" class="settings-save-state"></span>
+                </section>
+
+              </div>
+            </div>
+
           </article>
         </section>
       </main>

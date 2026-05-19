@@ -4201,6 +4201,214 @@ body.night-mode-active {
   text-align: center;
 }
 
+/* ── Settings Tabs ───────────────────────────────────────────────── */
+.settings-tabs {
+  display: -webkit-flex;
+  display: flex;
+  border-bottom: 2px solid #1a2740;
+  margin: 0 -14px 20px;
+  padding: 0 14px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.settings-tab {
+  -webkit-flex: 0 0 auto;
+  flex: 0 0 auto;
+  background: none;
+  border: none;
+  border-bottom: 3px solid transparent;
+  color: #94a7c6;
+  cursor: pointer;
+  font-family: Arial, sans-serif;
+  font-size: 12px;
+  font-weight: bold;
+  letter-spacing: 0.06em;
+  margin-bottom: -2px;
+  padding: 10px 14px;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.settings-tab.active {
+  border-bottom-color: #5dd9c7;
+  color: #eef4ff;
+}
+
+.settings-tab-panel {
+  padding-top: 4px;
+}
+
+.settings-tab-header {
+  display: -webkit-flex;
+  display: flex;
+  -webkit-align-items: center;
+  align-items: center;
+  -webkit-justify-content: space-between;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+
+.settings-tab-header .settings-title {
+  margin-bottom: 0;
+}
+
+/* ── Automationen ────────────────────────────────────────────────── */
+.automations-list {
+  padding: 0;
+}
+
+.automation-row {
+  display: -webkit-flex;
+  display: flex;
+  -webkit-align-items: center;
+  align-items: center;
+  padding: 12px 0;
+  border-bottom: 1px solid #1a2740;
+}
+
+.automation-row:last-child {
+  border-bottom: none;
+}
+
+.automation-info {
+  -webkit-flex: 1 1 auto;
+  flex: 1 1 auto;
+  min-width: 0;
+  margin-right: 12px;
+}
+
+.automation-name {
+  color: #94a7c6;
+  font-size: 14px;
+  font-weight: bold;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.automation-row.is-active .automation-name {
+  color: #eef4ff;
+}
+
+.automation-last {
+  color: #5a7a9a;
+  font-size: 11px;
+  margin-top: 3px;
+}
+
+/* ── Schwellwert-Eingaben (System-Tab) ───────────────────────────── */
+.settings-threshold-grid {
+  display: -webkit-flex;
+  display: flex;
+  -webkit-flex-wrap: wrap;
+  flex-wrap: wrap;
+  margin: 8px -8px 0;
+}
+
+.settings-threshold-row {
+  -webkit-flex: 1 1 180px;
+  flex: 1 1 180px;
+  margin: 0 8px 14px;
+}
+
+.settings-threshold-input-row {
+  display: -webkit-flex;
+  display: flex;
+  -webkit-align-items: center;
+  align-items: center;
+  margin-top: 6px;
+}
+
+.settings-threshold-unit {
+  color: #94a7c6;
+  font-size: 13px;
+  margin-left: 8px;
+  white-space: nowrap;
+}
+
+/* ── Aktivitäts-Log ──────────────────────────────────────────────── */
+.log-filter-buttons {
+  display: -webkit-flex;
+  display: flex;
+  gap: 6px;
+}
+
+.activity-log-list {
+  max-height: 420px;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.activity-row {
+  display: -webkit-flex;
+  display: flex;
+  -webkit-align-items: flex-start;
+  align-items: flex-start;
+  padding: 10px 0;
+  border-bottom: 1px solid #1a2740;
+}
+
+.activity-row:last-child {
+  border-bottom: none;
+}
+
+.activity-row.is-error {
+  background: rgba(255, 80, 80, 0.04);
+  border-radius: 6px;
+  padding: 10px 6px;
+}
+
+.activity-time {
+  color: #5a7a9a;
+  font-size: 11px;
+  min-width: 128px;
+  padding-top: 2px;
+  white-space: nowrap;
+}
+
+.activity-info {
+  -webkit-flex: 1 1 auto;
+  flex: 1 1 auto;
+  min-width: 0;
+  margin: 0 10px;
+}
+
+.activity-action {
+  color: #eef4ff;
+  font-size: 13px;
+  font-weight: bold;
+}
+
+.activity-context {
+  color: #94a7c6;
+  font-size: 11px;
+  margin-top: 2px;
+}
+
+.activity-error-text {
+  color: #e07070;
+}
+
+.activity-badge {
+  border-radius: 6px;
+  font-size: 10px;
+  font-weight: bold;
+  letter-spacing: 0.04em;
+  padding: 3px 8px;
+  white-space: nowrap;
+}
+
+.activity-badge.ok {
+  background: rgba(93, 217, 199, 0.12);
+  color: #5dd9c7;
+}
+
+.activity-badge.err {
+  background: rgba(255, 80, 80, 0.15);
+  color: #e07070;
+}
+
 /* ── Lade-Animation für Karten ───────────────────────────────────── */
 @-webkit-keyframes cardPulse {
   from { opacity: 1; }

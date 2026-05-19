@@ -102,6 +102,27 @@ let structureCache: { at: number; data: HaStructure } | null = null;
 let structureRequest: Promise<HaStructure> | null = null;
 let weatherForecastCache: { entityId: string; at: number; data: WeatherForecastDay[] } | null = null;
 
+type ActivityEntry = {
+  ts: string;
+  category: "gate" | "timer" | "system";
+  action: string;
+  ok: boolean;
+  detail?: string;
+  context?: string;
+};
+const activityLog: ActivityEntry[] = [];
+
+function logActivity(category: ActivityEntry["category"], action: string, ok: boolean, detail?: string, context?: string): void {
+  activityLog.unshift({ ts: new Date().toISOString(), category, action, ok, detail, context });
+  if (activityLog.length > 500) { activityLog.length = 500; }
+}
+
+function readCachedGateState(): string {
+  if (!statesCache) { return "unbekannt"; }
+  const s = statesCache.data.find((e) => e.entity_id === ENTITIES.sensors.torStatus);
+  return s?.state || "unbekannt";
+}
+
 export type HaState = {
   entity_id: string;
   state: string;
@@ -1442,93 +1463,137 @@ app.post("/api/light/bulb/off", async (_req: Request, res: Response) => {
 
 // BUTTONS
 app.post("/api/tor/wait60", async (_req: Request, res: Response) => {
+  const ctx = readCachedGateState();
   try {
     await pressButton(ENTITIES.buttons.wait60);
+    logActivity("gate", "+60s warten", true, undefined, ctx);
     res.json({ ok: true });
   } catch (error) {
     console.error("Fehler bei +60s warten:", error);
+    logActivity("gate", "+60s warten", false, describeError(error), ctx);
     res.status(500).json({ ok: false });
   }
 });
 
 app.post("/api/tor/auto-open", async (_req: Request, res: Response) => {
+  const ctx = readCachedGateState();
   try {
     await pressButton(ENTITIES.buttons.autoOpen);
+    logActivity("gate", "Auto-Öffnen", true, undefined, ctx);
     res.json({ ok: true });
   } catch (error) {
     console.error("Fehler bei Automatik Öffnen:", error);
+    logActivity("gate", "Auto-Öffnen", false, describeError(error), ctx);
     res.status(500).json({ ok: false });
   }
 });
 
 app.post("/api/tor/impulse", async (_req: Request, res: Response) => {
+  const ctx = readCachedGateState();
   try {
     await pressButton(ENTITIES.buttons.impulse);
+    logActivity("gate", "Impuls", true, undefined, ctx);
     res.json({ ok: true });
   } catch (error) {
     console.error("Fehler bei Tor Impuls:", error);
+    logActivity("gate", "Impuls", false, describeError(error), ctx);
     res.status(500).json({ ok: false });
   }
 });
 
 // SWITCHES
 app.post("/api/tor/smart-control/on", async (_req: Request, res: Response) => {
+  const ctx = readCachedGateState();
   try {
     await setSwitch(ENTITIES.switches.smartControl, true);
+    logActivity("gate", "Smarte Steuerung EIN", true, undefined, ctx);
     res.json({ ok: true });
   } catch (error) {
     console.error("Fehler bei Smarte Steuerung EIN:", error);
+    logActivity("gate", "Smarte Steuerung EIN", false, describeError(error), ctx);
     res.status(500).json({ ok: false });
   }
 });
 
 app.post("/api/tor/smart-control/off", async (_req: Request, res: Response) => {
+  const ctx = readCachedGateState();
   try {
     await setSwitch(ENTITIES.switches.smartControl, false);
+    logActivity("gate", "Smarte Steuerung AUS", true, undefined, ctx);
     res.json({ ok: true });
   } catch (error) {
     console.error("Fehler bei Smarte Steuerung AUS:", error);
+    logActivity("gate", "Smarte Steuerung AUS", false, describeError(error), ctx);
     res.status(500).json({ ok: false });
   }
 });
 
 app.post("/api/tor/automatik/on", async (_req: Request, res: Response) => {
+  const ctx = readCachedGateState();
   try {
     await setSwitch(ENTITIES.switches.torAutomatik, true);
+    logActivity("gate", "Automatik EIN", true, undefined, ctx);
     res.json({ ok: true });
   } catch (error) {
     console.error("Fehler bei Tor Automatik EIN:", error);
+    logActivity("gate", "Automatik EIN", false, describeError(error), ctx);
     res.status(500).json({ ok: false });
   }
 });
 
 app.post("/api/tor/automatik/off", async (_req: Request, res: Response) => {
+  const ctx = readCachedGateState();
   try {
     await setSwitch(ENTITIES.switches.torAutomatik, false);
+    logActivity("gate", "Automatik AUS", true, undefined, ctx);
     res.json({ ok: true });
   } catch (error) {
     console.error("Fehler bei Tor Automatik AUS:", error);
+    logActivity("gate", "Automatik AUS", false, describeError(error), ctx);
     res.status(500).json({ ok: false });
   }
 });
 
 app.post("/api/tor/dauer-auf/on", async (_req: Request, res: Response) => {
+  const ctx = readCachedGateState();
   try {
     await setSwitch(ENTITIES.switches.torDauerAuf, true);
+    logActivity("gate", "Dauerauf EIN", true, undefined, ctx);
     res.json({ ok: true });
   } catch (error) {
     console.error("Fehler bei Tor Dauer Auf EIN:", error);
+    logActivity("gate", "Dauerauf EIN", false, describeError(error), ctx);
     res.status(500).json({ ok: false });
   }
 });
 
 app.post("/api/tor/dauer-auf/off", async (_req: Request, res: Response) => {
+  const ctx = readCachedGateState();
   try {
     await setSwitch(ENTITIES.switches.torDauerAuf, false);
+    logActivity("gate", "Dauerauf AUS", true, undefined, ctx);
     res.json({ ok: true });
   } catch (error) {
     console.error("Fehler bei Tor Dauer Auf AUS:", error);
+    logActivity("gate", "Dauerauf AUS", false, describeError(error), ctx);
     res.status(500).json({ ok: false });
+  }
+});
+
+app.get("/api/automations", async (_req: Request, res: Response) => {
+  try {
+    const states = await getAllStates();
+    const automations = states
+      .filter((s) => s.entity_id.startsWith("automation."))
+      .sort((a, b) => {
+        const nameA = String(a.attributes?.friendly_name || a.entity_id).toLowerCase();
+        const nameB = String(b.attributes?.friendly_name || b.entity_id).toLowerCase();
+        return nameA.localeCompare(nameB, "de");
+      });
+    res.json(automations);
+  } catch (error) {
+    console.error("Fehler beim Laden der Automationen:", describeError(error));
+    res.status(500).json([]);
   }
 });
 
@@ -1549,10 +1614,34 @@ app.post("/api/timer/boiler/reset", async (_req: Request, res: Response) => {
       entity_id: "timer.boiler_timer_10min",
       duration: "0:10:00"
     });
+    logActivity("timer", "Boiler-Timer auf 10 min gesetzt", true);
     res.json({ ok: true });
   } catch (error) {
     console.error("Fehler beim Zurücksetzen des Boiler-Timers:", describeError(error));
+    logActivity("timer", "Boiler-Timer auf 10 min gesetzt", false, describeError(error));
     res.status(500).json({ ok: false });
+  }
+});
+
+app.get("/api/activity-log", (_req: Request, res: Response) => {
+  const category = String(_req.query.category || "");
+  const entries = category
+    ? activityLog.filter((e) => e.category === category)
+    : activityLog;
+  res.json(entries.slice(0, 300));
+});
+
+app.get("/api/ha-logbook", async (_req: Request, res: Response) => {
+  try {
+    const hours = Math.min(Number(_req.query.hours) || 24, 72);
+    const since = new Date(Date.now() - hours * 60 * 60 * 1000).toISOString();
+    const response = await ha.get(`/api/logbook/${since}`);
+    const entries = Array.isArray(response.data) ? response.data : [];
+    const filtered = entries.filter((e: Record<string, unknown>) => e.domain === "automation");
+    res.json(filtered);
+  } catch (error) {
+    console.error("Fehler beim Laden des HA-Logbuchs:", describeError(error));
+    res.status(500).json([]);
   }
 });
 
