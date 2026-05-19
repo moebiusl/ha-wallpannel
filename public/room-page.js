@@ -19,6 +19,7 @@ function setRoomLoading(active, roomName, clearContent) {
     panel.className = active ? "panel large-page-panel room-page-panel dynamic-room-panel is-loading-room" : "panel large-page-panel room-page-panel dynamic-room-panel";
   }
   if (overlay) {
+    overlay.style.display = active ? "-webkit-flex" : "none";
     overlay.style.display = active ? "flex" : "none";
     var loadingTitle = overlay.querySelector(".room-loading-title");
     if (loadingTitle) {
@@ -816,6 +817,7 @@ function renderPinnedStatus(entities) {
 }
 
 function renderEntityLayout(cards, entities, mount) {
+  entities = entities.filter(function(e) { return !isUnavailableState(e.state); });
   var controls = [];
   var lights = [];
   var switches = [];

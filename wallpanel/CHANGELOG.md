@@ -1,3 +1,14 @@
+## 1.3.1
+
+### Add-on-Seite — 401-Fehler behoben
+- `SUPERVISOR_TOKEN` wird jetzt separat vom `HA_TOKEN` gelesen
+- Supervisor-API-Aufrufe (`http://supervisor/addons`) nutzen nun immer den korrekten Add-on-Token, nicht den ggf. konfigurierten Nutzer-Token
+- Behebt HTTP 401 beim Laden der Add-on-Liste, wenn ein eigener `ha_token` konfiguriert ist
+
+### Raumseite — Nicht verfügbare Kacheln ausblenden
+- Entitäten mit Status `unknown` oder `unavailable` werden auf der Raumseite nicht mehr als Kacheln angezeigt
+- Reduziert Rauschen bei Geräten, die offline oder temporär nicht verfügbar sind
+
 ## 1.3.0
 
 ### Adminseite — Tab-Navigation

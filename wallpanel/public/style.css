@@ -368,10 +368,12 @@ button {
 }
 
 .waste-next-card {
+  display: -webkit-flex;
   display: flex;
+  -webkit-align-items: center;
   align-items: center;
+  -webkit-justify-content: space-between;
   justify-content: space-between;
-  gap: 12px;
   height: calc(100% - 28px);
   min-height: 0;
   padding: 8px 10px;
@@ -571,6 +573,7 @@ button {
   overflow: visible;
   white-space: normal;
   overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .panel {
@@ -689,13 +692,18 @@ button {
 }
 
 .weather-forecast-list {
-  display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 10px;
+  display: -webkit-flex;
+  display: flex;
+  -webkit-flex-wrap: wrap;
+  flex-wrap: wrap;
+  margin: 0 -5px;
 }
 
 .weather-forecast-item {
-  min-width: 0;
+  -webkit-flex: 1 1 0;
+  flex: 1 1 0;
+  min-width: 14%;
+  margin: 0 5px 10px;
   padding: 12px 8px;
   border: 1px solid #2d445f;
   border-radius: 12px;
@@ -1713,7 +1721,10 @@ a:active {
 .rooms-modal-backdrop {
   display: none;
   position: fixed;
-  inset: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
   z-index: 3000;
   background: rgba(5, 10, 18, 0.72);
 }
@@ -1724,7 +1735,8 @@ a:active {
   left: 50%;
   top: 50%;
   z-index: 3100;
-  width: min(980px, 96vw);
+  width: 96vw;
+  max-width: 980px;
   max-height: 82vh;
   transform: translate(-50%, -50%);
 }
@@ -1745,10 +1757,12 @@ a:active {
 }
 
 .rooms-modal-header {
+  display: -webkit-flex;
   display: flex;
+  -webkit-align-items: flex-start;
   align-items: flex-start;
+  -webkit-justify-content: space-between;
   justify-content: space-between;
-  gap: 16px;
   margin-bottom: 16px;
 }
 
@@ -1874,6 +1888,7 @@ a:active {
   font-weight: bold;
   line-height: 1.1;
   overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .climate-bulk-bar {
@@ -2136,17 +2151,22 @@ a:active {
     flex: 1 1 100%;
   }
 
-  .weather-forecast-list {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+  .weather-forecast-list .weather-forecast-item {
+    min-width: 40%;
   }
 }
 
 .energy-sections {
+  display: -webkit-flex;
   display: flex;
+  -webkit-flex-direction: column;
   flex-direction: column;
-  gap: 16px;
   margin-top: 18px;
   padding-bottom: 16px;
+}
+
+.energy-sections > * + * {
+  margin-top: 16px;
 }
 
 .energy-metric-grid {
@@ -2186,6 +2206,7 @@ a:active {
   font-weight: bold;
   line-height: 1.1;
   overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 @supports (display: grid) {
@@ -2546,17 +2567,26 @@ a:active {
 
 .room-loading-overlay {
   position: absolute;
-  inset: 54px 12px 12px;
+  top: 54px;
+  right: 12px;
+  bottom: 12px;
+  left: 12px;
   z-index: 5;
   display: none;
+  -webkit-align-items: center;
   align-items: center;
+  -webkit-justify-content: center;
   justify-content: center;
+  -webkit-flex-direction: column;
   flex-direction: column;
-  gap: 12px;
   border: 1px solid rgba(93, 217, 199, 0.26);
   border-radius: 14px;
   background: rgba(9, 17, 31, 0.92);
   color: #eef4ff;
+}
+
+.room-loading-overlay > * + * {
+  margin-top: 12px;
 }
 
 .room-loading-spinner {
@@ -2638,13 +2668,17 @@ a:active {
 }
 
 .settings-bulk-actions {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
-  margin-bottom: 12px;
+  display: -webkit-flex;
+  display: flex;
+  -webkit-flex-wrap: wrap;
+  flex-wrap: wrap;
+  margin: 0 -4px 12px;
 }
 
 .settings-bulk-actions .pill-button {
+  -webkit-flex: 1 1 auto;
+  flex: 1 1 auto;
+  margin: 0 4px 8px;
   min-height: 36px;
   padding: 8px 10px;
   font-size: 12px;
@@ -2756,6 +2790,7 @@ a:active {
 }
 
 .settings-sticky-actions {
+  position: -webkit-sticky;
   position: sticky;
   top: 0;
   z-index: 20;
@@ -2776,9 +2811,17 @@ a:active {
 }
 
 .settings-compact-checks {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-  gap: 8px;
+  display: -webkit-flex;
+  display: flex;
+  -webkit-flex-wrap: wrap;
+  flex-wrap: wrap;
+  margin: 0 -4px;
+}
+
+.settings-compact-checks .settings-check {
+  -webkit-flex: 1 1 160px;
+  flex: 1 1 160px;
+  margin: 0 4px 8px;
 }
 
 .settings-preview-list {
@@ -2801,7 +2844,8 @@ a:active {
 }
 
 .settings-picker-modal {
-  width: min(980px, 94vw);
+  width: 94vw;
+  max-width: 980px;
 }
 
 .settings-picker-search {
@@ -2809,13 +2853,17 @@ a:active {
 }
 
 .settings-picker-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
-  gap: 8px;
+  display: -webkit-flex;
+  display: flex;
+  -webkit-flex-wrap: wrap;
+  flex-wrap: wrap;
+  margin: 0 -4px;
 }
 
 .settings-picker-grid .dynamic-check {
-  margin: 0;
+  -webkit-flex: 1 1 230px;
+  flex: 1 1 230px;
+  margin: 4px;
   min-height: 66px;
 }
 
@@ -3047,12 +3095,16 @@ a:active {
 }
 
 .camera-source-toggle {
+  display: -webkit-flex;
   display: flex;
-  gap: 6px;
   padding: 4px;
   border: 1px solid #2d445f;
   border-radius: 14px;
   background: #132238;
+}
+
+.camera-source-toggle > * + * {
+  margin-left: 6px;
 }
 
 .camera-source-button {
@@ -3076,9 +3128,14 @@ a:active {
 
 .camera-modal-actions {
   float: right;
+  display: -webkit-flex;
   display: flex;
+  -webkit-align-items: center;
   align-items: center;
-  gap: 10px;
+}
+
+.camera-modal-actions > * + * {
+  margin-left: 10px;
 }
 
 .camera-modal-actions .modal-close {
@@ -3140,18 +3197,25 @@ a:active {
 }
 
 .battery-overview-list {
+  display: -webkit-flex;
   display: flex;
+  -webkit-flex-direction: column;
   flex-direction: column;
-  gap: 8px;
   max-height: 62vh;
   overflow: auto;
 }
 
+.battery-overview-list > * + * {
+  margin-top: 8px;
+}
+
 .battery-overview-row {
+  display: -webkit-flex;
   display: flex;
+  -webkit-align-items: center;
   align-items: center;
+  -webkit-justify-content: space-between;
   justify-content: space-between;
-  gap: 14px;
   padding: 11px 12px;
   border: 1px solid #263a57;
   border-radius: 12px;
@@ -3159,7 +3223,9 @@ a:active {
 }
 
 .battery-overview-row .ha-icon {
+  -webkit-flex: 0 0 auto;
   flex: 0 0 auto;
+  margin-right: 14px;
   color: #5dd9c7;
   font-size: 20px;
 }
@@ -3192,30 +3258,43 @@ a:active {
 }
 /* Waste Panel Styles */
 .waste-inline-list {
+  display: -webkit-flex;
   display: flex;
+  -webkit-flex-direction: column;
   flex-direction: column;
+  -webkit-align-items: stretch;
   align-items: stretch;
+  -webkit-justify-content: space-between;
   justify-content: space-between;
-  gap: 12px;
   width: 100%;
   height: calc(100% - 28px);
 }
 
+.waste-inline-list > * + * {
+  margin-top: 12px;
+}
+
 .waste-dashboard-list {
+  display: -webkit-flex;
   display: flex;
+  -webkit-flex-direction: row;
   flex-direction: row;
+  -webkit-align-items: stretch;
   align-items: stretch;
+  -webkit-justify-content: space-between;
   justify-content: space-between;
-  gap: 12px;
   width: 100%;
   height: calc(100% - 28px);
 }
 
 .waste-inline-item {
+  display: -webkit-flex;
   display: flex;
+  -webkit-align-items: center;
   align-items: center;
+  -webkit-justify-content: flex-start;
   justify-content: flex-start;
-  gap: 10px;
+  -webkit-flex: 1;
   flex: 1;
   min-width: 0;
   min-height: 0;
@@ -3225,12 +3304,20 @@ a:active {
   border: 1px solid #263a57;
 }
 
+.waste-inline-item > * + * {
+  margin-left: 10px;
+}
+
 .waste-dashboard-item {
+  display: -webkit-flex;
   display: flex;
+  -webkit-flex-direction: column;
   flex-direction: column;
+  -webkit-align-items: center;
   align-items: center;
+  -webkit-justify-content: center;
   justify-content: center;
-  gap: 10px;
+  -webkit-flex: 1 1 0;
   flex: 1 1 0;
   min-width: 0;
   min-height: 0;
@@ -3241,6 +3328,10 @@ a:active {
   border: 0;
   text-align: center;
   overflow: hidden;
+}
+
+.waste-dashboard-item > * + * {
+  margin-top: 10px;
 }
 
 .waste-inline-icon {
@@ -3331,18 +3422,25 @@ a:active {
 }
 
 .gate-switches-row {
+  display: -webkit-flex;
   display: flex;
-  gap: 14px;
   margin-top: 16px;
   margin-bottom: 16px;
 }
 
+.gate-switches-row > * + * {
+  margin-left: 14px;
+}
+
 .gate-switch-card {
+  -webkit-flex: 1 1 0;
   flex: 1 1 0;
+  display: -webkit-flex;
   display: flex;
+  -webkit-align-items: center;
   align-items: center;
+  -webkit-justify-content: space-between;
   justify-content: space-between;
-  gap: 12px;
   padding: 14px 16px;
   border: 1px solid #263a57;
   border-radius: 18px;
@@ -3351,10 +3449,15 @@ a:active {
 }
 
 .gate-switch-label-wrap {
+  display: -webkit-flex;
   display: flex;
+  -webkit-flex-direction: column;
   flex-direction: column;
-  gap: 4px;
   min-width: 0;
+}
+
+.gate-switch-label-wrap > * + * {
+  margin-top: 4px;
 }
 
 .gate-switch-title {
@@ -3372,8 +3475,11 @@ a:active {
 
 .gate-switch-control {
   position: relative;
+  display: -webkit-inline-flex;
   display: inline-flex;
+  -webkit-align-items: center;
   align-items: center;
+  -webkit-flex: 0 0 auto;
   flex: 0 0 auto;
 }
 
@@ -3418,9 +3524,13 @@ a:active {
 }
 
 .gate-action-buttons {
+  display: -webkit-flex;
   display: flex;
-  gap: 12px;
   margin-top: 8px;
+}
+
+.gate-action-buttons > * + * {
+  margin-left: 12px;
 }
 
 .gate-action-buttons .pill-button {
@@ -3512,6 +3622,7 @@ a:active {
 }
 
 .room-pinned-status {
+  position: -webkit-sticky;
   position: sticky;
   top: 0;
   z-index: 5;
@@ -3604,10 +3715,15 @@ a:active {
 }
 
 .dynamic-card-grid {
+  display: -webkit-flex;
   display: flex;
+  -webkit-flex-direction: column;
   flex-direction: column;
-  gap: 20px;
   padding-bottom: 16px;
+}
+
+.dynamic-card-grid > * + * {
+  margin-top: 20px;
 }
 
 .room-entity-section {
@@ -3945,6 +4061,7 @@ Legacy declarations kept below only for browsers that understand Grid but not
   font-weight: bold;
   line-height: 1.15;
   overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .dynamic-entity-value {
@@ -3954,6 +4071,7 @@ Legacy declarations kept below only for browsers that understand Grid but not
   font-weight: bold;
   line-height: 1.1;
   overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .dynamic-entity-meta {
@@ -4019,15 +4137,23 @@ Legacy declarations kept below only for browsers that understand Grid but not
 }
 
 .media-player-actions {
+  display: -webkit-flex;
   display: flex;
-  gap: 8px;
   margin-top: 10px;
 }
 
+.media-player-actions > * + * {
+  margin-left: 8px;
+}
+
 .media-control-button {
+  display: -webkit-inline-flex;
   display: inline-flex;
+  -webkit-align-items: center;
   align-items: center;
+  -webkit-justify-content: center;
   justify-content: center;
+  -webkit-flex: 1 1 0;
   flex: 1 1 0;
   min-width: 0;
   height: 36px;
@@ -4064,15 +4190,19 @@ Legacy declarations kept below only for browsers that understand Grid but not
 }
 
 .room-waste-mini {
-  display: grid;
-  gap: 5px;
+  display: block;
   margin-top: 12px;
 }
 
+.room-waste-mini > * + * {
+  margin-top: 5px;
+}
+
 .room-waste-mini span {
+  display: -webkit-flex;
   display: flex;
+  -webkit-justify-content: space-between;
   justify-content: space-between;
-  gap: 8px;
   color: #94a7c6;
   font-size: 12px;
 }
@@ -4082,10 +4212,10 @@ Legacy declarations kept below only for browsers that understand Grid but not
 }
 
 .compact-entity-row {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  display: -webkit-flex;
+  display: flex;
+  -webkit-align-items: center;
   align-items: center;
-  gap: 10px;
   min-height: 42px;
   padding: 8px 10px;
   border: 1px solid #263a57;
@@ -4099,10 +4229,14 @@ Legacy declarations kept below only for browsers that understand Grid but not
 }
 
 .compact-entity-name {
+  display: -webkit-flex;
   display: flex;
+  -webkit-align-items: center;
   align-items: center;
-  gap: 8px;
+  -webkit-flex: 1 1 auto;
+  flex: 1 1 auto;
   min-width: 0;
+  margin-right: 10px;
   color: #eef4ff;
   font-size: 13px;
   font-weight: bold;
@@ -4112,7 +4246,12 @@ Legacy declarations kept below only for browsers that understand Grid but not
   white-space: nowrap;
 }
 
+.compact-entity-name > * + * {
+  margin-left: 8px;
+}
+
 .compact-entity-name .ha-icon {
+  -webkit-flex: 0 0 auto;
   flex: 0 0 auto;
   color: #5dd9c7;
   font-size: 17px;
@@ -4187,8 +4326,11 @@ body.night-mode-active {
   display: flex;
   -webkit-align-items: center;
   align-items: center;
-  gap: 6px;
   margin-bottom: 6px;
+}
+
+.settings-time-row > * + * {
+  margin-left: 6px;
 }
 .settings-time-input {
   width: 56px;
@@ -4421,7 +4563,10 @@ body.night-mode-active {
 .log-filter-buttons {
   display: -webkit-flex;
   display: flex;
-  gap: 6px;
+}
+
+.log-filter-buttons > * + * {
+  margin-left: 6px;
 }
 
 .activity-log-list {
@@ -4516,4 +4661,120 @@ body.night-mode-active {
   pointer-events: none;
   -webkit-animation: cardPulse 0.55s ease-in-out infinite alternate;
   animation: cardPulse 0.55s ease-in-out infinite alternate;
+}
+
+/* ── System-Sensor-Karten (Server-Tab) ───────────────────────────── */
+.system-sensors-grid {
+  display: block;
+  margin-top: 8px;
+  overflow-x: hidden;
+}
+
+.system-sensor-group {
+  margin-bottom: 12px;
+}
+
+.system-sensor-group-title {
+  margin: 0 0 8px;
+  color: #5a7a9a;
+  font-size: 11px;
+  font-weight: bold;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.system-sensor-group + .system-sensor-group .system-sensor-group-title {
+  margin-top: 14px;
+}
+
+.system-sensor-cards-row {
+  display: -webkit-flex;
+  display: flex;
+  -webkit-flex-wrap: wrap;
+  flex-wrap: wrap;
+  margin: 0 -5px;
+}
+
+.system-sensor-card {
+  -webkit-flex: 1 1 130px;
+  flex: 1 1 130px;
+  max-width: 50%;
+  margin: 0 5px 10px;
+  background: #0d1b2f;
+  border-radius: 12px;
+  padding: 12px 14px;
+  border: 1px solid #1a2740;
+  min-width: 0;
+}
+
+.system-sensor-name {
+  color: #5a7a9a;
+  font-size: 11px;
+  margin-bottom: 7px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.system-sensor-value {
+  color: #eef4ff;
+  font-size: 24px;
+  font-weight: bold;
+  line-height: 1.1;
+}
+
+.system-sensor-unit {
+  color: #94a7c6;
+  font-size: 12px;
+  margin-left: 4px;
+}
+
+/* ── Add-ons-Liste (Add-ons-Tab) ─────────────────────────────────── */
+.addons-list {
+  max-height: 540px;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  margin-top: 8px;
+}
+
+.addon-row {
+  display: -webkit-flex;
+  display: flex;
+  -webkit-align-items: center;
+  align-items: center;
+  padding: 12px 0;
+  border-bottom: 1px solid #1a2740;
+}
+
+.addon-row:last-child {
+  border-bottom: none;
+}
+
+.addon-row-info {
+  -webkit-flex: 1 1 auto;
+  flex: 1 1 auto;
+  min-width: 0;
+  margin-right: 14px;
+}
+
+.addon-row-name {
+  color: #eef4ff;
+  font-size: 15px;
+  font-weight: bold;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.addon-row-version {
+  color: #5a7a9a;
+  font-size: 12px;
+  margin-top: 3px;
+}
+
+.addon-row-update {
+  color: #f09030;
+  font-size: 12px;
+  font-weight: bold;
+  margin-top: 4px;
 }

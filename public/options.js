@@ -72,7 +72,7 @@ function showSettingsContent() {
   showSettingsTab("tablet");
 }
 
-var SETTINGS_TABS = ["tablet", "inhalte", "automationen", "system"];
+var SETTINGS_TABS = ["tablet", "inhalte", "automationen", "system", "server", "addons", "info"];
 
 function showSettingsTab(tab) {
   for (var i = 0; i < SETTINGS_TABS.length; i++) {
@@ -83,7 +83,10 @@ function showSettingsTab(tab) {
     if (btn) { btn.className = t === tab ? "settings-tab active" : "settings-tab"; }
   }
   if (tab === "automationen") { loadAutomations(); }
-  if (tab === "system") { loadAddonInfo(); loadNotificationSettings(); showLog("gate"); }
+  if (tab === "system") { loadNotificationSettings(); showLog("gate"); }
+  if (tab === "server") { loadSystemSensors(); }
+  if (tab === "addons") { loadAddons(); }
+  if (tab === "info") { loadAddonInfo(); }
 }
 
 function loadAutomations() {
@@ -1294,6 +1297,176 @@ function renderHaLogEntry(entry) {
   row.appendChild(badge);
 
   return row;
+}
+
+/* ── System-Sensoren (Server-Tab) ─────────────────────────────── */
+var SENSOR_CATEGORIES = [
+  { key: "cpu",     label: "CPU / Prozessor",   keywords: ["prozessor", "cpu", "neustart", "last_boot"] },
+  { key: "ram",     label: "RAM / Arbeitsspeicher", keywords: ["arbeitsspeicher", "swap", "speicher"] },
+  { key: "disk",    label: "Massenspeicher",     keywords: ["massenspeicher", "disk"] },
+  { key: "network", label: "Netzwerk",           keywords: ["pakete", "bytes", "netzwerk", "network", "throughput"] }
+];
+
+function categorizeSensor(entityId) {
+  var id = entityId.toLowerCase();
+  for (var i = 0; i < SENSOR_CATEGORIES.length; i++) {
+    var cat = SENSOR_CATEGORIES[i];
+    for (var j = 0; j < cat.keywords.length; j++) {
+      if (id.indexOf(cat.keywords[j]) !== -1) { return cat.key; }
+    }
+  }
+  return "other";
+}
+
+function loadSystemSensors() {
+  var mount = document.getElementById("systemSensorsMount");
+  if (!mount) { return; }
+  mount.innerHTML = '<div class="settings-empty">Lade Sensoren…</div>';
+  apiGet("api/system-sensors", function (error, data) {
+    mount.innerHTML = "";
+    if (error || !Array.isArray(data) || data.length === 0) {
+      mount.innerHTML = '<div class="settings-empty">' + (error ? "Fehler beim Laden" : "Keine system_monitor-Sensoren gefunden") + "</div>";
+      return;
+    }
+
+    var groups = {};
+    var groupOrder = [];
+    for (var i = 0; i < data.length; i++) {
+      var cat = categorizeSensor(data[i].entity_id);
+      if (!groups[cat]) {
+        groups[cat] = [];
+        groupOrder.push(cat);
+      }
+      groups[cat].push(data[i]);
+    }
+
+    var catOrder = ["cpu", "ram", "disk", "network", "other"];
+    catOrder.forEach(function (catKey) {
+      if (!groups[catKey] || groups[catKey].length === 0) { return; }
+      var catDef = null;
+      for (var i = 0; i < SENSOR_CATEGORIES.length; i++) {
+        if (SENSOR_CATEGORIES[i].key === catKey) { catDef = SENSOR_CATEGORIES[i]; break; }
+      }
+      var group = document.createElement("div");
+      group.className = "system-sensor-group";
+
+      var title = document.createElement("div");
+      title.className = "system-sensor-group-title";
+      title.textContent = catDef ? catDef.label : "Sonstige";
+      group.appendChild(title);
+
+      var row = document.createElement("div");
+      row.className = "system-sensor-cards-row";
+      var sensors = groups[catKey];
+      for (var j = 0; j < sensors.length; j++) {
+        row.appendChild(renderSystemSensor(sensors[j]));
+      }
+      group.appendChild(row);
+      mount.appendChild(group);
+    });
+  });
+}
+
+function renderSystemSensor(sensor) {
+  var card = document.createElement("div");
+  card.className = "system-sensor-card";
+
+  var name = document.createElement("div");
+  name.className = "system-sensor-name";
+  var rawName = (sensor.attributes && sensor.attributes.friendly_name) || sensor.entity_id;
+  var displayName = String(rawName).replace(/^System Monitor /i, "").replace(/^system_monitor_/i, "");
+  name.textContent = displayName;
+  card.appendChild(name);
+
+  var valueRow = document.createElement("div");
+  var valueEl = document.createElement("span");
+  valueEl.className = "system-sensor-value";
+  valueEl.textContent = sensor.state || "–";
+  valueRow.appendChild(valueEl);
+
+  if (sensor.attributes && sensor.attributes.unit_of_measurement) {
+    var unit = document.createElement("span");
+    unit.className = "system-sensor-unit";
+    unit.textContent = sensor.attributes.unit_of_measurement;
+    valueRow.appendChild(unit);
+  }
+
+  card.appendChild(valueRow);
+  return card;
+}
+
+/* ── Add-ons (Add-ons-Tab) ────────────────────────────────────── */
+function loadAddons() {
+  var mount = document.getElementById("addonsMount");
+  if (!mount) { return; }
+  mount.innerHTML = '<div class="settings-empty">Lade Add-ons…</div>';
+  apiGet("api/addons", function (error, data) {
+    mount.innerHTML = "";
+    if (error) {
+      mount.innerHTML = '<div class="settings-empty">Fehler beim Laden der Add-ons</div>';
+      return;
+    }
+    if (!Array.isArray(data) || data.length === 0) {
+      mount.innerHTML = '<div class="settings-empty">Keine Add-ons gefunden — Supervisor nur im HA Add-on verfügbar</div>';
+      return;
+    }
+    for (var i = 0; i < data.length; i++) {
+      mount.appendChild(renderAddonRow(data[i]));
+    }
+  });
+}
+
+function renderAddonRow(addon) {
+  var row = document.createElement("div");
+  row.className = "addon-row" + (addon.update_available ? " has-update" : "");
+
+  var info = document.createElement("div");
+  info.className = "addon-row-info";
+
+  var name = document.createElement("div");
+  name.className = "addon-row-name";
+  name.textContent = addon.name || addon.slug || "–";
+  info.appendChild(name);
+
+  var version = document.createElement("div");
+  version.className = "addon-row-version";
+  version.textContent = "v" + (addon.version || "?") + (addon.state ? " · " + addon.state : "");
+  info.appendChild(version);
+
+  if (addon.update_available) {
+    var upd = document.createElement("div");
+    upd.className = "addon-row-update";
+    upd.textContent = "Update verfügbar: v" + (addon.version_latest || "?");
+    info.appendChild(upd);
+  }
+
+  row.appendChild(info);
+
+  if (addon.update_available) {
+    var btn = document.createElement("button");
+    btn.className = "pill-button active";
+    btn.type = "button";
+    btn.textContent = "Updaten";
+    (function (slug, b) {
+      b.onclick = function () {
+        b.disabled = true;
+        b.textContent = "…";
+        updateAddon(slug, function (ok) {
+          b.textContent = ok ? "Gestartet" : "Fehler";
+          setTimeout(loadAddons, 3000);
+        });
+      };
+    })(addon.slug, btn);
+    row.appendChild(btn);
+  }
+
+  return row;
+}
+
+function updateAddon(slug, callback) {
+  apiPost("api/addons/" + encodeURIComponent(slug) + "/update", {}, function (error) {
+    if (callback) { callback(!error); }
+  });
 }
 
 initOptionsPage();

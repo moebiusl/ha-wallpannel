@@ -29,13 +29,21 @@ function readFirstExistingFile(paths: string[]): string {
 
 const PORT = Number(process.env.PORT || 3000);
 const HA_URL = process.env.HA_URL || "http://supervisor/core";
-const HA_TOKEN = process.env.HA_TOKEN || process.env.SUPERVISOR_TOKEN || process.env.HASSIO_TOKEN || readFirstExistingFile([
-  "/var/run/s6/container_environment/HA_TOKEN",
+
+// SUPERVISOR_TOKEN is injected by HA into the add-on container (hassio_api: true).
+// It authenticates both http://supervisor/... AND the /api/hassio/... passthrough.
+// Keep this separate from the user-configured HA_TOKEN (long-lived access token).
+const SUPERVISOR_TOKEN = process.env.SUPERVISOR_TOKEN || process.env.HASSIO_TOKEN || readFirstExistingFile([
   "/var/run/s6/container_environment/SUPERVISOR_TOKEN",
   "/var/run/s6/container_environment/HASSIO_TOKEN",
-  "/run/s6/container_environment/HA_TOKEN",
   "/run/s6/container_environment/SUPERVISOR_TOKEN",
   "/run/s6/container_environment/HASSIO_TOKEN"
+]);
+
+// HA_TOKEN for the regular HA Core REST API.
+const HA_TOKEN = process.env.HA_TOKEN || SUPERVISOR_TOKEN || readFirstExistingFile([
+  "/var/run/s6/container_environment/HA_TOKEN",
+  "/run/s6/container_environment/HA_TOKEN"
 ]);
 const SETTINGS_PIN = process.env.SETTINGS_PIN || "1310";
 const GO2RTC_PUBLIC_URL = process.env.GO2RTC_PUBLIC_URL || "";
@@ -89,11 +97,12 @@ const ha = axios.create({
 const supervisor = axios.create({
   baseURL: "http://supervisor",
   headers: {
-    Authorization: `Bearer ${HA_TOKEN}`,
+    Authorization: `Bearer ${SUPERVISOR_TOKEN}`,
     "Content-Type": "application/json"
   },
   timeout: 6000
 });
+
 
 function readLocalVersion(): string {
   try {
@@ -1664,11 +1673,78 @@ app.get("/api/ha-logbook", async (_req: Request, res: Response) => {
   }
 });
 
+app.get("/api/system-sensors", async (_req: Request, res: Response) => {
+  try {
+    const states = await getAllStates();
+    const sensors = states
+      .filter((s) => s.entity_id.startsWith("sensor.system_monitor_") &&
+        s.state !== "unavailable" && s.state !== "unknown")
+      .sort((a, b) => {
+        const nameA = String(a.attributes?.friendly_name || a.entity_id).toLowerCase();
+        const nameB = String(b.attributes?.friendly_name || b.entity_id).toLowerCase();
+        return nameA.localeCompare(nameB, "de");
+      });
+    res.json(sensors);
+  } catch (error) {
+    console.error("Fehler beim Laden der System-Sensoren:", describeError(error));
+    res.status(500).json([]);
+  }
+});
+
+async function fetchAddons(): Promise<unknown[]> {
+  try {
+    const response = await supervisor.get("/addons");
+    return response.data?.data?.addons ?? [];
+  } catch (directErr) {
+    console.warn(`[addons] Supervisor nicht erreichbar (${describeError(directErr)}), versuche HA Core Proxy...`);
+    try {
+      const response = await ha.get("/api/hassio/addons");
+      return response.data?.data?.addons ?? [];
+    } catch (fallbackErr) {
+      console.warn(`[addons] HA Core Proxy fehlgeschlagen (${describeError(fallbackErr)})`);
+      return [];
+    }
+  }
+}
+
+app.get("/api/addons", async (_req: Request, res: Response) => {
+  try {
+    const addons = await fetchAddons();
+    res.json(addons);
+  } catch (error) {
+    console.error("Fehler beim Laden der Add-ons:", describeError(error));
+    res.json([]);
+  }
+});
+
+app.post("/api/addons/:slug/update", async (req: Request, res: Response) => {
+  const slug = String(req.params.slug);
+  try {
+    try {
+      await supervisor.post(`/addons/${encodeURIComponent(slug)}/update`);
+    } catch (_directErr) {
+      await ha.post(`/api/hassio/addons/${encodeURIComponent(slug)}/update`);
+    }
+    logActivity("system", `Add-on Update: ${slug}`, true);
+    res.json({ ok: true });
+  } catch (error) {
+    console.error(`Fehler beim Update von Add-on ${slug}:`, describeError(error));
+    logActivity("system", `Add-on Update: ${slug}`, false, describeError(error));
+    res.status(500).json({ ok: false, error: describeError(error) });
+  }
+});
+
 app.get("/api/addon-info", async (_req: Request, res: Response) => {
   const version = readLocalVersion();
   try {
-    const response = await supervisor.get("/addons/self/info");
-    const data = response.data?.data ?? {};
+    let data: Record<string, unknown> = {};
+    try {
+      const r = await supervisor.get("/addons/self/info");
+      data = r.data?.data ?? {};
+    } catch (_directErr) {
+      const r = await ha.get("/api/hassio/addons/self/info");
+      data = r.data?.data ?? {};
+    }
     res.json({
       version,
       version_latest: String(data.version_latest ?? version),

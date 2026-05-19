@@ -56,6 +56,9 @@
               <button id="settingsTabBtn-inhalte"     class="settings-tab"        type="button" onclick="showSettingsTab('inhalte')">Inhalte</button>
               <button id="settingsTabBtn-automationen" class="settings-tab"       type="button" onclick="showSettingsTab('automationen')">Automationen</button>
               <button id="settingsTabBtn-system"      class="settings-tab"        type="button" onclick="showSettingsTab('system')">System</button>
+              <button id="settingsTabBtn-server"      class="settings-tab"        type="button" onclick="showSettingsTab('server')">Server</button>
+              <button id="settingsTabBtn-addons"      class="settings-tab"        type="button" onclick="showSettingsTab('addons')">Add-ons</button>
+              <button id="settingsTabBtn-info"        class="settings-tab"        type="button" onclick="showSettingsTab('info')">Info</button>
             </nav>
 
             <!-- ── Tab: Dieses Tablet ─────────────────────────────── -->
@@ -177,15 +180,6 @@
               <div class="settings-layout-grid">
 
                 <section class="settings-section settings-section-wide">
-                  <div class="settings-title">Über das Add-on</div>
-                  <div id="addonInfoMount" class="addon-info-block">
-                    <div class="settings-empty">Lade…</div>
-                  </div>
-                  <button class="pill-button" style="margin-top:10px" type="button" onclick="toggleChangelog()">Changelog anzeigen</button>
-                  <div id="changelogMount" class="changelog-block" style="display:none"></div>
-                </section>
-
-                <section class="settings-section settings-section-wide">
                   <div class="settings-title">Mitteilungs-Schwellwerte</div>
                   <div class="settings-threshold-grid">
                     <div class="settings-threshold-row">
@@ -228,6 +222,38 @@
                   <span id="cleanupRoomEntitiesState" class="settings-save-state"></span>
                 </section>
 
+              </div>
+            </div>
+
+            <!-- ── Tab: Server ───────────────────────────────────── -->
+            <div id="settingsTab-server" class="settings-tab-panel" style="display:none">
+              <div class="settings-tab-header">
+                <div class="settings-title">Server-Auslastung</div>
+                <button class="pill-button" type="button" onclick="loadSystemSensors()">Aktualisieren</button>
+              </div>
+              <div id="systemSensorsMount" class="system-sensors-grid"></div>
+            </div>
+
+            <!-- ── Tab: Add-ons ──────────────────────────────────── -->
+            <div id="settingsTab-addons" class="settings-tab-panel" style="display:none">
+              <div class="settings-tab-header">
+                <div class="settings-title">Installierte Add-ons</div>
+                <button class="pill-button" type="button" onclick="loadAddons()">Aktualisieren</button>
+              </div>
+              <div id="addonsMount" class="addons-list"></div>
+            </div>
+
+            <!-- ── Tab: Info ─────────────────────────────────────── -->
+            <div id="settingsTab-info" class="settings-tab-panel" style="display:none">
+              <div class="settings-layout-grid">
+                <section class="settings-section settings-section-wide">
+                  <div class="settings-title">Über das Add-on</div>
+                  <div id="addonInfoMount" class="addon-info-block">
+                    <div class="settings-empty">Lade…</div>
+                  </div>
+                  <button class="pill-button" style="margin-top:10px" type="button" onclick="toggleChangelog()">Changelog anzeigen</button>
+                  <div id="changelogMount" class="changelog-block" style="display:none"></div>
+                </section>
               </div>
             </div>
 
