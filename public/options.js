@@ -69,6 +69,81 @@ function showSettingsContent() {
   rememberSettingsAccess();
   if (lock) { lock.style.display = "none"; }
   if (content) { content.style.display = "block"; }
+  showSettingsTab("tablet");
+}
+
+var SETTINGS_TABS = ["tablet", "inhalte", "automationen", "system"];
+
+function showSettingsTab(tab) {
+  for (var i = 0; i < SETTINGS_TABS.length; i++) {
+    var t = SETTINGS_TABS[i];
+    var panel = document.getElementById("settingsTab-" + t);
+    var btn = document.getElementById("settingsTabBtn-" + t);
+    if (panel) { panel.style.display = t === tab ? "" : "none"; }
+    if (btn) { btn.className = t === tab ? "settings-tab active" : "settings-tab"; }
+  }
+  if (tab === "automationen") { loadAutomations(); }
+}
+
+function loadAutomations() {
+  var mount = document.getElementById("automationsMount");
+  if (!mount) { return; }
+  mount.innerHTML = '<div class="settings-empty">Lade Automationen…</div>';
+  apiGet("api/automations", function (error, data) {
+    mount.innerHTML = "";
+    if (error || !Array.isArray(data) || data.length === 0) {
+      mount.innerHTML = '<div class="settings-empty">' + (error ? "Fehler beim Laden" : "Keine Automationen gefunden") + "</div>";
+      return;
+    }
+    for (var i = 0; i < data.length; i++) {
+      mount.appendChild(renderAutomationRow(data[i]));
+    }
+  });
+}
+
+function renderAutomationRow(automation) {
+  var isOn = automation.state === "on";
+  var row = document.createElement("div");
+  row.className = "automation-row" + (isOn ? " is-active" : "");
+
+  var info = document.createElement("div");
+  info.className = "automation-info";
+
+  var name = document.createElement("div");
+  name.className = "automation-name";
+  name.textContent = (automation.attributes && automation.attributes.friendly_name)
+    ? String(automation.attributes.friendly_name)
+    : automation.entity_id;
+  info.appendChild(name);
+
+  var last = document.createElement("div");
+  last.className = "automation-last";
+  var lastTriggered = automation.attributes && automation.attributes.last_triggered;
+  last.textContent = lastTriggered
+    ? "Zuletzt: " + formatGermanDateTime(lastTriggered)
+    : "Noch nie ausgeführt";
+  info.appendChild(last);
+
+  row.appendChild(info);
+
+  var toggle = document.createElement("button");
+  toggle.className = "pill-button" + (isOn ? " active" : "");
+  toggle.type = "button";
+  toggle.textContent = isOn ? "Aktiv" : "Inaktiv";
+  (function (entityId, state, btn) {
+    btn.onclick = function () {
+      btn.disabled = true;
+      apiPost("api/entity/" + encodeURIComponent(entityId) + "/service", {
+        service: state === "on" ? "turn_off" : "turn_on",
+        data: {}
+      }, function () {
+        loadAutomations();
+      });
+    };
+  })(automation.entity_id, automation.state, toggle);
+  row.appendChild(toggle);
+
+  return row;
 }
 
 function updateSettingsPinDots() {

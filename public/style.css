@@ -4201,6 +4201,102 @@ body.night-mode-active {
   text-align: center;
 }
 
+/* ── Settings Tabs ───────────────────────────────────────────────── */
+.settings-tabs {
+  display: -webkit-flex;
+  display: flex;
+  border-bottom: 2px solid #1a2740;
+  margin: 0 -14px 20px;
+  padding: 0 14px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.settings-tab {
+  -webkit-flex: 0 0 auto;
+  flex: 0 0 auto;
+  background: none;
+  border: none;
+  border-bottom: 3px solid transparent;
+  color: #94a7c6;
+  cursor: pointer;
+  font-family: Arial, sans-serif;
+  font-size: 12px;
+  font-weight: bold;
+  letter-spacing: 0.06em;
+  margin-bottom: -2px;
+  padding: 10px 14px;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.settings-tab.active {
+  border-bottom-color: #5dd9c7;
+  color: #eef4ff;
+}
+
+.settings-tab-panel {
+  padding-top: 4px;
+}
+
+.settings-tab-header {
+  display: -webkit-flex;
+  display: flex;
+  -webkit-align-items: center;
+  align-items: center;
+  -webkit-justify-content: space-between;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+
+.settings-tab-header .settings-title {
+  margin-bottom: 0;
+}
+
+/* ── Automationen ────────────────────────────────────────────────── */
+.automations-list {
+  padding: 0;
+}
+
+.automation-row {
+  display: -webkit-flex;
+  display: flex;
+  -webkit-align-items: center;
+  align-items: center;
+  padding: 12px 0;
+  border-bottom: 1px solid #1a2740;
+}
+
+.automation-row:last-child {
+  border-bottom: none;
+}
+
+.automation-info {
+  -webkit-flex: 1 1 auto;
+  flex: 1 1 auto;
+  min-width: 0;
+  margin-right: 12px;
+}
+
+.automation-name {
+  color: #94a7c6;
+  font-size: 14px;
+  font-weight: bold;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.automation-row.is-active .automation-name {
+  color: #eef4ff;
+}
+
+.automation-last {
+  color: #5a7a9a;
+  font-size: 11px;
+  margin-top: 3px;
+}
+
 /* ── Lade-Animation für Karten ───────────────────────────────────── */
 @-webkit-keyframes cardPulse {
   from { opacity: 1; }

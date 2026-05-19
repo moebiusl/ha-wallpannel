@@ -1532,6 +1532,23 @@ app.post("/api/tor/dauer-auf/off", async (_req: Request, res: Response) => {
   }
 });
 
+app.get("/api/automations", async (_req: Request, res: Response) => {
+  try {
+    const states = await getAllStates();
+    const automations = states
+      .filter((s) => s.entity_id.startsWith("automation."))
+      .sort((a, b) => {
+        const nameA = String(a.attributes?.friendly_name || a.entity_id).toLowerCase();
+        const nameB = String(b.attributes?.friendly_name || b.entity_id).toLowerCase();
+        return nameA.localeCompare(nameB, "de");
+      });
+    res.json(automations);
+  } catch (error) {
+    console.error("Fehler beim Laden der Automationen:", describeError(error));
+    res.status(500).json([]);
+  }
+});
+
 let lastBoilerTimerState = "";
 app.get("/api/timer/boiler", async (_req: Request, res: Response) => {
   const entity = await getEntity("timer.boiler_timer_10min");
