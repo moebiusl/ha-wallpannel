@@ -4156,3 +4156,47 @@ Legacy declarations kept below only for browsers that understand Grid but not
     min-height: 86px;
   }
 }
+
+/* ── Offline-Banner ──────────────────────────────────────────────── */
+.ha-offline-banner {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 9999;
+  background: #7a2535;
+  color: #ffd0d0;
+  text-align: center;
+  font-size: 13px;
+  padding: 7px 16px;
+  letter-spacing: 0.02em;
+}
+.ha-offline-banner.is-visible {
+  display: block;
+}
+
+/* ── Nachtmodus ──────────────────────────────────────────────────── */
+body.night-mode-active {
+  -webkit-transition: -webkit-filter 2s ease;
+  transition: filter 2s ease;
+}
+
+.settings-time-row {
+  display: -webkit-flex;
+  display: flex;
+  -webkit-align-items: center;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+.settings-time-input {
+  width: 56px;
+  background: #1a2740;
+  border: 1px solid #2a3f5f;
+  border-radius: 8px;
+  color: #eef4ff;
+  font-size: 15px;
+  padding: 6px 8px;
+  text-align: center;
+}

@@ -203,7 +203,7 @@ function renderCameraStrip() {
       };
       button.innerHTML =
         '<span class="camera-strip-preview"><img class="camera-thumb-image" src="' + (camera.imageUrl || camera.eventUrl || camera.eventImageUrl || "") + '?t=' + new Date().getTime() + '" alt=""><span class="camera-thumb-time">' + formatCameraEventTime(camera).replace("Event: ", "") + '</span></span>' +
-        '<span class="camera-strip-title">' + (camera.name || "Kamera") + '</span>';
+        '<span class="camera-strip-title">' + escapeHtml(camera.name || "Kamera") + '</span>';
       strip.appendChild(button);
     })(i);
   }
@@ -840,13 +840,16 @@ setLightCardState("light3CardModal", data.light3On, data.light3State);
             setText("torDauerAufState", data.torDauerAuf ? "Ein" : "Aus");
           setText("updatedAt", "Letztes Update: " + (data.updatedAt || "unavailable"));
           markRetryStatus("updatedAt", false);
+          if (typeof setHaOnlineStatus === "function") { setHaOnlineStatus(true); }
         } catch (e) {
           setText("updatedAt", "Fehler beim Verarbeiten der Daten");
           markRetryStatus("updatedAt", true);
+          if (typeof setHaOnlineStatus === "function") { setHaOnlineStatus(false); }
         }
       } else {
         setText("updatedAt", "Fehler beim Laden");
         markRetryStatus("updatedAt", true);
+        if (typeof setHaOnlineStatus === "function") { setHaOnlineStatus(false); }
       }
     }
   };
@@ -1066,6 +1069,7 @@ loadBoilerTimer();
 updateClockTime();
 setInterval(loadDashboard, 3000);
 setInterval(loadBoilerTimer, 5000);
+setInterval(loadHomeStructure, 10000);
 setInterval(updateClockTime, 1000);
 setInterval(function () {
   var camera = currentCameras && currentCameras[currentCameraIndex];

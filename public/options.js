@@ -905,6 +905,49 @@ function renderOptionsPickerList() {
   }
 }
 
+function loadNightModeSettings() {
+  var settings = typeof getNightModeSettings === "function" ? getNightModeSettings() : {};
+  var enabled = document.getElementById("nightModeEnabled");
+  if (enabled) { enabled.checked = !!settings.enabled; }
+  var config = document.getElementById("nightModeConfig");
+  if (config) { config.style.display = settings.enabled ? "block" : "none"; }
+  var sh = document.getElementById("nightModeStartHour");
+  if (sh) { sh.value = settings.startHour !== undefined ? settings.startHour : 22; }
+  var sm = document.getElementById("nightModeStartMinute");
+  if (sm) { sm.value = settings.startMinute !== undefined ? settings.startMinute : 0; }
+  var eh = document.getElementById("nightModeEndHour");
+  if (eh) { eh.value = settings.endHour !== undefined ? settings.endHour : 7; }
+  var em = document.getElementById("nightModeEndMinute");
+  if (em) { em.value = settings.endMinute !== undefined ? settings.endMinute : 0; }
+  var b = document.getElementById("nightModeBrightness");
+  if (b) { b.value = settings.brightness !== undefined ? settings.brightness : 15; }
+  var bv = document.getElementById("nightModeBrightnessValue");
+  if (bv) { bv.textContent = settings.brightness !== undefined ? settings.brightness : 15; }
+}
+
+function saveNightModeSettings() {
+  function intVal(id, fallback) {
+    var el = document.getElementById(id);
+    var v = el ? parseInt(el.value, 10) : fallback;
+    return Number.isFinite(v) ? v : fallback;
+  }
+  var enabled = document.getElementById("nightModeEnabled");
+  var settings = {
+    enabled: enabled ? enabled.checked : false,
+    startHour: intVal("nightModeStartHour", 22),
+    startMinute: intVal("nightModeStartMinute", 0),
+    endHour: intVal("nightModeEndHour", 7),
+    endMinute: intVal("nightModeEndMinute", 0),
+    brightness: intVal("nightModeBrightness", 15)
+  };
+  var config = document.getElementById("nightModeConfig");
+  if (config) { config.style.display = settings.enabled ? "block" : "none"; }
+  if (window.localStorage) {
+    window.localStorage.setItem("haWallpanel.nightMode", JSON.stringify(settings));
+  }
+  if (typeof applyNightMode === "function") { applyNightMode(); }
+}
+
 function renderOptions() {
   fillPanelSelect();
   fillTabletRoomSelect();
@@ -913,6 +956,7 @@ function renderOptions() {
   renderAreaSelect();
   renderCards();
   renderDeviceAndEntityLists();
+  loadNightModeSettings();
 }
 
 function savePanelOptions() {

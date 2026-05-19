@@ -66,6 +66,30 @@
                 <div id="visiblePagesMount" class="dynamic-list settings-compact-checks"></div>
               </section>
 
+              <section class="settings-section">
+                <div class="settings-title">Nachtmodus</div>
+                <label class="settings-check" style="margin-bottom:10px;">
+                  <input type="checkbox" id="nightModeEnabled" onchange="saveNightModeSettings()">
+                  <span>Nachtmodus aktivieren</span>
+                </label>
+                <div id="nightModeConfig" style="display:none">
+                  <div class="select-label">Beginn</div>
+                  <div class="settings-time-row">
+                    <input type="number" id="nightModeStartHour" class="settings-time-input" min="0" max="23" value="22" onchange="saveNightModeSettings()">
+                    <span>:</span>
+                    <input type="number" id="nightModeStartMinute" class="settings-time-input" min="0" max="59" value="0" onchange="saveNightModeSettings()">
+                  </div>
+                  <div class="select-label settings-label-spaced">Ende</div>
+                  <div class="settings-time-row">
+                    <input type="number" id="nightModeEndHour" class="settings-time-input" min="0" max="23" value="7" onchange="saveNightModeSettings()">
+                    <span>:</span>
+                    <input type="number" id="nightModeEndMinute" class="settings-time-input" min="0" max="59" value="0" onchange="saveNightModeSettings()">
+                  </div>
+                  <div class="select-label settings-label-spaced">Helligkeit: <span id="nightModeBrightnessValue">15</span>%</div>
+                  <input type="range" id="nightModeBrightness" class="entity-range" min="2" max="50" value="15" oninput="document.getElementById('nightModeBrightnessValue').textContent=this.value" onchange="saveNightModeSettings()">
+                </div>
+              </section>
+
               <section class="settings-section settings-section-wide">
                 <div class="settings-title">Diese Seite bearbeiten</div>
                 <label class="select-label" for="pageSelect">Seite wählen</label>

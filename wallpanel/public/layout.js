@@ -371,4 +371,75 @@ function setupIdleHomeRedirect() {
   resetTimer();
 }
 
+/* ── Offline-Banner ──────────────────────────────────────────────── */
+function ensureOfflineBanner() {
+  var existing = document.getElementById('haOfflineBanner');
+  if (existing) { return existing; }
+  var banner = document.createElement('div');
+  banner.id = 'haOfflineBanner';
+  banner.className = 'ha-offline-banner';
+  banner.textContent = 'Home Assistant nicht erreichbar';
+  document.body.insertBefore(banner, document.body.firstChild);
+  return banner;
+}
+
+var _haOfflineSince = null;
+window.setHaOnlineStatus = function (online) {
+  var banner = ensureOfflineBanner();
+  if (online) {
+    _haOfflineSince = null;
+    banner.className = 'ha-offline-banner';
+  } else {
+    if (!_haOfflineSince) { _haOfflineSince = new Date(); }
+    var minAgo = Math.round((new Date() - _haOfflineSince) / 60000);
+    banner.textContent = minAgo >= 1
+      ? 'Home Assistant nicht erreichbar seit ' + minAgo + ' Minute' + (minAgo !== 1 ? 'n' : '')
+      : 'Home Assistant nicht erreichbar';
+    banner.className = 'ha-offline-banner is-visible';
+  }
+};
+
+/* ── Nachtmodus ──────────────────────────────────────────────────── */
+function getNightModeSettings() {
+  var defaults = { enabled: false, startHour: 22, startMinute: 0, endHour: 7, endMinute: 0, brightness: 15 };
+  if (!window.localStorage) { return defaults; }
+  try {
+    var stored = window.localStorage.getItem('haWallpanel.nightMode');
+    return stored ? JSON.parse(stored) : defaults;
+  } catch (_e) { return defaults; }
+}
+
+function applyNightMode() {
+  var settings = getNightModeSettings();
+  if (!settings.enabled) {
+    document.body.style.webkitFilter = '';
+    document.body.style.filter = '';
+    document.body.className = document.body.className.replace(/\bnight-mode-active\b/g, '').replace(/  +/g, ' ').replace(/^ | $/g, '');
+    return;
+  }
+  var now = new Date();
+  var nowMin = now.getHours() * 60 + now.getMinutes();
+  var startMin = settings.startHour * 60 + settings.startMinute;
+  var endMin = settings.endHour * 60 + settings.endMinute;
+  var isNight = startMin > endMin
+    ? (nowMin >= startMin || nowMin < endMin)
+    : (nowMin >= startMin && nowMin < endMin);
+  var fraction = Math.min(1, Math.max(0.01, (settings.brightness || 15) / 100));
+  if (isNight) {
+    document.body.style.webkitFilter = 'brightness(' + fraction + ')';
+    document.body.style.filter = 'brightness(' + fraction + ')';
+    if (document.body.className.indexOf('night-mode-active') === -1) {
+      document.body.className = (document.body.className ? document.body.className + ' ' : '') + 'night-mode-active';
+    }
+  } else {
+    document.body.style.webkitFilter = '';
+    document.body.style.filter = '';
+    document.body.className = document.body.className.replace(/\bnight-mode-active\b/g, '').replace(/  +/g, ' ').replace(/^ | $/g, '');
+  }
+}
+
 document.addEventListener('DOMContentLoaded', renderSharedLayout);
+document.addEventListener('DOMContentLoaded', function () {
+  applyNightMode();
+  setInterval(applyNightMode, 60000);
+});
