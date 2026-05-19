@@ -260,8 +260,13 @@ function appendEntityClick(card, entity) {
   if (!entityCanToggle(entity)) { return; }
   card.className += " is-clickable";
   card.onclick = function () {
+    if (card.className.indexOf("is-loading") !== -1) { return; }
+    var hasOn = card.className.indexOf(" is-on") !== -1;
+    card.className = (hasOn
+      ? card.className.replace(/\s*\bis-on\b/g, "")
+      : card.className + " is-on") + " is-loading";
     apiPost("api/entity/" + encodeURIComponent(entity.entityId) + "/toggle", {}, function () {
-      setTimeout(loadRoomPage, 500);
+      setTimeout(loadRoomPage, 1000);
     });
   };
 }
@@ -278,7 +283,7 @@ function callEntityService(entityId, service, data) {
     service: service,
     data: data || {}
   }, function () {
-    setTimeout(loadRoomPage, 500);
+    setTimeout(loadRoomPage, 1000);
   });
 }
 
@@ -737,9 +742,9 @@ function openSpecialCardModal(cardId) {
       infoBox("Fahrzeit", formatValue(dashboard.fahrZeit, " s")) +
       infoBox("Automatik", dashboard.torAutomatik ? "Ein" : "Aus") +
       '</div><div class="gate-action-buttons modal-actions-row">' +
-      '<button class="pill-button pill-button-large active" type="button" onclick="apiPost(\'api/tor/auto-open\', {}, function(){ setTimeout(loadRoomPage, 500); })">AutoÖffnen</button>' +
-      '<button class="pill-button pill-button-large" type="button" onclick="apiPost(\'api/tor/impulse\', {}, function(){ setTimeout(loadRoomPage, 500); })">Impuls</button>' +
-      '<button class="pill-button pill-button-large" type="button" onclick="apiPost(\'api/tor/wait60\', {}, function(){ setTimeout(loadRoomPage, 500); })">+60s</button>' +
+      '<button class="pill-button pill-button-large active" type="button" onclick="apiPost(\'api/tor/auto-open\', {}, function(){ setTimeout(loadRoomPage, 1000); })">AutoÖffnen</button>' +
+      '<button class="pill-button pill-button-large" type="button" onclick="apiPost(\'api/tor/impulse\', {}, function(){ setTimeout(loadRoomPage, 1000); })">Impuls</button>' +
+      '<button class="pill-button pill-button-large" type="button" onclick="apiPost(\'api/tor/wait60\', {}, function(){ setTimeout(loadRoomPage, 1000); })">+60s</button>' +
       '</div>';
   } else if (cardId === "waste") {
     content = '<div class="waste-list modal-waste-list">' +

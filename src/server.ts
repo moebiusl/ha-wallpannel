@@ -1532,8 +1532,14 @@ app.post("/api/tor/dauer-auf/off", async (_req: Request, res: Response) => {
   }
 });
 
+let lastBoilerTimerState = "";
 app.get("/api/timer/boiler", async (_req: Request, res: Response) => {
-  const entity = await getEntity("timer.boiler_timer_10min", true);
+  const entity = await getEntity("timer.boiler_timer_10min");
+  const currentState = entity ? entity.state : "not found";
+  if (currentState !== lastBoilerTimerState) {
+    console.log("[boiler-timer] state changed:", currentState);
+    lastBoilerTimerState = currentState;
+  }
   res.json(entity || { entity_id: "timer.boiler_timer_10min", state: "idle", attributes: {} });
 });
 

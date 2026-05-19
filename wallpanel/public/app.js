@@ -985,7 +985,7 @@ function postAction(url) {
 
   xhr.onreadystatechange = function () {
     if (xhr.readyState === 4) {
-      setTimeout(loadDashboard, 500);
+      setTimeout(loadDashboard, 1000);
     }
   };
 
@@ -1044,16 +1044,11 @@ function setLightCardState(cardId, isOn, state) {
 
 function toggleLightCard(cardId, urlOn, urlOff) {
   var el = document.getElementById(cardId);
-  if (!el) {
-    return;
-  }
-
+  if (!el || el.className.indexOf("is-loading") !== -1) { return; }
+  var baseClass = el.getAttribute("data-base-class") || "light-card";
   var isOn = el.className.indexOf(" is-on") !== -1;
-  if (isOn) {
-    postAction(urlOff);
-  } else {
-    postAction(urlOn);
-  }
+  el.className = (isOn ? baseClass : baseClass + " is-on") + " is-loading";
+  postAction(isOn ? urlOff : urlOn);
 }
 
 document.addEventListener("keydown", function (event) {

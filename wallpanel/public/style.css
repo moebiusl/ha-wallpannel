@@ -4200,3 +4200,22 @@ body.night-mode-active {
   padding: 6px 8px;
   text-align: center;
 }
+
+/* ── Lade-Animation für Karten ───────────────────────────────────── */
+@-webkit-keyframes cardPulse {
+  from { opacity: 1; }
+  to   { opacity: 0.45; }
+}
+@keyframes cardPulse {
+  from { opacity: 1; }
+  to   { opacity: 0.45; }
+}
+
+.light-card.is-loading,
+.dynamic-entity-card.is-loading,
+.compact-entity-row.is-loading,
+.climate-overview-card.is-loading {
+  pointer-events: none;
+  -webkit-animation: cardPulse 0.55s ease-in-out infinite alternate;
+  animation: cardPulse 0.55s ease-in-out infinite alternate;
+}
