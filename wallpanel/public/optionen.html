@@ -87,6 +87,7 @@
                 <div class="settings-bulk-actions">
                   <button class="pill-button" type="button" onclick="setAllVisibleDevices(true)">Alle auswählen</button>
                   <button class="pill-button" type="button" onclick="setAllVisibleDevices(false)">Alle abwählen</button>
+                  <button class="pill-button" id="hideUnavailableDevicesButton" type="button" onclick="toggleHideUnavailable()">Nicht verfügbare ausblenden</button>
                 </div>
                 <div id="devicesMount" class="dynamic-list settings-preview-list"></div>
                 <button class="pill-button settings-more-button" type="button" onclick="openOptionsPicker('devices')">Alle Geräte anzeigen</button>
@@ -97,6 +98,7 @@
                 <div class="settings-bulk-actions">
                   <button class="pill-button" type="button" onclick="setAllVisibleEntities(true)">Alle auswählen</button>
                   <button class="pill-button" type="button" onclick="setAllVisibleEntities(false)">Alle abwählen</button>
+                  <button class="pill-button" id="hideUnavailableEntitiesButton" type="button" onclick="toggleHideUnavailable()">Nicht verfügbare ausblenden</button>
                 </div>
                 <div id="entitiesMount" class="dynamic-list settings-preview-list"></div>
                 <button class="pill-button settings-more-button" type="button" onclick="openOptionsPicker('entities')">Alle Entitäten anzeigen</button>

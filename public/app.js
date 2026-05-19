@@ -9,6 +9,8 @@ var notificationState = {
   dashboard: null,
   structure: null
 };
+var boilerTimerState = null;
+var boilerCountdownInterval = null;
 function openModal(id) {
   var backdrop = document.getElementById("modalBackdrop");
   var modal = document.getElementById(id);
@@ -407,6 +409,65 @@ function formatForecastTemp(day) {
   return low ? high + " / " + low : high;
 }
 
+function getBoilerTimerRemainingSeconds() {
+  if (!boilerTimerState || boilerTimerState.state !== "active") { return null; }
+  var attrs = boilerTimerState.attributes || {};
+  var finishesAt = attrs.finishes_at;
+  if (!finishesAt) { return null; }
+  return Math.max(0, Math.ceil((new Date(finishesAt) - new Date()) / 1000));
+}
+
+function formatTimerCountdown(seconds) {
+  var m = Math.floor(seconds / 60);
+  var s = seconds % 60;
+  return (m < 10 ? "0" : "") + m + ":" + (s < 10 ? "0" : "") + s;
+}
+
+function startBoilerCountdown() {
+  if (boilerCountdownInterval) {
+    clearInterval(boilerCountdownInterval);
+    boilerCountdownInterval = null;
+  }
+  if (!boilerTimerState || boilerTimerState.state !== "active") { return; }
+  boilerCountdownInterval = setInterval(function () {
+    var el = document.getElementById("boilerCountdownText");
+    if (!el) { return; }
+    var remaining = getBoilerTimerRemainingSeconds();
+    if (remaining === null || remaining <= 0) {
+      clearInterval(boilerCountdownInterval);
+      boilerCountdownInterval = null;
+      loadBoilerTimer();
+      return;
+    }
+    el.textContent = "Noch " + formatTimerCountdown(remaining);
+  }, 1000);
+}
+
+function loadBoilerTimer() {
+  apiGet("api/timer/boiler", function (error, data) {
+    if (!error && data) {
+      boilerTimerState = data;
+      renderNotifications();
+      startBoilerCountdown();
+    }
+  });
+}
+
+function confirmBoilerTimerReset() {
+  if (!confirm("Timer auf 10 Minuten setzen?")) { return; }
+  apiPost("api/timer/boiler/reset", {}, function () {
+    setTimeout(loadBoilerTimer, 500);
+  });
+}
+
+function formatWasteDisplay(value) {
+  if (!value || value === "unavailable") { return "unavailable"; }
+  var urgency = parseWasteUrgency(value);
+  if (urgency === 0) { return "Heute"; }
+  if (urgency === 1) { return "Morgen"; }
+  return value;
+}
+
 function renderWaste(data) {
   var gelbeTonne = data.gelbeTonneNaechsteLeerung || "unavailable";
   var blaueTonne = data.blaueTonneNaechsteLeerung || "unavailable";
@@ -417,19 +478,19 @@ function renderWaste(data) {
     { key: "dark", name: "Restmüll", value: restmuell }
   ]);
 
-  setText("gelbeTonne", gelbeTonne);
-  setText("blaueTonne", blaueTonne);
-  setText("restmuell", restmuell);
+  setText("gelbeTonne", formatWasteDisplay(gelbeTonne));
+  setText("blaueTonne", formatWasteDisplay(blaueTonne));
+  setText("restmuell", formatWasteDisplay(restmuell));
   setText("wasteNextName", nextWaste.name);
-  setText("wasteNextDays", nextWaste.value);
+  setText("wasteNextDays", formatWasteDisplay(nextWaste.value));
   var icon = document.getElementById("wasteNextIcon");
   if (icon) {
     icon.className = "waste-inline-icon waste-dashboard-icon " + nextWaste.key;
   }
 
-  setText("gelbeTonneModal", gelbeTonne);
-  setText("blaueTonneModal", blaueTonne);
-  setText("restmuellModal", restmuell);
+  setText("gelbeTonneModal", formatWasteDisplay(gelbeTonne));
+  setText("blaueTonneModal", formatWasteDisplay(blaueTonne));
+  setText("restmuellModal", formatWasteDisplay(restmuell));
 }
 
 function parseWasteUrgency(value) {
@@ -701,7 +762,8 @@ function renderBatteryOverview() {
     var entity = batteries[i];
     var value = Number(entity.state);
     var row = document.createElement("div");
-    row.className = "battery-overview-row" + (!Number.isNaN(value) && value <= 20 ? " warn" : "");
+    var batteryUnavailable = entity.state === "unavailable" || entity.state === "unknown";
+    row.className = "battery-overview-row" + (!Number.isNaN(value) && value <= 20 ? " warn" : "") + (batteryUnavailable ? " is-unavailable" : "");
     row.innerHTML = (typeof iconForEntity === "function" ? iconForEntity(entity) : "") +
       '<span class="battery-overview-name">' + (entity.name || entity.entityId) + '</span><b>' + formatEntityBatteryValue(entity) + '</b>';
     mount.appendChild(row);
@@ -757,12 +819,12 @@ function loadDashboard() {
           notificationState.dashboard = data;
           renderNotifications();
 
-setLightCardState("light1Card", data.light1On);
-setLightCardState("light2Card", data.light2On);
-setLightCardState("light3Card", data.light3On);
-setLightCardState("light1CardModal", data.light1On);
-setLightCardState("light2CardModal", data.light2On);
-setLightCardState("light3CardModal", data.light3On);
+setLightCardState("light1Card", data.light1On, data.light1State);
+setLightCardState("light2Card", data.light2On, data.light2State);
+setLightCardState("light3Card", data.light3On, data.light3State);
+setLightCardState("light1CardModal", data.light1On, data.light1State);
+setLightCardState("light2CardModal", data.light2On, data.light2State);
+setLightCardState("light3CardModal", data.light3On, data.light3State);
 
           setText("torStatus", data.torStatus || "unavailable");
           setText("torStatusModal", data.torStatus || "unavailable");
@@ -818,6 +880,17 @@ function renderNotifications() {
     renderHomeSecurityCard(buildHomeSecurityNotice(entities));
   }
 
+  if (boilerTimerState && boilerTimerState.state === "active") {
+    var remaining = getBoilerTimerRemainingSeconds();
+    notices.push({
+      level: remaining !== null && remaining <= 120 ? "warn timer-notice" : "ok timer-notice",
+      priority: -60,
+      title: "Boiler",
+      text: remaining !== null ? "Noch " + formatTimerCountdown(remaining) : "Läuft...",
+      action: "boiler-timer"
+    });
+  }
+
   if (dashboard) {
     waste = getWasteNotification("Gelbe Tonne", dashboard.gelbeTonneNaechsteLeerung);
     if (waste) { notices.push(waste); }
@@ -867,6 +940,8 @@ function renderNotifications() {
         window.location.href = "sicherheit.html";
       } else if (action === "battery") {
         openBatteryModal();
+      } else if (action === "boiler-timer") {
+        confirmBoilerTimerReset();
       }
     };
 
@@ -878,6 +953,7 @@ function renderNotifications() {
     var text = document.createElement("div");
     text.className = "home-notification-text";
     text.textContent = notices[i].text;
+    if (notices[i].action === "boiler-timer") { text.id = "boilerCountdownText"; }
     item.appendChild(text);
 
     mount.appendChild(item);
@@ -951,14 +1027,16 @@ function toggleLightSwitch(id, urlOn, urlOff) {
   }
 }
 
-function setLightCardState(cardId, isOn) {
+function setLightCardState(cardId, isOn, state) {
   var el = document.getElementById(cardId);
   if (!el) {
     return;
   }
 
   var baseClass = el.getAttribute("data-base-class") || "light-card";
-  el.className = isOn ? baseClass + " is-on" : baseClass;
+  var cls = isOn ? baseClass + " is-on" : baseClass;
+  if (state === "unavailable" || state === "unknown") { cls += " is-unavailable"; }
+  el.className = cls;
 }
 
 function toggleLightCard(cardId, urlOn, urlOff) {
@@ -984,8 +1062,10 @@ document.addEventListener("keydown", function (event) {
 updateCameraSourceButtons();
 loadDashboard();
 loadHomeStructure();
+loadBoilerTimer();
 updateClockTime();
 setInterval(loadDashboard, 3000);
+setInterval(loadBoilerTimer, 5000);
 setInterval(updateClockTime, 1000);
 setInterval(function () {
   var camera = currentCameras && currentCameras[currentCameraIndex];

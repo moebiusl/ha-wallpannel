@@ -521,12 +521,35 @@ button {
 
 .home-notification-item.waste-urgent .home-notification-title {
   font-size: 16px;
+  font-weight: bold;
+  color: #eef4ff;
 }
 
 .home-notification-item.waste-urgent .home-notification-text {
-  color: #eef4ff;
-  font-size: 18px;
+  color: #94a7c6;
+  font-size: 12px;
+  font-weight: normal;
+}
+
+.home-notification-item.timer-notice {
+  cursor: pointer;
+}
+
+.home-notification-item.timer-notice .home-notification-title {
+  font-size: 12px;
   font-weight: bold;
+  color: #94a7c6;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.home-notification-item.timer-notice .home-notification-text {
+  color: #5dd9c7;
+  font-size: 26px;
+  font-weight: bold;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 1px;
 }
 
 .home-notification-title {
@@ -3853,6 +3876,36 @@ Legacy declarations kept below only for browsers that understand Grid but not
 .dynamic-entity-card.is-on {
   background: #1d4f5b;
   border-color: #5dd9c7;
+}
+
+.dynamic-entity-card.is-unavailable,
+.compact-entity-row.is-unavailable,
+.climate-overview-card.is-unavailable,
+.light-card.is-unavailable,
+.battery-overview-row.is-unavailable {
+  opacity: 0.38;
+  -webkit-filter: grayscale(55%);
+  filter: grayscale(55%);
+}
+
+.settings-check.is-unavailable {
+  opacity: 0.45;
+}
+
+.settings-check.is-unavailable span {
+  color: #5a7a9a;
+}
+
+.unavailable-tag {
+  font-style: normal;
+  color: #8a3f4a;
+  background: rgba(255, 107, 107, 0.12);
+  border: 1px solid rgba(255, 107, 107, 0.3);
+  border-radius: 6px;
+  font-size: 10px;
+  padding: 1px 5px;
+  margin-left: 4px;
+  vertical-align: middle;
 }
 
 .dynamic-entity-card.media-player-card {

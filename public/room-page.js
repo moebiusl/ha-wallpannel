@@ -455,10 +455,15 @@ function appendClimateControls(card, entity) {
   card.appendChild(controls);
 }
 
+function isUnavailableState(state) {
+  return state === "unavailable" || state === "unknown";
+}
+
 function renderEntityCard(entity, variant) {
   var card = document.createElement("article");
   var on = isOnEntity(entity);
-  card.className = "dynamic-entity-card " + (variant || "entity-card-normal") + (on ? " is-on" : "");
+  var unavailable = isUnavailableState(entity.state);
+  card.className = "dynamic-entity-card " + (variant || "entity-card-normal") + (on ? " is-on" : "") + (unavailable ? " is-unavailable" : "");
   if (entity.domain === "media_player") {
     card.className += " media-player-card";
   }
@@ -502,7 +507,7 @@ function renderEntityCard(entity, variant) {
 
 function renderCompactEntity(entity) {
   var row = document.createElement("article");
-  row.className = "compact-entity-row" + (isOnEntity(entity) ? " is-on" : "");
+  row.className = "compact-entity-row" + (isOnEntity(entity) ? " is-on" : "") + (isUnavailableState(entity.state) ? " is-unavailable" : "");
 
   var name = document.createElement("div");
   name.className = "compact-entity-name";

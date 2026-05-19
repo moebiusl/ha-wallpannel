@@ -1532,6 +1532,24 @@ app.post("/api/tor/dauer-auf/off", async (_req: Request, res: Response) => {
   }
 });
 
+app.get("/api/timer/boiler", async (_req: Request, res: Response) => {
+  const entity = await getEntity("timer.boiler_timer_10min", true);
+  res.json(entity || { entity_id: "timer.boiler_timer_10min", state: "idle", attributes: {} });
+});
+
+app.post("/api/timer/boiler/reset", async (_req: Request, res: Response) => {
+  try {
+    await callService("timer", "start", {
+      entity_id: "timer.boiler_timer_10min",
+      duration: "0:10:00"
+    });
+    res.json({ ok: true });
+  } catch (error) {
+    console.error("Fehler beim Zurücksetzen des Boiler-Timers:", describeError(error));
+    res.status(500).json({ ok: false });
+  }
+});
+
 app.use((_req: Request, res: Response) => {
   res.sendFile(path.join(__dirname, "../public/index.html"));
 });

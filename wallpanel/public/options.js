@@ -4,7 +4,8 @@ var optionState = {
   energyData: null,
   panelId: "default",
   pageId: "hof",
-  pickerType: "entities"
+  pickerType: "entities",
+  hideUnavailable: false
 };
 
 var SETTINGS_UNLOCK_MS = 60000;
@@ -119,6 +120,33 @@ function initSettingsLock() {
   updateSettingsPinDots();
   document.addEventListener("click", refreshSettingsAccessIfUnlocked);
   document.addEventListener("touchstart", refreshSettingsAccessIfUnlocked, { passive: true });
+}
+
+function isEntityUnavailable(entity) {
+  return entity && (entity.state === "unavailable" || entity.state === "unknown");
+}
+
+function isDeviceUnavailable(deviceId) {
+  var entities = getPageEntities().filter(function (e) { return e.deviceId === deviceId; });
+  if (entities.length === 0) { return false; }
+  for (var i = 0; i < entities.length; i++) {
+    if (!isEntityUnavailable(entities[i])) { return false; }
+  }
+  return true;
+}
+
+function toggleHideUnavailable() {
+  optionState.hideUnavailable = !optionState.hideUnavailable;
+  var active = optionState.hideUnavailable;
+  var ids = ["hideUnavailableDevicesButton", "hideUnavailableEntitiesButton"];
+  for (var i = 0; i < ids.length; i++) {
+    var btn = document.getElementById(ids[i]);
+    if (btn) {
+      btn.className = active ? "pill-button active" : "pill-button";
+      btn.textContent = active ? "Nicht verfügbare einblenden" : "Nicht verfügbare ausblenden";
+    }
+  }
+  renderDeviceAndEntityLists();
 }
 
 function hasItem(list, item) {
@@ -648,35 +676,46 @@ function renderDeviceAndEntityLists() {
   var shownDevices = 0;
   var shownEntities = 0;
 
-  for (var i = 0; i < devices.length && shownDevices < 8; i++) {
+  var hideUnavailable = optionState.hideUnavailable;
+  var visibleDevices = hideUnavailable ? devices.filter(function (d) { return !isDeviceUnavailable(d.id); }) : devices;
+  var visibleEntities = hideUnavailable ? entities.filter(function (e) { return !isEntityUnavailable(e); }) : entities;
+
+  for (var i = 0; i < visibleDevices.length && shownDevices < 8; i++) {
     (function (device) {
-      deviceMount.appendChild(checkboxRow(device.id, device.name + " <small>" + device.count + " Entitäten</small>", getDeviceChecked(device.id, page), function (checked) {
+      var unavail = isDeviceUnavailable(device.id);
+      var label = device.name + " <small>" + device.count + " Entitäten</small>" + (unavail ? " <em class='unavailable-tag'>n.v.</em>" : "");
+      var row = checkboxRow(device.id, label, getDeviceChecked(device.id, page), function (checked) {
         applyOptionChange(function () {
           setDeviceVisible(device.id, checked, page);
         });
         renderDeviceAndEntityLists();
-      }));
-    })(devices[i]);
+      });
+      if (unavail) { row.className += " is-unavailable"; }
+      deviceMount.appendChild(row);
+    })(visibleDevices[i]);
     shownDevices++;
   }
-  if (devices.length === 0) {
+  if (visibleDevices.length === 0) {
     deviceMount.innerHTML = '<div class="settings-empty">Keine Geräte in dieser Auswahl</div>';
   }
 
-  for (var j = 0; j < entities.length && shownEntities < 12; j++) {
+  for (var j = 0; j < visibleEntities.length && shownEntities < 12; j++) {
     (function (entity) {
+      var unavail = isEntityUnavailable(entity);
       var checked = getEntityChecked(entity, page);
-      var label = entity.name + " <small>" + entity.entityId + "</small>";
-      entityMount.appendChild(checkboxRow(entity.entityId, label, checked, function (isChecked) {
+      var label = entity.name + " <small>" + entity.entityId + "</small>" + (unavail ? " <em class='unavailable-tag'>n.v.</em>" : "");
+      var row = checkboxRow(entity.entityId, label, checked, function (isChecked) {
         applyOptionChange(function () {
           setEntityVisible(entity, isChecked, page);
         });
         renderDeviceAndEntityLists();
-      }));
-    })(entities[j]);
+      });
+      if (unavail) { row.className += " is-unavailable"; }
+      entityMount.appendChild(row);
+    })(visibleEntities[j]);
     shownEntities++;
   }
-  if (entities.length === 0) {
+  if (visibleEntities.length === 0) {
     entityMount.innerHTML = '<div class="settings-empty">Keine Entitäten in dieser Auswahl</div>';
   }
 }
@@ -831,25 +870,32 @@ function renderOptionsPickerList() {
     items = getFilteredPickerItems();
     for (i = 0; i < items.length; i++) {
       (function (device) {
-        mount.appendChild(checkboxRow(device.id, device.name + " <small>" + device.count + " Entitäten · " + device.id + "</small>", getDeviceChecked(device.id, page), function (checked) {
+        var unavail = isDeviceUnavailable(device.id);
+        var label = device.name + " <small>" + device.count + " Entitäten · " + device.id + "</small>" + (unavail ? " <em class='unavailable-tag'>n.v.</em>" : "");
+        var row = checkboxRow(device.id, label, getDeviceChecked(device.id, page), function (checked) {
           applyOptionChange(function () {
             setDeviceVisible(device.id, checked, page);
           });
           renderOptionsPickerList();
-        }));
+        });
+        if (unavail) { row.className += " is-unavailable"; }
+        mount.appendChild(row);
       })(items[i]);
     }
   } else {
     items = getFilteredPickerItems();
     for (i = 0; i < items.length; i++) {
       (function (entity) {
-        var label = entity.name + " <small>" + entity.entityId + " · " + entity.domain + "</small>";
-        mount.appendChild(checkboxRow(entity.entityId, label, getEntityChecked(entity, page), function (isChecked) {
+        var unavail = isEntityUnavailable(entity);
+        var label = entity.name + " <small>" + entity.entityId + " · " + entity.domain + "</small>" + (unavail ? " <em class='unavailable-tag'>n.v.</em>" : "");
+        var row = checkboxRow(entity.entityId, label, getEntityChecked(entity, page), function (isChecked) {
           applyOptionChange(function () {
             setEntityVisible(entity, isChecked, page);
           });
           renderOptionsPickerList();
-        }));
+        });
+        if (unavail) { row.className += " is-unavailable"; }
+        mount.appendChild(row);
       })(items[i]);
     }
   }

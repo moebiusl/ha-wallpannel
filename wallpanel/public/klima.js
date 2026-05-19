@@ -107,7 +107,8 @@ function renderClimateCard(entity) {
   var step = climateNumberAttribute(entity, "target_temp_step", 0.5);
   var hvacModes = entity.attributes && Array.isArray(entity.attributes.hvac_modes) ? entity.attributes.hvac_modes : [];
 
-  card.className = "climate-overview-card" + (entity.state !== "off" ? " is-active" : "");
+  var climateUnavailable = entity.state === "unavailable" || entity.state === "unknown";
+  card.className = "climate-overview-card" + (entity.state !== "off" && !climateUnavailable ? " is-active" : "") + (climateUnavailable ? " is-unavailable" : "");
   card.innerHTML = '<div class="climate-card-top">' +
     '<div><div class="climate-card-title">' + escapeHtml(entity.name || entity.entityId) + '</div>' +
     '<div class="climate-card-area">' + escapeHtml(climateAreaLabel(entity)) + '</div></div>' +
