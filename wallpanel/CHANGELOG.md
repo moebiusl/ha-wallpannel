@@ -1,3 +1,24 @@
+## 1.3.4
+### Personenerkennung in Kameraansicht
+- Neues Badge unter dem Kameranamen: zeigt die erkannte Person (z. B. „👤 Lucas")
+- Sensor `sensor.hof_person_name` wird für die Hof-Kamera ausgewertet
+- Klingel-Kamera bekommt **keine** Personeninfo (Datenschutz)
+- „No Person" / „unavailable" / „unknown" → Badge wird ausgeblendet
+- „Unknown Person" → wird angezeigt (jemand erkannt, aber nicht bekannt)
+- Anzeige sowohl im Haupt-Kamerabild als auch in den Strip-Thumbnails
+
+### Aktivitätslog — HA-Logbuch jetzt wirklich geladen
+- Falscher Query-Parameter `entity` → korrigiert zu `entity_id` beim Logbuch-API-Aufruf
+- Ohne diese Korrektur lieferte HA entweder alle Einträge oder einen Fehler zurück
+- Fehlermeldungen im Logbuch-Abruf werden jetzt im Server-Log sichtbar gemacht
+
+### Kamera-Bildabruf — Log-Spam unterdrückt
+- Bildfehler (z. B. HTTP 500 für `image.werkstatt_richtung_garten_event_image`) werden max. 1× alle 5 Minuten geloggt
+- Nach erfolgreichem Abruf wird der Throttle zurückgesetzt
+
+### Startmeldung erweitert
+- Zeigt jetzt HA-URL, Token-Status, Supervisor-Token-Status und Tor-Sensor-ID
+
 ## 1.3.3
 
 ### Add-on-Seite — HTTP 403 behoben

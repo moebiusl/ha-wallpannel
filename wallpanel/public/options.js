@@ -1239,12 +1239,30 @@ function renderActivityEntry(entry) {
   var info = document.createElement("div");
   info.className = "activity-info";
 
-  var action = document.createElement("div");
+  var actionLine = document.createElement("div");
+  actionLine.className = "activity-action-line";
+
+  var action = document.createElement("span");
   action.className = "activity-action";
   action.textContent = entry.action;
-  info.appendChild(action);
+  actionLine.appendChild(action);
 
-  if (entry.context) {
+  if (entry.source === "ui") {
+    var uiTag = document.createElement("span");
+    uiTag.className = "activity-source-tag";
+    uiTag.textContent = "Wallpanel";
+    actionLine.appendChild(uiTag);
+  }
+
+  info.appendChild(actionLine);
+
+  if (entry.trigger) {
+    var trg = document.createElement("div");
+    trg.className = "activity-trigger";
+    trg.textContent = "↳ " + entry.trigger;
+    info.appendChild(trg);
+  }
+  if (entry.context && !entry.trigger) {
     var ctx = document.createElement("div");
     ctx.className = "activity-context";
     ctx.textContent = "Torstatus: " + entry.context;

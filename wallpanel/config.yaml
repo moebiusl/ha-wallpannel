@@ -1,6 +1,6 @@
 name: "HA Wallpanel"
 description: "Touch-optimiertes Home-Assistant-Wallpanel fuer iPad und Tablet."
-version: "1.3.3"
+version: "1.3.4"
 slug: "wallpanel"
 init: false
 
@@ -40,21 +40,25 @@ options:
   camera_einfahrt_event_image: "image.einfahrt_event_image"
   camera_einfahrt_live: "camera.einfahrt"
   camera_einfahrt_stream: ""
+  camera_einfahrt_person_sensor: "sensor.einfahrt_person_name"
 
   camera_hof_name: "Hof"
   camera_hof_event_image: "image.hof_event_image"
   camera_hof_live: "camera.hof"
   camera_hof_stream: ""
+  camera_hof_person_sensor: "sensor.hof_person_name"
 
   camera_hof_von_garage_name: "Hof von Garage"
   camera_hof_von_garage_event_image: "image.hof_von_garage_event_image"
   camera_hof_von_garage_live: "camera.hof_von_garage"
   camera_hof_von_garage_stream: ""
+  camera_hof_von_garage_person_sensor: "sensor.hof_von_garage_person_name"
 
   camera_werkstatt_garten_name: "Werkstatt Garten"
   camera_werkstatt_garten_event_image: "image.werkstatt_richtung_garten_event_image"
   camera_werkstatt_garten_live: "camera.werkstatt_richtung_garten"
   camera_werkstatt_garten_stream: ""
+  camera_werkstatt_garten_person_sensor: "sensor.werkstatt_richtung_garten_person_name"
 
   camera_klingel_name: "Klingel"
   camera_klingel_event_image: "image.klingel_event_image"
@@ -76,21 +80,25 @@ schema:
   camera_einfahrt_event_image: str?
   camera_einfahrt_live: str?
   camera_einfahrt_stream: str?
+  camera_einfahrt_person_sensor: str?
 
   camera_hof_name: str?
   camera_hof_event_image: str?
   camera_hof_live: str?
   camera_hof_stream: str?
+  camera_hof_person_sensor: str?
 
   camera_hof_von_garage_name: str?
   camera_hof_von_garage_event_image: str?
   camera_hof_von_garage_live: str?
   camera_hof_von_garage_stream: str?
+  camera_hof_von_garage_person_sensor: str?
 
   camera_werkstatt_garten_name: str?
   camera_werkstatt_garten_event_image: str?
   camera_werkstatt_garten_live: str?
   camera_werkstatt_garten_stream: str?
+  camera_werkstatt_garten_person_sensor: str?
 
   camera_klingel_name: str?
   camera_klingel_event_image: str?

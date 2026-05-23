@@ -210,9 +210,12 @@ function renderCameraStrip() {
       button.onclick = function () {
         selectCameraByIndex(index);
       };
+      var personHtml = camera.personName
+        ? '<span class="camera-person-name">' + escapeHtml(camera.personName) + '</span>'
+        : '';
       button.innerHTML =
         '<span class="camera-strip-preview"><img class="camera-thumb-image" src="' + (camera.imageUrl || camera.eventUrl || camera.eventImageUrl || "") + '?t=' + new Date().getTime() + '" alt=""><span class="camera-thumb-time">' + formatCameraEventTime(camera).replace("Event: ", "") + '</span></span>' +
-        '<span class="camera-strip-title">' + escapeHtml(camera.name || "Kamera") + '</span>';
+        '<span class="camera-strip-title">' + escapeHtml(camera.name || "Kamera") + personHtml + '</span>';
       strip.appendChild(button);
     })(i);
   }
@@ -279,6 +282,16 @@ function updateMainCamera(index) {
 
   setText("cameraMainName", camera.name || "Kamera");
   setText("cameraMainNameModal", camera.name || "Kamera");
+  var personEl = document.getElementById("cameraMainPerson");
+  if (personEl) {
+    if (camera.personName) {
+      personEl.textContent = "👤 " + camera.personName;
+      personEl.style.display = "";
+    } else {
+      personEl.textContent = "";
+      personEl.style.display = "none";
+    }
+  }
   setText("cameraMainTime", formatCameraStatus(camera));
   setText("cameraModalTime", formatCameraStatus(camera));
   setImageSource("cameraMainImage", getCameraImageUrl(camera));
