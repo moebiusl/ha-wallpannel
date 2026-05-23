@@ -1194,6 +1194,57 @@ function showLog(filter) {
   }
 }
 
+/* ── Aktivitäts-Log Icon-Mapping ────────────────────────────────── */
+var ACTIVITY_ICONS = [
+  { prefix: "Torstatus",         icon: "🚪" },
+  { prefix: "Endschalter Auf",   icon: "⬆" },
+  { prefix: "Endschalter Zu",    icon: "⬇" },
+  { prefix: "Lichtschranke",     icon: "⚡" },
+  { prefix: "Automatik-Öffnen", icon: "🤖" },
+  { prefix: "Schließzeit",       icon: "⏱" },
+  { prefix: "Fahrzeit",          icon: "📐" },
+  { prefix: "Smarte Steuerung",  icon: "⚙" },
+  { prefix: "Automatik",         icon: "🔁" },
+  { prefix: "Dauerauf",          icon: "🔒" },
+  { prefix: "Impuls",            icon: "▶" },
+  { prefix: "+60s",              icon: "⏱" },
+  { prefix: "Auto-Öffnen",      icon: "⬆" },
+  { prefix: "Boiler-Timer",      icon: "🔥" },
+  { prefix: "Add-on Update",     icon: "🔄" },
+];
+
+function getActivityIcon(action) {
+  for (var i = 0; i < ACTIVITY_ICONS.length; i++) {
+    if (action.indexOf(ACTIVITY_ICONS[i].prefix) === 0) return ACTIVITY_ICONS[i].icon;
+  }
+  return "●";
+}
+
+function activityDateKey(isoTs) {
+  // Returns "DD.MM.YYYY" for grouping — same as German date without time
+  try {
+    var d = new Date(isoTs);
+    return d.toLocaleDateString("de-DE", { timeZone: "Europe/Berlin", day: "2-digit", month: "2-digit", year: "numeric" });
+  } catch (_) { return ""; }
+}
+
+function activityTimeOnly(isoTs) {
+  try {
+    var d = new Date(isoTs);
+    return d.toLocaleTimeString("de-DE", { timeZone: "Europe/Berlin", hour: "2-digit", minute: "2-digit" });
+  } catch (_) { return ""; }
+}
+
+function renderDateSeparator(dateStr) {
+  var today = new Date().toLocaleDateString("de-DE", { timeZone: "Europe/Berlin", day: "2-digit", month: "2-digit", year: "numeric" });
+  var yesterday = new Date(Date.now() - 864e5).toLocaleDateString("de-DE", { timeZone: "Europe/Berlin", day: "2-digit", month: "2-digit", year: "numeric" });
+  var label = dateStr === today ? "Heute" : dateStr === yesterday ? "Gestern" : dateStr;
+  var sep = document.createElement("div");
+  sep.className = "activity-date-sep";
+  sep.textContent = label;
+  return sep;
+}
+
 function loadActivityLog(category) {
   var mount = document.getElementById("activityLogMount");
   if (!mount) { return; }
@@ -1205,7 +1256,13 @@ function loadActivityLog(category) {
       mount.innerHTML = '<div class="settings-empty">' + (error ? "Fehler beim Laden" : "Keine Einträge") + "</div>";
       return;
     }
+    var lastDate = null;
     for (var i = 0; i < data.length; i++) {
+      var dk = activityDateKey(data[i].ts);
+      if (dk && dk !== lastDate) {
+        mount.appendChild(renderDateSeparator(dk));
+        lastDate = dk;
+      }
       mount.appendChild(renderActivityEntry(data[i]));
     }
   });
@@ -1228,57 +1285,76 @@ function loadHaLogbook() {
 }
 
 function renderActivityEntry(entry) {
+  var kind = entry.kind || (entry.ok ? "action" : "error");
+  var rowClass = "activity-row kind-" + kind + (entry.ok ? "" : " is-error");
   var row = document.createElement("div");
-  row.className = "activity-row" + (entry.ok ? "" : " is-error");
+  row.className = rowClass;
 
+  /* ── Uhrzeit (kompakt: nur HH:MM) ── */
   var time = document.createElement("div");
   time.className = "activity-time";
-  time.textContent = formatGermanDateTime(entry.ts);
+  time.textContent = activityTimeOnly(entry.ts);
   row.appendChild(time);
 
+  /* ── Icon ── */
+  var icon = document.createElement("div");
+  icon.className = "activity-icon";
+  icon.textContent = entry.ok ? getActivityIcon(entry.action) : "✗";
+  row.appendChild(icon);
+
+  /* ── Info-Block ── */
   var info = document.createElement("div");
   info.className = "activity-info";
 
+  /* Action-Text + optionaler Trigger-Tag */
   var actionLine = document.createElement("div");
-  actionLine.className = "activity-action-line";
-
-  var action = document.createElement("span");
-  action.className = "activity-action";
-  action.textContent = entry.action;
-  actionLine.appendChild(action);
-
-  if (entry.source === "ui") {
-    var uiTag = document.createElement("span");
-    uiTag.className = "activity-source-tag";
-    uiTag.textContent = "Wallpanel";
-    actionLine.appendChild(uiTag);
+  actionLine.className = "activity-action";
+  actionLine.textContent = entry.action;
+  if (entry.trigger) {
+    var trig = document.createElement("span");
+    trig.className = "activity-trigger";
+    trig.textContent = entry.trigger;
+    actionLine.appendChild(trig);
   }
-
   info.appendChild(actionLine);
 
-  if (entry.trigger) {
-    var trg = document.createElement("div");
-    trg.className = "activity-trigger";
-    trg.textContent = "↳ " + entry.trigger;
-    info.appendChild(trg);
-  }
-  if (entry.context && !entry.trigger) {
-    var ctx = document.createElement("div");
-    ctx.className = "activity-context";
-    ctx.textContent = "Torstatus: " + entry.context;
-    info.appendChild(ctx);
-  }
+  /* Sub-Zeile: kontext-abhängig */
   if (!entry.ok && entry.detail) {
     var det = document.createElement("div");
     det.className = "activity-context activity-error-text";
     det.textContent = entry.detail;
     info.appendChild(det);
+  } else if (entry.context && kind === "action") {
+    /* Für manuelle Aktionen: Torstatus zum Zeitpunkt der Aktion */
+    var ctx = document.createElement("div");
+    ctx.className = "activity-context";
+    ctx.textContent = "Torstatus: " + entry.context;
+    info.appendChild(ctx);
+  } else if (entry.context && (kind === "state" || kind === "sensor")) {
+    /* Für Statusänderungen: vorheriger Zustand */
+    var prev = document.createElement("div");
+    prev.className = "activity-context";
+    prev.textContent = "vorher: " + entry.context;
+    info.appendChild(prev);
   }
+
   row.appendChild(info);
 
+  /* ── Badge ── */
   var badge = document.createElement("div");
-  badge.className = "activity-badge " + (entry.ok ? "ok" : "err");
-  badge.textContent = entry.ok ? "OK" : "Fehler";
+  if (!entry.ok) {
+    badge.className = "activity-badge err";
+    badge.textContent = "Fehler";
+  } else if (kind === "state") {
+    badge.className = "activity-badge state";
+    badge.textContent = "Status";
+  } else if (kind === "sensor") {
+    badge.className = "activity-badge sensor";
+    badge.textContent = "Sensor";
+  } else {
+    badge.className = "activity-badge ok";
+    badge.textContent = "Aktion";
+  }
   row.appendChild(badge);
 
   return row;

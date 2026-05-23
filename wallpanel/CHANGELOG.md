@@ -1,3 +1,27 @@
+## 1.3.5
+
+### Aktivitätslog — Vollständiges Tor-Tracking + Redesign
+
+#### Neue Entitäten werden jetzt getrackt
+- **Automatik-Öffnen** (`button.esp_tor_automatik_offnen`) — zeigt wer ausgelöst hat: Nutzer, Automatisierung oder API
+- **Endschalter Auf / Zu** (`binary_sensor.esp_tor_endschalter_tor_auf/zu`) — ausgelöst & freigegeben
+- **Lichtschranke** (`binary_sensor.esp_tor_lichtschranke_tor`) — unterbrochen & frei
+- **Schließzeit** (`sensor.esp_tor_countdown_bis_schliessung`) — nur bei Sprüngen ≥ 10 s (nicht jede Sekunde)
+- **Fahrzeit** (`sensor.esp_tor_fahrzeit_tor`) — ebenso nur bei Sprüngen ≥ 10
+
+#### Redesign des Aktivitätslogs
+- **Icons** vor jedem Eintrag: 🚪 ⬆ ⬇ ⚡ ⏱ 📐 ⚙ 🔁 🔒 …
+- **Datums-Trenner**: „Heute" / „Gestern" / Datum trennt die Tage
+- **Farbige Akzentlinie** links: Blau = Statusänderung, Teal = manuelle Aktion, Orange = Sensor
+- **Badge** zeigt jetzt `Status` / `Aktion` / `Sensor` / `Fehler` statt generischem `OK`
+- **Trigger-Tag**: kleines Label `Nutzer` / `Automatisierung` bei button-Einträgen
+- **Vorheriger Zustand** als Sub-Zeile bei Statusänderungen (z. B. „vorher: geschlossen")
+- Uhrzeit kompakt (nur HH:MM)
+
+#### Technisch
+- HA-WebSocket-Subscription gibt jetzt `user_id` und `origin` weiter
+- `ActivityEntry` um `kind` (action/state/sensor) und `trigger` erweitert
+
 ## 1.3.4
 ### Personenerkennung in Kameraansicht
 - Neues Badge unter dem Kameranamen: zeigt die erkannte Person (z. B. „👤 Lucas")

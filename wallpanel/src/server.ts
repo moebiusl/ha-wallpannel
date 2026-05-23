@@ -3,7 +3,7 @@ import axios from "axios";
 import dotenv from "dotenv";
 import fs from "fs";
 import path from "path";
-import { getHaRegistries } from "./ha-websocket";
+import { getHaRegistries, subscribeToStateChanges } from "./ha-websocket";
 import { readPanelConfig, writePanelConfig, getConfigPath } from "./panel-config";
 import { getDomain, getFriendlyEntityName, isProbablyUsefulEntity } from "./entity-filter";
 
@@ -133,71 +133,29 @@ let weatherForecastCache: { entityId: string; at: number; data: WeatherForecastD
 type ActivityEntry = {
   ts: string;
   category: "gate" | "timer" | "system";
+  /** "action" = manual/panel trigger, "state" = HA entity state change, "sensor" = numeric sensor reading */
+  kind?: "action" | "state" | "sensor";
   action: string;
   ok: boolean;
   detail?: string;
+  /** For actions: current torStatus. For state changes: previous state value. */
   context?: string;
-  /** Wer/was die Aktion ausgelöst hat (Automation, HomeKit, Person…) */
+  /** Who triggered the action: "Nutzer", "Automatisierung", "API" etc. */
   trigger?: string;
-  /** "ui" = manuell über Wallpanel, "ha-log" = aus HA-Logbuch */
-  source?: "ui" | "ha-log";
 };
 const activityLog: ActivityEntry[] = [];
 
-function logActivity(category: ActivityEntry["category"], action: string, ok: boolean, detail?: string, context?: string): void {
-  activityLog.unshift({ ts: new Date().toISOString(), category, action, ok, detail, context, source: "ui" });
+function logActivity(
+  category: ActivityEntry["category"],
+  action: string,
+  ok: boolean,
+  detail?: string,
+  context?: string,
+  kind?: ActivityEntry["kind"],
+  trigger?: string
+): void {
+  activityLog.unshift({ ts: new Date().toISOString(), category, action, ok, detail, context, kind, trigger });
   if (activityLog.length > 500) { activityLog.length = 500; }
-}
-
-type HaLogbookEntry = Record<string, string | undefined>;
-
-function parseTrigger(entry: HaLogbookEntry, states: HaState[]): string | undefined {
-  const domain = entry.context_domain ?? "";
-  const entityName = entry.context_entity_id_name ?? "";
-  const userId = entry.context_user_id ?? "";
-  if (domain === "homekit" || domain === "apple_mobile_app") { return "HomeKit"; }
-  if (domain === "automation" && entityName) { return `Auto: ${entityName}`; }
-  if (domain === "script" && entityName) { return `Script: ${entityName}`; }
-  if (entityName) { return entityName; }
-  if (userId) {
-    const person = states.find(
-      (s) => s.entity_id.startsWith("person.") && s.attributes?.user_id === userId
-    );
-    if (person) { return String(person.attributes?.friendly_name ?? person.entity_id); }
-    return `Benutzer (${userId.substring(0, 8)}…)`;
-  }
-  if (domain) { return domain; }
-  return undefined;
-}
-
-async function fetchGateLogbookEntries(hours = 24): Promise<ActivityEntry[]> {
-  try {
-    const since = new Date(Date.now() - hours * 60 * 60 * 1000).toISOString();
-    const response = await ha.get(`/api/logbook/${since}`, {
-      params: { end_time: new Date().toISOString(), entity_id: ENTITIES.sensors.torStatus },
-      timeout: 8000
-    });
-    const raw: HaLogbookEntry[] = Array.isArray(response.data) ? response.data : [];
-    const states = statesCache?.data ?? [];
-    const entries = raw
-      .filter((e) => e.state)
-      .map((e): ActivityEntry => ({
-        ts: e.when ?? new Date().toISOString(),
-        category: "gate",
-        action: `Zustand: ${e.state}`,
-        ok: true,
-        context: e.state,
-        trigger: parseTrigger(e, states),
-        source: "ha-log"
-      }));
-    if (entries.length === 0 && raw.length === 0) {
-      console.log(`[gate-log] HA Logbuch lieferte 0 Einträge für ${ENTITIES.sensors.torStatus} (letzten ${hours}h)`);
-    }
-    return entries;
-  } catch (error) {
-    console.warn(`[gate-log] Fehler beim Laden des HA-Logbuchs: ${describeError(error)}`);
-    return [];
-  }
 }
 
 function readCachedGateState(): string {
@@ -269,16 +227,12 @@ type CameraSummary = {
   mjpegFallbackUrl: string;
   eventUpdatedAt: string;
   eventTimestamp: string;
-  /** Erkannte Person (z. B. "Lucas") oder undefined wenn keine/unbekannt gewünscht */
-  personName?: string;
 };
 
 type CameraConfig = {
   name: string;
   eventImageEntityId: string;
   liveCameraEntityId: string;
-  /** Sensor-Entity mit erkanntem Personennamen, z. B. "sensor.hof_person_name". Klingel bekommt keinen (Datenschutz). */
-  personSensorId?: string;
 };
 
 const ENTITIES = {
@@ -327,6 +281,11 @@ const ENTITIES = {
     wait60: "button.esp_tor_60s_warten",
     autoOpen: "button.esp_tor_automatik_offnen",
     impulse: "button.esp_tor_tor_impuls"
+  },
+  binarySensors: {
+    endschalterAuf: "binary_sensor.esp_tor_endschalter_tor_auf",
+    endschalterZu:  "binary_sensor.esp_tor_endschalter_tor_zu",
+    lichtschranke:  "binary_sensor.esp_tor_lichtschranke_tor"
   }
 } as const;
 
@@ -334,32 +293,27 @@ const CAMERA_CONFIGS: CameraConfig[] = [
   {
     name: envValue("CAMERA_EINFAHRT_NAME", "Einfahrt"),
     eventImageEntityId: ENTITIES.cameras.einfahrtEventImage,
-    liveCameraEntityId: envValue("CAMERA_EINFAHRT_STREAM", ENTITIES.cameraFeeds.einfahrt),
-    personSensorId: envValue("CAMERA_EINFAHRT_PERSON_SENSOR", "sensor.einfahrt_person_name") || undefined
+    liveCameraEntityId: envValue("CAMERA_EINFAHRT_STREAM", ENTITIES.cameraFeeds.einfahrt)
   },
   {
     name: envValue("CAMERA_HOF_NAME", "Hof"),
     eventImageEntityId: ENTITIES.cameras.hofEventImage,
-    liveCameraEntityId: envValue("CAMERA_HOF_STREAM", ENTITIES.cameraFeeds.hof),
-    personSensorId: envValue("CAMERA_HOF_PERSON_SENSOR", "sensor.hof_person_name") || undefined
+    liveCameraEntityId: envValue("CAMERA_HOF_STREAM", ENTITIES.cameraFeeds.hof)
   },
   {
     name: envValue("CAMERA_HOF_VON_GARAGE_NAME", "Hof von Garage"),
     eventImageEntityId: ENTITIES.cameras.hofVonGarageEventImage,
-    liveCameraEntityId: envValue("CAMERA_HOF_VON_GARAGE_STREAM", ENTITIES.cameraFeeds.hofVonGarage),
-    personSensorId: envValue("CAMERA_HOF_VON_GARAGE_PERSON_SENSOR", "sensor.hof_von_garage_person_name") || undefined
+    liveCameraEntityId: envValue("CAMERA_HOF_VON_GARAGE_STREAM", ENTITIES.cameraFeeds.hofVonGarage)
   },
   {
     name: envValue("CAMERA_WERKSTATT_GARTEN_NAME", "Werkstatt Richtung Garten"),
     eventImageEntityId: ENTITIES.cameras.werkstattRichtungGartenEventImage,
-    liveCameraEntityId: envValue("CAMERA_WERKSTATT_GARTEN_STREAM", ENTITIES.cameraFeeds.werkstattRichtungGarten),
-    personSensorId: envValue("CAMERA_WERKSTATT_GARTEN_PERSON_SENSOR", "sensor.werkstatt_richtung_garten_person_name") || undefined
+    liveCameraEntityId: envValue("CAMERA_WERKSTATT_GARTEN_STREAM", ENTITIES.cameraFeeds.werkstattRichtungGarten)
   },
   {
     name: envValue("CAMERA_KLINGEL_NAME", "Klingel"),
     eventImageEntityId: ENTITIES.cameras.klingelEventImage,
     liveCameraEntityId: envValue("CAMERA_KLINGEL_STREAM", ENTITIES.cameraFeeds.klingel)
-    // kein personSensorId — Datenschutz
   }
 ];
 
@@ -482,18 +436,10 @@ function mapLight(entity: HaState | null, fallbackName: string): LightSummary {
   };
 }
 
-function resolvePersonName(stateMap: Map<string, HaState>, sensorId: string | undefined): string | undefined {
-  if (!sensorId) { return undefined; }
-  const raw = stateMap.get(sensorId)?.state ?? "";
-  if (!raw || raw === "unavailable" || raw === "unknown" || raw === "No Person") { return undefined; }
-  return raw; // z. B. "Lucas" oder "Unknown Person"
-}
-
 function mapCamera(
   entity: HaState | null,
   fallbackName: string,
-  liveCameraEntityId: string,
-  personName?: string
+  liveCameraEntityId: string
 ): CameraSummary {
   const entityId = entity?.entity_id ?? fallbackName;
   const eventDate = entity?.state && !["unknown", "unavailable"].includes(entity.state)
@@ -518,8 +464,7 @@ function mapCamera(
     mjpegUrl,
     mjpegFallbackUrl,
     eventUpdatedAt: eventDate ? formatGermanDateTime(eventDate) : "unavailable",
-    eventTimestamp: eventDate || "",
-    ...(personName !== undefined ? { personName } : {})
+    eventTimestamp: eventDate || ""
   };
 }
 
@@ -1125,8 +1070,6 @@ async function setSwitch(entityId: string, enabled: boolean): Promise<void> {
   });
 }
 
-const _imageErrorThrottle = new Map<string, number>();
-
 async function getImageEntityBytes(entityId: string): Promise<{ contentType: string; data: Buffer } | null> {
   try {
     const response = await ha.get(`/api/image_proxy/${entityId}`, {
@@ -1138,19 +1081,13 @@ async function getImageEntityBytes(entityId: string): Promise<{ contentType: str
 
     const contentTypeHeader = response.headers["content-type"];
     const contentType = typeof contentTypeHeader === "string" ? contentTypeHeader : "image/jpeg";
-    _imageErrorThrottle.delete(entityId);
 
     return {
       contentType,
       data: Buffer.from(response.data)
     };
   } catch (error) {
-    const now = Date.now();
-    const lastLogged = _imageErrorThrottle.get(entityId) ?? 0;
-    if (now - lastLogged > 5 * 60 * 1000) {
-      console.warn(`[camera] Bild nicht verfügbar: ${entityId} (${describeError(error)})`);
-      _imageErrorThrottle.set(entityId, now);
-    }
+    console.error(`Fehler beim Holen des Bildes von ${entityId}: ${describeError(error)}`);
     return null;
   }
 }
@@ -1441,16 +1378,15 @@ app.get("/api/dashboard", async (_req: Request, res: Response) => {
     mapLight(esstischWohnzimmer, "Esstisch Wohnzimmer")
   ];
   const cameras = [
-    mapCamera(einfahrtEventImage, CAMERA_CONFIGS[0].name, CAMERA_CONFIGS[0].liveCameraEntityId,
-      resolvePersonName(stateMap, CAMERA_CONFIGS[0].personSensorId)),
-    mapCamera(hofEventImage, CAMERA_CONFIGS[1].name, CAMERA_CONFIGS[1].liveCameraEntityId,
-      resolvePersonName(stateMap, CAMERA_CONFIGS[1].personSensorId)),
-    mapCamera(hofVonGarageEventImage, CAMERA_CONFIGS[2].name, CAMERA_CONFIGS[2].liveCameraEntityId,
-      resolvePersonName(stateMap, CAMERA_CONFIGS[2].personSensorId)),
-    mapCamera(werkstattRichtungGartenEventImage, CAMERA_CONFIGS[3].name, CAMERA_CONFIGS[3].liveCameraEntityId,
-      resolvePersonName(stateMap, CAMERA_CONFIGS[3].personSensorId)),
-    mapCamera(klingelEventImage, CAMERA_CONFIGS[4].name, CAMERA_CONFIGS[4].liveCameraEntityId,
-      resolvePersonName(stateMap, CAMERA_CONFIGS[4].personSensorId))
+    mapCamera(einfahrtEventImage, CAMERA_CONFIGS[0].name, CAMERA_CONFIGS[0].liveCameraEntityId),
+    mapCamera(hofEventImage, CAMERA_CONFIGS[1].name, CAMERA_CONFIGS[1].liveCameraEntityId),
+    mapCamera(hofVonGarageEventImage, CAMERA_CONFIGS[2].name, CAMERA_CONFIGS[2].liveCameraEntityId),
+    mapCamera(
+      werkstattRichtungGartenEventImage,
+      CAMERA_CONFIGS[3].name,
+      CAMERA_CONFIGS[3].liveCameraEntityId
+    ),
+    mapCamera(klingelEventImage, CAMERA_CONFIGS[4].name, CAMERA_CONFIGS[4].liveCameraEntityId)
   ];
   const energy = await buildEnergySummary(stateMap);
 
@@ -1732,29 +1668,12 @@ app.post("/api/timer/boiler/reset", async (_req: Request, res: Response) => {
   }
 });
 
-app.get("/api/activity-log", async (req: Request, res: Response) => {
-  const category = String(req.query.category || "");
-  const inMemory = category
+app.get("/api/activity-log", (_req: Request, res: Response) => {
+  const category = String(_req.query.category || "");
+  const entries = category
     ? activityLog.filter((e) => e.category === category)
     : activityLog;
-
-  // Für Tor: HA-Logbuch der letzten 24h einmischen
-  if (category === "gate" || category === "") {
-    const hours = Math.min(Number(req.query.hours) || 24, 72);
-    const haEntries = await fetchGateLogbookEntries(hours);
-
-    // In-Memory-Einträge haben Vorrang (UI-Aktionen), HA-Logbuch füllt den Rest
-    const inMemoryTs = new Set(inMemory.map((e) => e.ts));
-    const merged = [
-      ...inMemory,
-      ...haEntries.filter((e) => !inMemoryTs.has(e.ts))
-    ].sort((a, b) => b.ts.localeCompare(a.ts));
-
-    res.json(merged.slice(0, 300));
-    return;
-  }
-
-  res.json(inMemory.slice(0, 300));
+  res.json(entries.slice(0, 300));
 });
 
 app.get("/api/ha-logbook", async (_req: Request, res: Response) => {
@@ -1868,13 +1787,108 @@ app.use((_req: Request, res: Response) => {
   res.sendFile(path.join(__dirname, "../public/index.html"));
 });
 
+// ---------------------------------------------------------------------------
+// Gate entity state-change tracking via HA WebSocket
+// ---------------------------------------------------------------------------
+
+type GateWatchEntry = {
+  label: string;
+  kind: ActivityEntry["kind"];
+};
+
+const GATE_WATCH: Readonly<Record<string, GateWatchEntry>> = {
+  [ENTITIES.sensors.torStatus]:          { label: "Torstatus",         kind: "state"  },
+  [ENTITIES.switches.smartControl]:      { label: "Smarte Steuerung",  kind: "state"  },
+  [ENTITIES.switches.torAutomatik]:      { label: "Automatik",         kind: "state"  },
+  [ENTITIES.switches.torDauerAuf]:       { label: "Dauerauf",          kind: "state"  },
+  [ENTITIES.buttons.autoOpen]:           { label: "Automatik-Öffnen",  kind: "action" },
+  [ENTITIES.binarySensors.endschalterAuf]: { label: "Endschalter Auf", kind: "state"  },
+  [ENTITIES.binarySensors.endschalterZu]: { label: "Endschalter Zu",  kind: "state"  },
+  [ENTITIES.binarySensors.lichtschranke]: { label: "Lichtschranke",   kind: "state"  },
+  [ENTITIES.sensors.schliessZeit]:       { label: "Schließzeit",       kind: "sensor" },
+  [ENTITIES.sensors.fahrZeit]:           { label: "Fahrzeit",          kind: "sensor" },
+};
+
+/** Last numeric value logged per sensor — to avoid logging every-second updates. */
+const numericLastLogged: Record<string, number | null> = {};
+
+function shouldLogNumeric(entityId: string, rawState: string): boolean {
+  const val = parseFloat(rawState);
+  if (!Number.isFinite(val)) return false;           // unavailable / unknown
+
+  const last = numericLastLogged[entityId] ?? null;
+  numericLastLogged[entityId] = val;
+
+  if (last === null) return val > 0;                  // Startup: only log if already counting
+  if (val === 0 && last !== 0) return true;           // Countdown reached zero
+  if (val > 0 && last === 0) return true;             // Countdown started
+  return Math.abs(val - last) >= 10;                  // Changed by 10+ (steps / seconds)
+}
+
+function formatTrigger(userId: string | null, origin: string): string | undefined {
+  if (userId) return "Nutzer";
+  if (origin === "REMOTE") return "API";
+  if (origin === "LOCAL") return "Automatisierung";
+  return undefined;
+}
+
+function formatGateAction(entityId: string, newState: string, label: string): string {
+  // torStatus: ESP state as-is ("offen", "geschlossen", "öffnet", "schließt", …)
+  if (entityId === ENTITIES.sensors.torStatus) return `${label}: ${newState}`;
+
+  // Switches
+  if (entityId === ENTITIES.switches.smartControl ||
+      entityId === ENTITIES.switches.torAutomatik  ||
+      entityId === ENTITIES.switches.torDauerAuf) {
+    return `${label}: ${newState === "on" ? "EIN" : newState === "off" ? "AUS" : newState}`;
+  }
+
+  // Button press (autoOpen) — state is an ISO timestamp on press
+  if (entityId === ENTITIES.buttons.autoOpen) return `${label}: ausgelöst`;
+
+  // Binary sensors
+  if (entityId === ENTITIES.binarySensors.endschalterAuf) {
+    return newState === "on" ? "Endschalter Auf: ausgelöst" : "Endschalter Auf: freigegeben";
+  }
+  if (entityId === ENTITIES.binarySensors.endschalterZu) {
+    return newState === "on" ? "Endschalter Zu: ausgelöst" : "Endschalter Zu: freigegeben";
+  }
+  if (entityId === ENTITIES.binarySensors.lichtschranke) {
+    return newState === "on" ? "Lichtschranke: unterbrochen" : "Lichtschranke: frei";
+  }
+
+  // Numeric sensors
+  if (entityId === ENTITIES.sensors.schliessZeit) return `${label}: ${newState} s`;
+  if (entityId === ENTITIES.sensors.fahrZeit)     return `${label}: ${newState} s`;
+
+  return `${label}: ${newState}`;
+}
+
 app.listen(PORT, "0.0.0.0", () => {
-  console.log([
-    `Wallpanel läuft auf Port ${PORT}`,
-    `  HA-URL:            ${HA_URL}`,
-    `  HA-Token:          ${HA_TOKEN ? "gesetzt" : "FEHLT – Add-on ohne homeassistant_api?"}`,
-    `  Supervisor-Token:  ${SUPERVISOR_TOKEN ? "gesetzt" : "nicht gesetzt (nur im HA Add-on verfügbar)"}`,
-    `  Tor-Sensor:        ${ENTITIES.sensors.torStatus}`,
-    `  Settings-PIN:      ${SETTINGS_PIN ? "gesetzt" : "nicht gesetzt"}`
-  ].join("\n"));
+  console.log(`Wallpanel läuft auf Port ${PORT}`);
+
+  subscribeToStateChanges(
+    HA_URL,
+    HA_TOKEN,
+    Object.keys(GATE_WATCH),
+    (entityId, newState, oldState, evtCtx) => {
+      const entry = GATE_WATCH[entityId];
+      if (!entry) return;
+
+      // Numeric sensors: only log on significant change
+      if (entry.kind === "sensor") {
+        if (!shouldLogNumeric(entityId, newState)) return;
+      }
+
+      const action  = formatGateAction(entityId, newState, entry.label);
+      const trigger = formatTrigger(evtCtx.userId, evtCtx.origin);
+      // context = previous state (for state entries) or current torStatus (for actions/sensors)
+      const ctx = (entry.kind === "state" || entry.kind === "sensor")
+        ? (oldState ?? undefined)
+        : readCachedGateState();
+
+      console.log(`[gate-watch] ${action}${trigger ? ` (${trigger})` : ""}${oldState ? ` | vorher: ${oldState}` : ""}`);
+      logActivity("gate", action, true, undefined, ctx, entry.kind, trigger);
+    }
+  );
 });

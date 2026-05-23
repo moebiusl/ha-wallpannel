@@ -3,7 +3,7 @@ import axios from "axios";
 import dotenv from "dotenv";
 import fs from "fs";
 import path from "path";
-import { getHaRegistries } from "./ha-websocket";
+import { getHaRegistries, subscribeToStateChanges } from "./ha-websocket";
 import { readPanelConfig, writePanelConfig, getConfigPath } from "./panel-config";
 import { getDomain, getFriendlyEntityName, isProbablyUsefulEntity } from "./entity-filter";
 
@@ -133,15 +133,28 @@ let weatherForecastCache: { entityId: string; at: number; data: WeatherForecastD
 type ActivityEntry = {
   ts: string;
   category: "gate" | "timer" | "system";
+  /** "action" = manual/panel trigger, "state" = HA entity state change, "sensor" = numeric sensor reading */
+  kind?: "action" | "state" | "sensor";
   action: string;
   ok: boolean;
   detail?: string;
+  /** For actions: current torStatus. For state changes: previous state value. */
   context?: string;
+  /** Who triggered the action: "Nutzer", "Automatisierung", "API" etc. */
+  trigger?: string;
 };
 const activityLog: ActivityEntry[] = [];
 
-function logActivity(category: ActivityEntry["category"], action: string, ok: boolean, detail?: string, context?: string): void {
-  activityLog.unshift({ ts: new Date().toISOString(), category, action, ok, detail, context });
+function logActivity(
+  category: ActivityEntry["category"],
+  action: string,
+  ok: boolean,
+  detail?: string,
+  context?: string,
+  kind?: ActivityEntry["kind"],
+  trigger?: string
+): void {
+  activityLog.unshift({ ts: new Date().toISOString(), category, action, ok, detail, context, kind, trigger });
   if (activityLog.length > 500) { activityLog.length = 500; }
 }
 
@@ -268,6 +281,11 @@ const ENTITIES = {
     wait60: "button.esp_tor_60s_warten",
     autoOpen: "button.esp_tor_automatik_offnen",
     impulse: "button.esp_tor_tor_impuls"
+  },
+  binarySensors: {
+    endschalterAuf: "binary_sensor.esp_tor_endschalter_tor_auf",
+    endschalterZu:  "binary_sensor.esp_tor_endschalter_tor_zu",
+    lichtschranke:  "binary_sensor.esp_tor_lichtschranke_tor"
   }
 } as const;
 
@@ -1769,6 +1787,108 @@ app.use((_req: Request, res: Response) => {
   res.sendFile(path.join(__dirname, "../public/index.html"));
 });
 
+// ---------------------------------------------------------------------------
+// Gate entity state-change tracking via HA WebSocket
+// ---------------------------------------------------------------------------
+
+type GateWatchEntry = {
+  label: string;
+  kind: ActivityEntry["kind"];
+};
+
+const GATE_WATCH: Readonly<Record<string, GateWatchEntry>> = {
+  [ENTITIES.sensors.torStatus]:          { label: "Torstatus",         kind: "state"  },
+  [ENTITIES.switches.smartControl]:      { label: "Smarte Steuerung",  kind: "state"  },
+  [ENTITIES.switches.torAutomatik]:      { label: "Automatik",         kind: "state"  },
+  [ENTITIES.switches.torDauerAuf]:       { label: "Dauerauf",          kind: "state"  },
+  [ENTITIES.buttons.autoOpen]:           { label: "Automatik-Öffnen",  kind: "action" },
+  [ENTITIES.binarySensors.endschalterAuf]: { label: "Endschalter Auf", kind: "state"  },
+  [ENTITIES.binarySensors.endschalterZu]: { label: "Endschalter Zu",  kind: "state"  },
+  [ENTITIES.binarySensors.lichtschranke]: { label: "Lichtschranke",   kind: "state"  },
+  [ENTITIES.sensors.schliessZeit]:       { label: "Schließzeit",       kind: "sensor" },
+  [ENTITIES.sensors.fahrZeit]:           { label: "Fahrzeit",          kind: "sensor" },
+};
+
+/** Last numeric value logged per sensor — to avoid logging every-second updates. */
+const numericLastLogged: Record<string, number | null> = {};
+
+function shouldLogNumeric(entityId: string, rawState: string): boolean {
+  const val = parseFloat(rawState);
+  if (!Number.isFinite(val)) return false;           // unavailable / unknown
+
+  const last = numericLastLogged[entityId] ?? null;
+  numericLastLogged[entityId] = val;
+
+  if (last === null) return val > 0;                  // Startup: only log if already counting
+  if (val === 0 && last !== 0) return true;           // Countdown reached zero
+  if (val > 0 && last === 0) return true;             // Countdown started
+  return Math.abs(val - last) >= 10;                  // Changed by 10+ (steps / seconds)
+}
+
+function formatTrigger(userId: string | null, origin: string): string | undefined {
+  if (userId) return "Nutzer";
+  if (origin === "REMOTE") return "API";
+  if (origin === "LOCAL") return "Automatisierung";
+  return undefined;
+}
+
+function formatGateAction(entityId: string, newState: string, label: string): string {
+  // torStatus: ESP state as-is ("offen", "geschlossen", "öffnet", "schließt", …)
+  if (entityId === ENTITIES.sensors.torStatus) return `${label}: ${newState}`;
+
+  // Switches
+  if (entityId === ENTITIES.switches.smartControl ||
+      entityId === ENTITIES.switches.torAutomatik  ||
+      entityId === ENTITIES.switches.torDauerAuf) {
+    return `${label}: ${newState === "on" ? "EIN" : newState === "off" ? "AUS" : newState}`;
+  }
+
+  // Button press (autoOpen) — state is an ISO timestamp on press
+  if (entityId === ENTITIES.buttons.autoOpen) return `${label}: ausgelöst`;
+
+  // Binary sensors
+  if (entityId === ENTITIES.binarySensors.endschalterAuf) {
+    return newState === "on" ? "Endschalter Auf: ausgelöst" : "Endschalter Auf: freigegeben";
+  }
+  if (entityId === ENTITIES.binarySensors.endschalterZu) {
+    return newState === "on" ? "Endschalter Zu: ausgelöst" : "Endschalter Zu: freigegeben";
+  }
+  if (entityId === ENTITIES.binarySensors.lichtschranke) {
+    return newState === "on" ? "Lichtschranke: unterbrochen" : "Lichtschranke: frei";
+  }
+
+  // Numeric sensors
+  if (entityId === ENTITIES.sensors.schliessZeit) return `${label}: ${newState} s`;
+  if (entityId === ENTITIES.sensors.fahrZeit)     return `${label}: ${newState} s`;
+
+  return `${label}: ${newState}`;
+}
+
 app.listen(PORT, "0.0.0.0", () => {
   console.log(`Wallpanel läuft auf Port ${PORT}`);
+
+  subscribeToStateChanges(
+    HA_URL,
+    HA_TOKEN,
+    Object.keys(GATE_WATCH),
+    (entityId, newState, oldState, evtCtx) => {
+      const entry = GATE_WATCH[entityId];
+      if (!entry) return;
+
+      // Numeric sensors: only log on significant change
+      if (entry.kind === "sensor") {
+        if (!shouldLogNumeric(entityId, newState)) return;
+      }
+
+      const action  = formatGateAction(entityId, newState, entry.label);
+      const trigger = formatTrigger(evtCtx.userId, evtCtx.origin);
+      // context = previous state (for state entries) or current torStatus (for actions/sensors)
+      const ctx = (entry.kind === "state" || entry.kind === "sensor")
+        ? (oldState ?? undefined)
+        : readCachedGateState();
+
+      console.log(`[gate-watch] ${action}${trigger ? ` (${trigger})` : ""}${oldState ? ` | vorher: ${oldState}` : ""}`);
+      logActivity("gate", action, true, undefined, ctx, entry.kind, trigger);
+    }
+  );
 });
