@@ -14,7 +14,7 @@
     <div class="layout">
       <main class="dashboard-main">
         <section class="hero-grid">
-          <article class="panel metric-card weather-card compact-hero-card dashboard-clickable" onclick="openModal('weatherModal')">
+          <article class="panel metric-card weather-card compact-hero-card dashboard-clickable" onclick="window.location.href='wetter.html'">
             <div class="panel-header">
               <span class="panel-kicker">Wetter</span>
               <span class="panel-meta">Strehla</span>
@@ -25,6 +25,10 @@
                 <div class="metric-caption compact-caption" id="weatherState">unavailable</div>
               </div>
               <div class="weather-icon compact-weather-icon">☁</div>
+            </div>
+            <div class="weather-card-footer">
+              <span class="weather-card-footer-item" id="weatherTankMini">Fass --</span>
+              <span class="weather-card-footer-item" id="weatherPrecipMini">--</span>
             </div>
           </article>
 
@@ -144,58 +148,6 @@
   </div>
 
   <div class="modal-backdrop" id="modalBackdrop" onclick="closeModal()"></div>
-
-  <div class="dashboard-modal" id="weatherModal">
-    <div class="modal-card">
-      <div class="modal-header">
-        <div>
-          <div class="panel-kicker">Wetter</div>
-          <div class="modal-title">Wetterdetails</div>
-        </div>
-        <button class="modal-close" type="button" onclick="closeModal()">×</button>
-      </div>
-      <div class="modal-content">
-        <div class="modal-grid two-columns">
-          <div class="modal-info-box">
-            <div class="modal-info-label">Temperatur</div>
-            <div class="modal-info-value" id="weatherTempModal">--</div>
-          </div>
-          <div class="modal-info-box">
-            <div class="modal-info-label">Wetterlage</div>
-            <div class="modal-info-value" id="weatherStateModal">unavailable</div>
-          </div>
-          <div class="modal-info-box">
-            <div class="modal-info-label">Luftfeuchte</div>
-            <div class="modal-info-value" id="weatherHumidity">unavailable</div>
-          </div>
-          <div class="modal-info-box">
-            <div class="modal-info-label">Wind</div>
-            <div class="modal-info-value" id="weatherWind">unavailable</div>
-          </div>
-          <div class="modal-info-box">
-            <div class="modal-info-label">Bewölkung</div>
-            <div class="modal-info-value" id="weatherCloudCoverage">unavailable</div>
-          </div>
-          <div class="modal-info-box">
-            <div class="modal-info-label">Luftdruck</div>
-            <div class="modal-info-value" id="weatherPressure">unavailable</div>
-          </div>
-          <div class="modal-info-box">
-            <div class="modal-info-label">Taupunkt</div>
-            <div class="modal-info-value" id="weatherDewPoint">unavailable</div>
-          </div>
-          <div class="modal-info-box">
-            <div class="modal-info-label">UV-Index</div>
-            <div class="modal-info-value" id="weatherUvIndex">unavailable</div>
-          </div>
-        </div>
-        <div class="weather-forecast-block">
-          <div class="room-section-title">Vorhersage</div>
-          <div id="weatherForecastList" class="weather-forecast-list"></div>
-        </div>
-      </div>
-    </div>
-  </div>
 
   <div class="dashboard-modal" id="energyModal">
     <div class="modal-card">

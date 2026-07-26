@@ -2,6 +2,8 @@ var optionState = {
   structure: null,
   config: null,
   energyData: null,
+  weatherStationData: null,
+  waterTankData: null,
   panelId: "default",
   pageId: "hof",
   pickerType: "entities",
@@ -24,8 +26,56 @@ var STATIC_PAGES = [
   { id: "raum", name: "Raum" },
   { id: "energie", name: "Energie" },
   { id: "klima", name: "Klima" },
+  { id: "wetter", name: "Wetter" },
   { id: "sicherheit", name: "Sicherheit" }
 ];
+
+var WATER_TANK_CALIBRATION_ENTITIES = [
+  { id: "number.hof_wasserstand_test_max_tank_liter", inputId: "tankMaxLiter" },
+  { id: "number.hof_wasserstand_test_tank_full_distance", inputId: "tankFullDistance" },
+  { id: "number.hof_wasserstand_test_tank_empty_distance", inputId: "tankEmptyDistance" }
+];
+
+function loadWaterTankCalibration() {
+  var data = optionState.waterTankData;
+  var calibration = data && data.calibration ? data.calibration : null;
+  if (!calibration) { return; }
+  setWaterTankCalibrationInput("tankMaxLiter", calibration.maxLiter);
+  setWaterTankCalibrationInput("tankFullDistance", calibration.fullDistance);
+  setWaterTankCalibrationInput("tankEmptyDistance", calibration.emptyDistance);
+}
+
+function setWaterTankCalibrationInput(inputId, metric) {
+  var el = document.getElementById(inputId);
+  if (!el || !metric || metric.value === "unavailable") { return; }
+  el.value = metric.value;
+}
+
+function saveWaterTankCalibration() {
+  var status = document.getElementById("tankCalibrationSaveState");
+  if (status) { status.innerHTML = "Speichere..."; }
+
+  var index = 0;
+  function next(error) {
+    if (error) {
+      if (status) { status.innerHTML = "Fehler beim Speichern"; }
+      return;
+    }
+    if (index >= WATER_TANK_CALIBRATION_ENTITIES.length) {
+      if (status) { status.innerHTML = "Gespeichert"; }
+      return;
+    }
+    var entry = WATER_TANK_CALIBRATION_ENTITIES[index++];
+    var input = document.getElementById(entry.inputId);
+    var value = input ? Number(input.value) : NaN;
+    if (!Number.isFinite(value)) { next(); return; }
+    apiPost("api/entity/" + encodeURIComponent(entry.id) + "/service", {
+      service: "set_value",
+      data: { value: value }
+    }, next);
+  }
+  next();
+}
 
 function unlockSettings() {
   var input = document.getElementById("settingsPin");
@@ -277,7 +327,8 @@ function applyOptionChange(callback) {
 }
 
 function isStaticEntityPage() {
-  return optionState.pageId === "energie" || optionState.pageId === "klima" || optionState.pageId === "sicherheit";
+  return optionState.pageId === "energie" || optionState.pageId === "klima" ||
+    optionState.pageId === "wetter" || optionState.pageId === "sicherheit";
 }
 
 function findEntityById(entityId) {
@@ -394,6 +445,36 @@ function isOptionsSecurityEntity(entity) {
   ].indexOf(entity.deviceClass) !== -1;
 }
 
+function getWeatherStationOptionEntities() {
+  var data = optionState.weatherStationData;
+  var tankData = optionState.waterTankData;
+  var list = [];
+  if (data) {
+    pushEnergyMetricEntities(list, [
+      data.outdoorTemp,
+      data.outdoorHumidity,
+      data.dailyRain,
+      data.rainRate,
+      data.monthlyRain,
+      data.yearlyRain,
+      data.pressure,
+      data.pressureChange3h,
+      data.barometerForecast,
+      data.windSpeed,
+      data.windDirection,
+      data.uvIndex
+    ], "Wetterstation");
+  }
+  if (tankData) {
+    pushEnergyMetricEntities(list, [
+      tankData.fillLevel,
+      tankData.liter,
+      tankData.height
+    ], "Wassertank");
+  }
+  return list;
+}
+
 function getPageEntities() {
   var page = getCurrentPage();
   var entities = optionState.structure && optionState.structure.entities ? optionState.structure.entities : [];
@@ -404,6 +485,9 @@ function getPageEntities() {
     return entities.filter(function (entity) {
       return entity.domain === "climate";
     }).sort(sortOptionEntities);
+  }
+  if (optionState.pageId === "wetter") {
+    return getWeatherStationOptionEntities().sort(sortOptionEntities);
   }
   if (optionState.pageId === "sicherheit") {
     return entities.filter(isOptionsSecurityEntity).sort(sortOptionEntities);
@@ -599,7 +683,10 @@ function renderAreaSelect() {
   if (isStaticEntityPage()) {
     var staticOption = document.createElement("option");
     staticOption.value = "";
-    staticOption.innerHTML = optionState.pageId === "energie" ? "Energie-Entitäten" : optionState.pageId === "klima" ? "Klima-Entitäten" : "Sicherheits-Entitäten";
+    staticOption.innerHTML = optionState.pageId === "energie" ? "Energie-Entitäten"
+      : optionState.pageId === "klima" ? "Klima-Entitäten"
+      : optionState.pageId === "wetter" ? "Wetter- und Wassertank-Entitäten"
+      : "Sicherheits-Entitäten";
     select.appendChild(staticOption);
     select.disabled = true;
     if (cleanupButton) { cleanupButton.style.display = "none"; }
@@ -1065,7 +1152,14 @@ function initOptionsPage() {
       }
       apiGet("api/energy", function (_energyError, energyData) {
         optionState.energyData = energyData || null;
-        renderOptions();
+        apiGet("api/wetterstation", function (_weatherError, weatherStationData) {
+          optionState.weatherStationData = weatherStationData || null;
+          apiGet("api/wassertank", function (_waterTankError, waterTankData) {
+            optionState.waterTankData = waterTankData || null;
+            loadWaterTankCalibration();
+            renderOptions();
+          });
+        });
       });
     });
   });
