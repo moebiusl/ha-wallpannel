@@ -1,3 +1,9 @@
+## 1.3.7
+
+### Fixes für die Wetterseite
+- Wetterseite war nicht scrollbar — behoben, ließ sich bei vielen Sektionen nicht mehr vollständig anzeigen
+- Messwerte (Fassfüllstand, Wetterstation- und Energie-Metriken) zeigten teils viele Nachkommastellen (z. B. „95.8528747558594 %") — werden jetzt serverseitig auf eine Nachkommastelle gerundet
+
 ## 1.3.6
 
 ### Neue Wetterseite mit eigener Wetterstation + Wassertank

@@ -702,7 +702,11 @@ function formatMetricDisplay(value: string, unit: string): string {
   if (!value || value === "unknown" || value === "unavailable") {
     return "unavailable";
   }
-  return `${value}${unit ? ` ${unit}` : ""}`;
+  const numeric = Number(value);
+  const formattedValue = Number.isFinite(numeric) && !Number.isInteger(numeric)
+    ? String(Math.round(numeric * 10) / 10)
+    : value;
+  return `${formattedValue}${unit ? ` ${unit}` : ""}`;
 }
 
 function sumMetrics(states: Map<string, HaState>, entityIds: string[]): number | null {

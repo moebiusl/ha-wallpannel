@@ -1872,7 +1872,8 @@ a:active {
 }
 
 .energy-page-panel,
-.climate-page-panel {
+.climate-page-panel,
+.weather-page-panel {
   overflow: auto;
   -webkit-overflow-scrolling: touch;
 }
