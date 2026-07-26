@@ -1,3 +1,10 @@
+## 1.3.8
+
+### Fix: Home-Sicherheitskachel ignorierte ausgeblendete Entitäten
+- Die Sicherheits-Übersicht auf der Home-Seite („Sicher" / „Nicht sicher" / „Offline") zählte bisher alle passenden Entitäten direkt aus HA, unabhängig davon, was auf der Sicherheits-Seite über Optionen ausgeblendet wurde
+- Dadurch tauchten z. B. verwaiste Sensoren (nach Rückbau der Wohnzimmer-Thermostate wegen Fußbodenheizung) weiterhin als „Offline" auf der Home-Kachel auf, obwohl sie auf der Sicherheits-Seite bereits ausgeblendet waren
+- Home-Kachel respektiert jetzt dieselben `hiddenEntities` wie die Sicherheits-Seite
+
 ## 1.3.7
 
 ### Fixes für die Wetterseite

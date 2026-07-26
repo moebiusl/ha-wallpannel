@@ -9,6 +9,7 @@ var notificationState = {
   dashboard: null,
   structure: null
 };
+var homeSecurityPageConfig = null;
 var boilerTimerState = null;
 var boilerCountdownInterval = null;
 
@@ -539,8 +540,27 @@ function isHomeSecurityEntity(entity) {
     "gas",
     "carbon_monoxide",
     "carbon_dioxide",
-    "problem"
+    "problem",
+    "lock"
   ].indexOf(entity.deviceClass) !== -1;
+}
+
+function getHomeSecurityPageConfig() {
+  var panelId = typeof getPanelId === "function" ? getPanelId() : "default";
+  var panel = homeSecurityPageConfig && homeSecurityPageConfig.panels && homeSecurityPageConfig.panels[panelId]
+    ? homeSecurityPageConfig.panels[panelId]
+    : null;
+  if (!panel && homeSecurityPageConfig && homeSecurityPageConfig.panels) {
+    panel = homeSecurityPageConfig.panels.default || null;
+  }
+  return panel && panel.pages ? panel.pages.sicherheit : null;
+}
+
+function isHomeSecurityEntityVisible(entity) {
+  var page = getHomeSecurityPageConfig();
+  if (!page || !entity) { return true; }
+  if (page.hiddenEntities && page.hiddenEntities.indexOf(entity.entityId) !== -1) { return false; }
+  return true;
 }
 
 function getHomeSecuritySeverity(entity) {
@@ -575,7 +595,7 @@ function buildHomeSecurityNotice(entities) {
 
   for (var i = 0; i < entities.length; i++) {
     var entity = entities[i];
-    if (!isHomeSecurityEntity(entity)) { continue; }
+    if (!isHomeSecurityEntity(entity) || !isHomeSecurityEntityVisible(entity)) { continue; }
     securityEntities.push(entity);
     if (entity.state === "unavailable" || entity.state === "unknown") {
       offlineCount++;
@@ -957,6 +977,14 @@ function loadHomeStructure() {
   xhr.send();
 }
 
+function loadHomeSecurityConfig() {
+  apiGet("api/panel-config", function (error, payload) {
+    if (error) { return; }
+    homeSecurityPageConfig = payload && payload.config ? payload.config : null;
+    renderNotifications();
+  });
+}
+
 function postAction(url) {
   var xhr = new XMLHttpRequest();
   xhr.open("POST", url, true);
@@ -1039,6 +1067,7 @@ document.addEventListener("keydown", function (event) {
 updateCameraSourceButtons();
 loadDashboard();
 loadHomeStructure();
+loadHomeSecurityConfig();
 loadBoilerTimer();
 updateClockTime();
 setInterval(loadDashboard, 3000);
