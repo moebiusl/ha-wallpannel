@@ -292,7 +292,7 @@ button {
 
 .hero-grid {
   width: 100%;
-  height: 120px;
+  height: 134px;
   overflow: hidden;
   margin-bottom: 16px;
 }
@@ -318,10 +318,33 @@ button {
   width: 29%;
 }
 
+.weather-card-footer {
+  display: -webkit-flex;
+  display: flex;
+  -webkit-align-items: center;
+  align-items: center;
+  -webkit-justify-content: space-between;
+  justify-content: space-between;
+  gap: 6px;
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid #2d445f;
+}
+
+.weather-card-footer-item {
+  min-width: 0;
+  overflow: hidden;
+  color: #94a7c6;
+  font-size: 11px;
+  font-weight: bold;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
 .content-grid {
   position: relative;
   width: 100%;
-  height: calc(100% - 136px);
+  height: calc(100% - 150px);
   overflow: hidden;
 }
 
@@ -1358,12 +1381,12 @@ button {
   }
 
   .hero-grid {
-    height: 108px;
+    height: 122px;
     margin-bottom: 12px;
   }
 
   .content-grid {
-    height: calc(100% - 120px);
+    height: calc(100% - 134px);
   }
 
   .panel {
@@ -1445,12 +1468,12 @@ button {
   }
 
   .hero-grid {
-    height: 100px;
+    height: 114px;
     margin-bottom: 10px;
   }
 
   .content-grid {
-    height: calc(100% - 110px);
+    height: calc(100% - 124px);
   }
 
   .compact-metric-value {
@@ -2169,12 +2192,14 @@ a:active {
   margin-top: 16px;
 }
 
-.energy-metric-grid {
+.energy-metric-grid,
+.metric-tile-grid {
   display: block;
   margin: -5px;
 }
 
-.energy-metric-tile {
+.energy-metric-tile,
+.metric-tile {
   display: inline-block;
   vertical-align: top;
   width: 18.6%;
@@ -2187,19 +2212,22 @@ a:active {
   background: #132238;
 }
 
-.energy-metric-tile.emphasis {
+.energy-metric-tile.emphasis,
+.metric-tile.emphasis {
   border-color: #345071;
   background: #18263c;
 }
 
-.energy-metric-label {
+.energy-metric-label,
+.metric-tile-label {
   color: #94a7c6;
   font-size: 12px;
   font-weight: bold;
   line-height: 1.2;
 }
 
-.energy-metric-value {
+.energy-metric-value,
+.metric-tile-value {
   margin-top: 8px;
   color: #eef4ff;
   font-size: 20px;
@@ -2207,6 +2235,101 @@ a:active {
   line-height: 1.1;
   overflow-wrap: anywhere;
   word-break: break-word;
+}
+
+/* ── Ring-Gauge (Füllstand, UV-Index) ────────────────────────────── */
+.ring-gauge-row {
+  display: -webkit-flex;
+  display: flex;
+  -webkit-align-items: center;
+  align-items: center;
+  gap: 16px;
+  margin-top: 10px;
+  padding: 14px;
+  border: 1px solid #2d445f;
+  border-radius: 14px;
+  background: #132238;
+}
+
+.ring-gauge {
+  position: relative;
+  -webkit-flex: 0 0 auto;
+  flex: 0 0 auto;
+  width: 104px;
+  height: 104px;
+  border-radius: 50%;
+  background: conic-gradient(var(--gauge-color, #5dd9c7) calc(var(--gauge-pct, 0) * 1%), #1b2c44 0);
+}
+
+.ring-gauge:after {
+  content: "";
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  right: 10px;
+  bottom: 10px;
+  border-radius: 50%;
+  background: #132238;
+}
+
+.ring-gauge-value {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 1;
+  display: -webkit-flex;
+  display: flex;
+  -webkit-flex-direction: column;
+  flex-direction: column;
+  -webkit-align-items: center;
+  align-items: center;
+  -webkit-justify-content: center;
+  justify-content: center;
+  color: #eef4ff;
+  font-size: 20px;
+  font-weight: bold;
+  line-height: 1.15;
+}
+
+.ring-gauge-value small {
+  margin-top: 2px;
+  color: #94a7c6;
+  font-size: 11px;
+  font-weight: bold;
+  text-transform: uppercase;
+}
+
+.ring-gauge-info {
+  min-width: 0;
+}
+
+.ring-gauge-title {
+  color: #eef4ff;
+  font-size: 16px;
+  font-weight: bold;
+}
+
+.ring-gauge-subtitle {
+  margin-top: 4px;
+  color: #94a7c6;
+  font-size: 12px;
+}
+
+/* ── Radar-/Kamerabild (z.B. DWD-Niederschlagsradar) ─────────────── */
+.weather-radar-block {
+  margin-top: 10px;
+}
+
+.weather-radar-image {
+  display: block;
+  width: 100%;
+  max-height: 320px;
+  object-fit: cover;
+  border: 1px solid #2d445f;
+  border-radius: 14px;
+  background: #0f172a;
 }
 
 @supports (display: grid) {
@@ -2224,14 +2347,16 @@ a:active {
     margin: 0;
   }
 
-  .energy-metric-grid {
+  .energy-metric-grid,
+  .metric-tile-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
     gap: 10px;
     margin: 0;
   }
 
-  .energy-metric-tile {
+  .energy-metric-tile,
+  .metric-tile {
     display: block;
     width: auto;
     margin: 0;
@@ -2513,7 +2638,8 @@ a:active {
     width: 47%;
   }
 
-  .energy-metric-tile {
+  .energy-metric-tile,
+  .metric-tile {
     width: 47%;
   }
 }
@@ -3867,7 +3993,8 @@ a:active {
 }
 
 @media screen and (max-width: 1100px) {
-  .energy-metric-tile {
+  .energy-metric-tile,
+  .metric-tile {
     width: 23%;
   }
 

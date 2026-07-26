@@ -58,6 +58,9 @@ function buildHeader(activePage, roomLabel, roomId, visiblePages) {
   if (pageVisible('klima')) {
     links += navLink('Klima', 'klima.html', 'klima');
   }
+  if (pageVisible('wetter')) {
+    links += navLink('Wetter', 'wetter.html', 'wetter');
+  }
   if (pageVisible('sicherheit')) {
     links += navLink('Sicherheit', 'sicherheit.html', 'sicherheit');
   }

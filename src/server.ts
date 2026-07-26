@@ -286,6 +286,31 @@ const ENTITIES = {
     endschalterAuf: "binary_sensor.esp_tor_endschalter_tor_auf",
     endschalterZu:  "binary_sensor.esp_tor_endschalter_tor_zu",
     lichtschranke:  "binary_sensor.esp_tor_lichtschranke_tor"
+  },
+  weatherStation: {
+    outdoorTemp: "sensor.gw3000a_outdoor_temperature",
+    outdoorHumidity: "sensor.gw3000a_humidity",
+    dailyRain: "sensor.gw3000a_daily_rain",
+    rainRate: "sensor.gw3000a_rain_rate",
+    monthlyRain: "sensor.gw3000a_monthly_rain",
+    yearlyRain: "sensor.gw3000a_yearly_rain",
+    pressure: "sensor.gw3000a_relative_pressure",
+    pressureChange3h: "sensor.luftdruck_anderung_3h",
+    barometerForecast: "sensor.barometer_wetterlage",
+    windSpeed: "sensor.gw3000a_wind_speed",
+    windDirection: "sensor.gw3000a_wind_direction",
+    uvIndex: "sensor.gw3000a_uv_index",
+    radarCamera: "camera.dwd_weather_maps_precipitation",
+    forecastEntity: "weather.status_strehla"
+  },
+  waterTank: {
+    fillLevel: "sensor.hof_wasserstand_test_tank_fullstand",
+    liter: "sensor.hof_wasserstand_test_tank_liter",
+    height: "sensor.hof_wasserstand_test_tank_hohe",
+    ledPanel: "light.hof_wasserstand_test_fullstand_anzeigepanel",
+    maxLiter: "number.hof_wasserstand_test_max_tank_liter",
+    fullDistance: "number.hof_wasserstand_test_tank_full_distance",
+    emptyDistance: "number.hof_wasserstand_test_tank_empty_distance"
   }
 } as const;
 
@@ -554,6 +579,62 @@ function normalizeWeatherForecastDay(entry: any): WeatherForecastDay {
   };
 }
 
+const HOURLY_FORECAST_CACHE_MS = 15 * 60 * 1000;
+let hourlyForecastCache: { entityId: string; at: number; data: any[] } | null = null;
+
+async function getHourlyForecast(entityId: string): Promise<any[]> {
+  const now = Date.now();
+  if (hourlyForecastCache && hourlyForecastCache.entityId === entityId && now - hourlyForecastCache.at < HOURLY_FORECAST_CACHE_MS) {
+    return hourlyForecastCache.data;
+  }
+  try {
+    const response = await ha.post("/api/services/weather/get_forecasts?return_response", {
+      entity_id: entityId,
+      type: "hourly"
+    });
+    const data = response.data as any;
+    const byEntity = data?.service_response?.[entityId] || data?.response?.[entityId] || data?.[entityId] || data;
+    const forecast = Array.isArray(byEntity?.forecast) ? byEntity.forecast.slice(0, 12) : [];
+    hourlyForecastCache = { entityId, at: Date.now(), data: forecast };
+    return forecast;
+  } catch (error) {
+    console.warn(`Stündliche Vorhersage nicht verfügbar: ${describeError(error)}`);
+    hourlyForecastCache = { entityId, at: Date.now(), data: [] };
+    return [];
+  }
+}
+
+type PrecipitationOutlook = { text: string; state: "raining" | "upcoming" | "none" };
+
+function buildPrecipitationOutlook(rainRateEntity: HaState | null, hourlyForecast: any[]): PrecipitationOutlook {
+  const rainRate = numericState(rainRateEntity);
+  if (rainRate !== null && rainRate > 0) {
+    return { text: "Regen jetzt", state: "raining" };
+  }
+
+  const now = Date.now();
+  for (const entry of hourlyForecast) {
+    const precipitation = Number(entry?.precipitation);
+    const probability = Number(entry?.precipitation_probability);
+    const hasRain = (Number.isFinite(precipitation) && precipitation > 0) || (Number.isFinite(probability) && probability >= 50);
+    if (!hasRain) { continue; }
+
+    const entryTime = new Date(String(entry?.datetime || "")).getTime();
+    if (!Number.isFinite(entryTime)) { continue; }
+
+    const diffMinutes = Math.round((entryTime - now) / 60000);
+    if (diffMinutes <= 0) {
+      return { text: "Regen möglich", state: "upcoming" };
+    }
+    if (diffMinutes < 60) {
+      return { text: `Regen in ${diffMinutes} Min.`, state: "upcoming" };
+    }
+    return { text: `Regen in ${Math.round(diffMinutes / 60)} Std.`, state: "upcoming" };
+  }
+
+  return { text: "Kein Niederschlag in Sicht", state: "none" };
+}
+
 function formatForecastNumber(value: unknown): string {
   if (value === undefined || value === null || value === "") {
     return "unavailable";
@@ -713,6 +794,53 @@ async function buildEnergySummary(stateMap?: Map<string, HaState>) {
       feedIn: metricFromState(stateMap, ENERGY_ENTITIES.grid.feedIn, "Einspeisung"),
       consumption: metricFromState(stateMap, ENERGY_ENTITIES.grid.consumption, "Zähler Verbrauch"),
       feedInTotal: metricFromState(stateMap, ENERGY_ENTITIES.grid.feedInTotal, "Zähler Einspeisung")
+    },
+    updatedAt: formatGermanDateTime(new Date())
+  };
+}
+
+async function buildWeatherStationSummary(stateMap: Map<string, HaState>) {
+  const forecastState = readStateFromMap(stateMap, ENTITIES.weatherStation.forecastEntity);
+  const forecastDays = await getWeatherForecast(ENTITIES.weatherStation.forecastEntity);
+  const forecast = extractWeatherSummary(forecastState, forecastDays);
+
+  return {
+    outdoorTemp: metricFromState(stateMap, ENTITIES.weatherStation.outdoorTemp, "Außentemperatur"),
+    outdoorHumidity: metricFromState(stateMap, ENTITIES.weatherStation.outdoorHumidity, "Außenfeuchte"),
+    dailyRain: metricFromState(stateMap, ENTITIES.weatherStation.dailyRain, "Regen heute"),
+    rainRate: metricFromState(stateMap, ENTITIES.weatherStation.rainRate, "Regenrate"),
+    monthlyRain: metricFromState(stateMap, ENTITIES.weatherStation.monthlyRain, "Regen Monat"),
+    yearlyRain: metricFromState(stateMap, ENTITIES.weatherStation.yearlyRain, "Regen Jahr"),
+    pressure: metricFromState(stateMap, ENTITIES.weatherStation.pressure, "Luftdruck"),
+    pressureChange3h: metricFromState(stateMap, ENTITIES.weatherStation.pressureChange3h, "Änderung 3 h"),
+    barometerForecast: metricFromState(stateMap, ENTITIES.weatherStation.barometerForecast, "Wetterlage"),
+    windSpeed: metricFromState(stateMap, ENTITIES.weatherStation.windSpeed, "Wind"),
+    windDirection: metricFromState(stateMap, ENTITIES.weatherStation.windDirection, "Windrichtung"),
+    uvIndex: metricFromState(stateMap, ENTITIES.weatherStation.uvIndex, "UV-Index"),
+    radarImageUrl: `/api/camera-snapshot/${encodeURIComponent(ENTITIES.weatherStation.radarCamera)}`,
+    forecast,
+    updatedAt: formatGermanDateTime(new Date())
+  };
+}
+
+function buildWaterTankSummary(stateMap: Map<string, HaState>) {
+  const fillEntity = readStateFromMap(stateMap, ENTITIES.waterTank.fillLevel);
+  const ledEntity = readStateFromMap(stateMap, ENTITIES.waterTank.ledPanel);
+
+  return {
+    fillLevel: metricFromState(stateMap, ENTITIES.waterTank.fillLevel, "Füllstand"),
+    liter: metricFromState(stateMap, ENTITIES.waterTank.liter, "Inhalt"),
+    height: metricFromState(stateMap, ENTITIES.waterTank.height, "Wasserhöhe"),
+    fillLevelPercent: numericState(fillEntity),
+    led: {
+      entity_id: ENTITIES.waterTank.ledPanel,
+      state: ledEntity?.state ?? "unavailable",
+      brightness: readNumberAttribute(ledEntity, ["brightness"])
+    },
+    calibration: {
+      maxLiter: metricFromState(stateMap, ENTITIES.waterTank.maxLiter, "Max. Tankvolumen"),
+      fullDistance: metricFromState(stateMap, ENTITIES.waterTank.fullDistance, "Abstand bei Voll"),
+      emptyDistance: metricFromState(stateMap, ENTITIES.waterTank.emptyDistance, "Abstand bei Leer")
     },
     updatedAt: formatGermanDateTime(new Date())
   };
@@ -1235,6 +1363,36 @@ app.get("/api/energy", async (_req: Request, res: Response) => {
   }
 });
 
+app.get("/api/wetterstation", async (_req: Request, res: Response) => {
+  try {
+    res.json(await buildWeatherStationSummary(await getStateMap()));
+  } catch (error) {
+    console.error(`Fehler beim Laden der Wetterstationsdaten: ${describeError(error)}`);
+    res.status(500).json({ ok: false, message: "weather station unavailable" });
+  }
+});
+
+app.get("/api/wassertank", async (_req: Request, res: Response) => {
+  try {
+    res.json(buildWaterTankSummary(await getStateMap()));
+  } catch (error) {
+    console.error(`Fehler beim Laden der Wassertankdaten: ${describeError(error)}`);
+    res.status(500).json({ ok: false, message: "water tank unavailable" });
+  }
+});
+
+app.get("/api/camera-snapshot/:entityId", async (req: Request, res: Response) => {
+  const entityId = decodeURIComponent(String(req.params.entityId || ""));
+  const image = await getCameraProxyBytes(entityId);
+  if (!image) {
+    res.status(404).json({ ok: false, message: "snapshot not found" });
+    return;
+  }
+  res.setHeader("Content-Type", image.contentType);
+  res.setHeader("Cache-Control", "no-store");
+  res.send(image.data);
+});
+
 app.post("/api/entity/:entityId/toggle", async (req: Request, res: Response) => {
   try {
     const entityId = decodeURIComponent(String(req.params.entityId || ""));
@@ -1367,9 +1525,15 @@ app.get("/api/dashboard", async (_req: Request, res: Response) => {
   const blaueTonneNaechsteLeerung = readStateFromMap(stateMap, ENTITIES.sensors.blaueTonneNaechsteLeerung);
   const restmuellNaechsteLeerung = readStateFromMap(stateMap, ENTITIES.sensors.restmuellNaechsteLeerung);
 
+  const rainRateEntity = readStateFromMap(stateMap, ENTITIES.weatherStation.rainRate);
+
   const torVisual = getTorVisual(torStatus?.state);
-  const weatherForecast = await getWeatherForecast(ENTITIES.weather.summary);
+  const [weatherForecast, homeHourlyForecast] = await Promise.all([
+    getWeatherForecast(ENTITIES.weather.summary),
+    getHourlyForecast(ENTITIES.weather.summary)
+  ]);
   const weather = extractWeatherSummary(weatherSummary, weatherForecast);
+  const precipitationOutlook = buildPrecipitationOutlook(rainRateEntity, homeHourlyForecast);
   const lights = [
     mapLight(mainLight, "Hof"),
     mapLight(stehlampe, "Stehlampe"),
@@ -1389,12 +1553,15 @@ app.get("/api/dashboard", async (_req: Request, res: Response) => {
     mapCamera(klingelEventImage, CAMERA_CONFIGS[4].name, CAMERA_CONFIGS[4].liveCameraEntityId)
   ];
   const energy = await buildEnergySummary(stateMap);
+  const waterTank = buildWaterTankSummary(stateMap);
 
   res.json({
     livingTemp: livingTemp?.state ?? "unavailable",
     livingHumidity: livingHumidity?.state ?? "unavailable",
     weather,
+    precipitationOutlook,
     energy,
+    waterTank,
     kitchenLight: mainLight?.state ?? "unavailable",
     lights,
     light1Name: lights[0]?.name ?? "Hof",

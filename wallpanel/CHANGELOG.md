@@ -1,3 +1,23 @@
+## 1.3.6
+
+### Neue Wetterseite mit eigener Wetterstation + Wassertank
+
+#### Wetterseite
+- Neue Seite „Wetter" (eigener Menüpunkt) mit Live-Daten der Ecowitt-Wetterstation (GW3000A)
+- Außentemperatur & -feuchte, Niederschlag (heute/Rate/Monat/Jahr), Luftdruck inkl. 3h-Trend und Barometer-Wetterlage
+- Wind (Geschwindigkeit/Richtung) und UV-Index als Ring-Gauge
+- DWD-Regenradar als Live-Bild, DWD-Tagesvorhersage
+- Alle Kacheln einzeln ausblendbar über Optionen → Inhalte → Wetter
+
+#### Wassertank
+- Wassertank-Übersicht direkt in die Wetterseite integriert: Füllstand als Ring-Gauge, Inhalt (Liter), Wasserhöhe
+- LED-Matrix-Anzeigepanel: Ein/Aus + Helligkeitsregler direkt auf der Seite
+- Kalibrierung (max. Tankvolumen, Abstand bei Voll/Leer) neu unter Optionen → System, PIN-geschützt
+
+#### Home-Seite
+- Wetter-Kachel führt jetzt per Klick direkt zur Wetterseite (statt Popup)
+- Kachel zeigt zusätzlich kompakt den Fassfüllstand und eine Niederschlags-Kurzprognose („Regen jetzt" / „Regen in X Std." / „Kein Niederschlag in Sicht")
+
 ## 1.3.5
 
 ### Aktivitätslog — Vollständiges Tor-Tracking + Redesign

@@ -32,6 +32,8 @@ var HA_ICON_PATHS = {
   "weather-rainy": "M7 14H9L7 18H5L7 14M12 14H14L12 18H10L12 14M17 14H19L17 18H15L17 14M19.35 10.04C18.67 6.59 15.64 4 12 4C9.11 4 6.6 5.64 5.35 8.04C2.34 8.36 0 10.91 0 14H2A4 4 0 0 1 6 10H6.71C7.37 7.69 9.5 6 12 6A5.5 5.5 0 0 1 17.5 11.5V12H19A3 3 0 0 1 22 15H24A5 5 0 0 0 19.35 10.04Z",
   "weather-snowy": "M12 2L13.09 8.26L19 5.5L16.24 11.41L22.5 12.5L16.24 13.59L19 19.5L13.09 16.74L12 23L10.91 16.74L5 19.5L7.76 13.59L1.5 12.5L7.76 11.41L5 5.5L10.91 8.26L12 2Z",
   "weather-sunny": "M12 7A5 5 0 1 0 12 17A5 5 0 0 0 12 7M12 1V4M12 20V23M4.22 4.22L6.34 6.34M17.66 17.66L19.78 19.78M1 12H4M20 12H23M4.22 19.78L6.34 17.66M17.66 6.34L19.78 4.22",
+  "weather-windy": "M4 10H2V12H4V13.5A2.5 2.5 0 0 0 6.5 16A2.5 2.5 0 0 0 9 13.5H7A0.5 0.5 0 0 1 6.5 14A0.5 0.5 0 0 1 6 13.5V12H14A3 3 0 0 0 17 9A3 3 0 0 0 14 6A3 3 0 0 0 11.03 8.45L12.94 9.11A1 1 0 0 1 14 8A1 1 0 0 1 15 9A1 1 0 0 1 14 10H4M4 16H2V18H4V19.5A2.5 2.5 0 0 0 6.5 22A2.5 2.5 0 0 0 9 19.5H7A0.5 0.5 0 0 1 6.5 20A0.5 0.5 0 0 1 6 19.5V18H18A3 3 0 0 0 21 15A3 3 0 0 0 18 12A3 3 0 0 0 15.03 14.45L16.94 15.11A1 1 0 0 1 18 14A1 1 0 0 1 19 15A1 1 0 0 1 18 16H4Z",
+  "water-tank": "M7 4H17L16 7V19A2 2 0 0 1 14 21H10A2 2 0 0 1 8 19V7L7 4Z",
   "window": "M4 3H20V21H4V3M6 5V19H11V5H6M13 5V19H18V5H13Z"
 };
 
@@ -86,7 +88,8 @@ function iconForSpecialCard(cardId, className) {
     battery: "battery",
     camera: "camera",
     security: "shield",
-    light: "lightbulb"
+    light: "lightbulb",
+    wassertank: "water-tank"
   };
   return haIcon(names[cardId] || "home", className);
 }
@@ -106,8 +109,8 @@ function iconForWeatherState(state, className) {
     snowy: "weather-snowy",
     "snowy-rainy": "weather-snowy",
     sunny: "weather-sunny",
-    windy: "weather-cloudy",
-    "windy-variant": "weather-cloudy"
+    windy: "weather-windy",
+    "windy-variant": "weather-windy"
   };
   return haIcon(names[state] || "weather-partly-cloudy", className);
 }

@@ -28,7 +28,7 @@ const DEFAULT_CONFIG: PanelConfig = {
     "default": {
       name: "Standard Wallpanel",
       defaultPage: "hof",
-      visiblePages: ["home", "raum", "energie", "klima", "sicherheit"],
+      visiblePages: ["home", "raum", "energie", "klima", "wetter", "sicherheit"],
       pages: {
         hof: {
           id: "hof",
@@ -44,7 +44,7 @@ const DEFAULT_CONFIG: PanelConfig = {
   }
 };
 
-const DEFAULT_VISIBLE_PAGES = ["home", "raum", "energie", "klima", "sicherheit"];
+const DEFAULT_VISIBLE_PAGES = ["home", "raum", "energie", "klima", "wetter", "sicherheit"];
 function ensureConfigDir(): void {
   const dir = path.dirname(CONFIG_PATH);
   if (!fs.existsSync(dir)) {
@@ -86,14 +86,17 @@ function normalizeVisiblePages(value: unknown): string[] {
   if (pages.length === 0) {
     return DEFAULT_VISIBLE_PAGES.slice();
   }
-  if (
-    pages.indexOf("klima") === -1 &&
+  const isUpgradeableConfig =
     pages.indexOf("home") !== -1 &&
     pages.indexOf("raum") !== -1 &&
     pages.indexOf("energie") !== -1 &&
-    pages.indexOf("sicherheit") !== -1
-  ) {
+    pages.indexOf("sicherheit") !== -1;
+
+  if (isUpgradeableConfig && pages.indexOf("klima") === -1) {
     pages.splice(pages.indexOf("sicherheit"), 0, "klima");
+  }
+  if (isUpgradeableConfig && pages.indexOf("wetter") === -1) {
+    pages.splice(pages.indexOf("sicherheit"), 0, "wetter");
   }
   return pages;
 }

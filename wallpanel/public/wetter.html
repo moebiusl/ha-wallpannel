@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <title>HA Wallpanel - Wetter</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body data-page="wetter" data-room="hof">
+  <div class="app-shell">
+    <div id="headerMount"></div>
+
+    <div class="layout">
+      <main class="dashboard-main">
+        <section class="single-page-grid">
+          <article class="panel large-page-panel weather-page-panel">
+            <div class="panel-header">
+              <span class="panel-kicker">Wetter</span>
+              <span id="weatherStationUpdateState" class="panel-meta weather-station-update-meta">Lade...</span>
+            </div>
+
+            <div id="weatherStationSections" class="energy-sections"></div>
+          </article>
+        </section>
+      </main>
+    </div>
+  </div>
+
+  <script src="icons.js"></script>
+  <script src="layout.js"></script>
+  <script src="api.js"></script>
+  <script src="wetter.js"></script>
+</body>
+</html>

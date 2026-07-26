@@ -361,61 +361,27 @@ function renderWeather(weather) {
 
   var state = weather.stateLabel || weather.state || "unavailable";
   var temp = formatValue(weather.temperature, " °C");
-  var humidity = formatValue(weather.humidity, " %");
-  var wind = formatValue(weather.windSpeed, " km/h");
-  var cloudCoverage = formatValue(weather.cloudCoverage, " %");
-  var pressure = formatValue(weather.pressure, " hPa");
-  var dewPoint = formatValue(weather.dewPoint, " °C");
-  var uvIndex = formatValue(weather.uvIndex, "");
 
   setText("weatherState", state);
   setText("weatherTemp", temp);
-  setText("weatherStateModal", state);
-  setText("weatherTempModal", temp);
-  setText("weatherHumidity", humidity);
-  setText("weatherWind", wind);
-  setText("weatherCloudCoverage", cloudCoverage);
-  setText("weatherPressure", pressure);
-  setText("weatherDewPoint", dewPoint);
-  setText("weatherUvIndex", uvIndex);
   var weatherIcon = document.querySelector(".weather-icon");
   if (weatherIcon && typeof iconForSpecialCard === "function") {
     weatherIcon.innerHTML = typeof iconForWeatherState === "function"
       ? iconForWeatherState(weather.state, "ha-icon-large")
       : iconForSpecialCard("weather", "ha-icon-large");
   }
-  renderWeatherForecast(weather.forecast || []);
 }
 
-function renderWeatherForecast(forecast) {
-  var mount = document.getElementById("weatherForecastList");
-  if (!mount) { return; }
-  mount.innerHTML = "";
-  if (!forecast || forecast.length === 0) {
-    var empty = document.createElement("div");
-    empty.className = "home-notification-empty";
-    empty.textContent = "Keine Vorhersage verfügbar";
-    mount.appendChild(empty);
+function renderWaterTankMini(waterTank) {
+  if (!waterTank) {
     return;
   }
-
-  for (var i = 0; i < Math.min(forecast.length, 5); i++) {
-    var day = forecast[i];
-    var item = document.createElement("div");
-    var icon = typeof iconForWeatherState === "function" ? iconForWeatherState(day.condition, "weather-forecast-icon") : "";
-    item.className = "weather-forecast-item";
-    item.innerHTML = '<div class="weather-forecast-day">' + escapeHtml(day.weekday || "--") + '</div>' +
-      '<div class="weather-forecast-symbol">' + icon + '</div>' +
-      '<div class="weather-forecast-temp">' + escapeHtml(formatForecastTemp(day)) + '</div>' +
-      '<div class="weather-forecast-state">' + escapeHtml(day.conditionLabel || day.condition || "unavailable") + '</div>';
-    mount.appendChild(item);
-  }
+  var fill = waterTank.fillLevel && waterTank.fillLevel.display ? waterTank.fillLevel.display : "unavailable";
+  setText("weatherTankMini", "Fass " + fill);
 }
 
-function formatForecastTemp(day) {
-  var high = day && day.temperature && day.temperature !== "unavailable" ? day.temperature + "°" : "--";
-  var low = day && day.templow && day.templow !== "unavailable" ? day.templow + "°" : "";
-  return low ? high + " / " + low : high;
+function renderPrecipitationOutlook(outlook) {
+  setText("weatherPrecipMini", outlook && outlook.text ? outlook.text : "unavailable");
 }
 
 function getBoilerTimerRemainingSeconds() {
@@ -822,6 +788,8 @@ function loadDashboard() {
 
           renderWeather(data.weather);
           renderEnergy(data.energy);
+          renderWaterTankMini(data.waterTank);
+          renderPrecipitationOutlook(data.precipitationOutlook);
           renderWaste(data);
           renderLights(data.lights);
           renderCameras(data.cameras);
