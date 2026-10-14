@@ -1,3 +1,11 @@
+## 1.3.9
+
+### Vollbild-Modus vom iPad-Homescreen
+- Wird das Wallpanel über „Zum Home-Bildschirm" hinzugefügt, startet es jetzt ohne Safari-Leisten im Vollbild – auch auf alten iPads (`apple-mobile-web-app-capable`) und auf neuen Geräten per Web-App-Manifest (`display: standalone`)
+- Eigenes Homescreen-Icon (`apple-touch-icon.png`, 192/512-px-Icons)
+- Interne Links (Navigation, Räume, Optionen) bleiben im Homescreen-Modus in der App, statt auf älteren iOS-Versionen Safari zu öffnen
+- Hinweis: Bereits vorhandene Homescreen-Verknüpfung entfernen und neu hinzufügen; dafür die direkte Adresse (`http://<HA-IP>:<Port>/`) nutzen, nicht den Ingress-Link
+
 ## 1.3.8
 
 ### Fix: Home-Sicherheitskachel ignorierte ausgeblendete Entitäten

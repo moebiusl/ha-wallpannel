@@ -472,3 +472,18 @@ document.addEventListener('DOMContentLoaded', function () {
   applyNightMode();
   setInterval(applyNightMode, 60000);
 });
+
+// iOS-Homescreen-Modus: Auf älteren iOS-Versionen öffnen normale Links Safari.
+// Interne Links daher per location.href navigieren, damit die App im Vollbild bleibt.
+if (window.navigator.standalone) {
+  document.addEventListener('click', function (event) {
+    var el = event.target;
+    while (el && el.nodeName !== 'A') { el = el.parentNode; }
+    if (!el || event.defaultPrevented) { return; }
+    var href = el.getAttribute('href');
+    if (!href || href.charAt(0) === '#' || el.target === '_blank') { return; }
+    if (el.host && el.host !== window.location.host) { return; }
+    event.preventDefault();
+    window.location.href = el.href;
+  }, false);
+}
