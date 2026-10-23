@@ -113,6 +113,18 @@ function isSettingsUnlocked() {
   return Number(window.sessionStorage.getItem(SETTINGS_UNLOCK_KEY) || "0") > Date.now();
 }
 
+var optionsPageStarted = false;
+
+function startOptionsPage() {
+  // Schwere Daten (HA-Struktur, Listen) erst nach der PIN laden, damit die Eingabe flüssig bleibt.
+  if (optionsPageStarted) { return; }
+  optionsPageStarted = true;
+  // Tablet-lokale Einstellungen sofort zeigen, sie brauchen keine Serverdaten.
+  loadNightModeSettings();
+  loadScreensaverSettings();
+  initOptionsPage();
+}
+
 function showSettingsContent() {
   var lock = document.getElementById("settingsLock");
   var content = document.getElementById("settingsContent");
@@ -120,6 +132,7 @@ function showSettingsContent() {
   if (lock) { lock.style.display = "none"; }
   if (content) { content.style.display = "block"; }
   showSettingsTab("tablet");
+  startOptionsPage();
 }
 
 var SETTINGS_TABS = ["tablet", "inhalte", "automationen", "system", "server", "addons", "info"];
@@ -247,6 +260,16 @@ function initSettingsLock() {
     };
   }
   updateSettingsPinDots();
+  // Ziffern beim Loslassen auslösen: kein Klick-Verzug, schnelle Doppeltipps gehen nicht verloren.
+  var pinButtons = document.querySelectorAll(".settings-pin-pad button");
+  for (var i = 0; i < pinButtons.length; i++) {
+    (function (button) {
+      button.addEventListener("touchend", function (event) {
+        event.preventDefault();
+        if (typeof button.onclick === "function") { button.onclick(); }
+      }, false);
+    })(pinButtons[i]);
+  }
   document.addEventListener("click", refreshSettingsAccessIfUnlocked);
   document.addEventListener("touchstart", refreshSettingsAccessIfUnlocked, { passive: true });
 }
@@ -1683,5 +1706,4 @@ function updateAddon(slug, callback) {
   });
 }
 
-initOptionsPage();
 initSettingsLock();

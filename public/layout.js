@@ -718,15 +718,21 @@ function scheduleScreensaver(delayMs) {
   screensaverTimer = setTimeout(showScreensaver, Math.max(1000, delayMs));
 }
 
+var screensaverLastActivity = 0;
+
 function registerScreensaverActivity() {
   if (window.wallpanelScreensaverActive) { return; }
+  // Scrollen feuert sehr oft: höchstens einmal pro Sekunde neu planen.
   var now = new Date().getTime();
+  if (now - screensaverLastActivity < 1000) { return; }
+  screensaverLastActivity = now;
   storeLastActivity(now);
   scheduleScreensaver(getScreensaverSettings().minutes * 60000);
 }
 
 function restartScreensaverTimer() {
   screensaverLastStore = 0;
+  screensaverLastActivity = 0;
   registerScreensaverActivity();
 }
 

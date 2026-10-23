@@ -5121,3 +5121,44 @@ Legacy declarations kept below only for browsers that understand Grid but not
   margin-top: 10px;
   font-size: 24px;
 }
+
+/* ── Kamera: Warteanimation beim Live-Start ─────────────────────── */
+.camera-live-loading {
+  display: none;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  z-index: 5;
+  -webkit-transform: translate(-50%, -50%);
+  transform: translate(-50%, -50%);
+  padding: 14px 18px;
+  border-radius: 14px;
+  background: rgba(9, 17, 31, 0.78);
+  color: #eef4ff;
+  font-size: 15px;
+  text-align: center;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.camera-live-spinner {
+  display: block;
+  width: 34px;
+  height: 34px;
+  margin: 0 auto 8px;
+  border: 3px solid rgba(238, 244, 255, 0.25);
+  border-top-color: #5dd9c7;
+  border-radius: 50%;
+  -webkit-animation: retry-spin 0.8s linear infinite;
+  animation: retry-spin 0.8s linear infinite;
+}
+
+/* ── Wandtablet: kein Doppeltipp-Zoom, schnelle Reaktion ─────────── */
+html {
+  -ms-touch-action: manipulation;
+  touch-action: manipulation;
+}
+
+.settings-pin-pad button:active {
+  background: #24456b;
+}

@@ -1,3 +1,14 @@
+## 1.5.2
+
+### Neu
+- Warteanimation „Live wird gestartet …“ beim Umschalten auf Live, bis das erste Live-Bild da ist
+
+### Bedienung auf alten iPads
+- PIN-Eingabe der Optionen reagiert sofort; schnelle Tipps hintereinander gehen nicht mehr als Doppeltipp-Zoom verloren
+- Optionen laden ihre Daten erst nach der PIN-Freigabe – vorher blockierte das Laden die Eingabe
+- Zoomen per Doppeltipp/Pinch ist auf dem Wandtablet abgeschaltet
+- Bildschirmschoner reagiert gedrosselt auf Scrollen (vorher wurde bei jedem Scroll-Ereignis neu geplant) – Scrollen und Dropdowns laufen flüssiger
+
 ## 1.5.1
 
 ### Fixes

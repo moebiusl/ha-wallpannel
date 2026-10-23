@@ -73,6 +73,33 @@ function getCameraImageVersion(camera) {
   return camera ? (camera.eventTimestamp || camera.state || "") : "";
 }
 
+function setLiveLoading(image, loading) {
+  var parent = image && image.parentNode;
+  if (!parent) { return; }
+  var spinner = parent.getElementsByClassName("camera-live-loading")[0];
+  if (image.liveLoadingTimer) {
+    clearTimeout(image.liveLoadingTimer);
+    image.liveLoadingTimer = null;
+  }
+  if (!loading) {
+    if (spinner) { spinner.style.display = "none"; }
+    image.onload = null;
+    image.onerror = null;
+    return;
+  }
+  if (!spinner) {
+    spinner = document.createElement("div");
+    spinner.className = "camera-live-loading";
+    spinner.innerHTML = '<span class="camera-live-spinner"></span><span class="camera-live-loading-text">Live wird gestartet …</span>';
+    parent.appendChild(spinner);
+  }
+  spinner.style.display = "block";
+  // Das erste Live-Bild (oder das Event-Bild als Rückfall des Servers) löst load aus.
+  image.onload = function () { setLiveLoading(image, false); };
+  image.onerror = function () { setLiveLoading(image, false); };
+  image.liveLoadingTimer = setTimeout(function () { setLiveLoading(image, false); }, 35000);
+}
+
 function setImageSource(imageId, url, version) {
   var image = document.getElementById(imageId);
   if (!image) {
@@ -82,10 +109,12 @@ function setImageSource(imageId, url, version) {
   if (url) {
     var nextSrc = withImageVersion(url, version);
     if (image.getAttribute("src") !== nextSrc) {
+      setLiveLoading(image, nextSrc.indexOf("camera-stream") !== -1);
       image.src = nextSrc;
     }
     image.style.display = "block";
   } else {
+    setLiveLoading(image, false);
     image.removeAttribute("src");
     image.style.display = "none";
   }
