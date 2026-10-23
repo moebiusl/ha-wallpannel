@@ -5,6 +5,7 @@ var liveCameraRefreshIntervalMs = 750;
 var cameraManualHoldUntil = 0;
 var cameraWebrtcFallbackTimer = null;
 var dashboardRequestActive = false;
+var lastDashboardResponse = "";
 var notificationState = {
   dashboard: null,
   structure: null
@@ -59,15 +60,27 @@ function holdActiveCameraSelection() {
   cameraManualHoldUntil = new Date().getTime() + (isCameraModalOpen() ? 60000 : 10000);
 }
 
-function setImageSource(imageId, url) {
+function withImageVersion(url, version) {
+  if (!url || url.indexOf("camera-stream") !== -1 || url.indexOf("stream.mjpeg") !== -1) {
+    return url;
+  }
+  // Mit Version (Event-Zeitstempel) bleibt die URL gleich, bis ein neues Event da ist -> kein Neuladen.
+  var key = version ? "v=" + encodeURIComponent(version) : "t=" + new Date().getTime();
+  return url + (url.indexOf("?") === -1 ? "?" : "&") + key;
+}
+
+function getCameraImageVersion(camera) {
+  return camera ? (camera.eventTimestamp || camera.state || "") : "";
+}
+
+function setImageSource(imageId, url, version) {
   var image = document.getElementById(imageId);
   if (!image) {
     return;
   }
 
   if (url) {
-    var isStream = url.indexOf("camera-stream") !== -1;
-    var nextSrc = isStream ? url : url + (url.indexOf("?") === -1 ? "?t=" : "&t=") + new Date().getTime();
+    var nextSrc = withImageVersion(url, version);
     if (image.getAttribute("src") !== nextSrc) {
       image.src = nextSrc;
     }
@@ -201,21 +214,46 @@ function renderCameraStrip() {
     return;
   }
 
-  strip.innerHTML = "";
-  for (var i = 0; i < currentCameras.length; i++) {
-    (function (index) {
-      var camera = currentCameras[index];
-      var button = document.createElement("button");
-      button.className = index === currentCameraIndex ? "camera-strip-thumb active" : "camera-strip-thumb";
-      button.type = "button";
-      button.onclick = function () {
-        selectCameraByIndex(index);
-      };
-      button.innerHTML =
-        '<span class="camera-strip-preview"><img class="camera-thumb-image" src="' + (camera.imageUrl || camera.eventUrl || camera.eventImageUrl || "") + '?t=' + new Date().getTime() + '" alt=""><span class="camera-thumb-time">' + formatCameraEventTime(camera).replace("Event: ", "") + '</span></span>' +
-        '<span class="camera-strip-title">' + escapeHtml(camera.name || "Kamera") + '</span>';
-      strip.appendChild(button);
-    })(i);
+  // Nur neu aufbauen, wenn sich die Kameraliste ändert; sonst Elemente aktualisieren.
+  var signature = "";
+  for (var c = 0; c < currentCameras.length; c++) {
+    signature += (currentCameras[c].entity_id || "") + "|";
+  }
+  if (strip.getAttribute("data-signature") !== signature) {
+    strip.innerHTML = "";
+    for (var i = 0; i < currentCameras.length; i++) {
+      (function (index) {
+        var button = document.createElement("button");
+        button.type = "button";
+        button.onclick = function () {
+          selectCameraByIndex(index);
+        };
+        button.innerHTML =
+          '<span class="camera-strip-preview"><img class="camera-thumb-image" alt=""><span class="camera-thumb-time"></span></span>' +
+          '<span class="camera-strip-title"></span>';
+        strip.appendChild(button);
+      })(i);
+    }
+    strip.setAttribute("data-signature", signature);
+  }
+
+  var buttons = strip.children;
+  for (var j = 0; j < buttons.length && j < currentCameras.length; j++) {
+    var camera = currentCameras[j];
+    var className = j === currentCameraIndex ? "camera-strip-thumb active" : "camera-strip-thumb";
+    if (buttons[j].className !== className) { buttons[j].className = className; }
+
+    var img = buttons[j].getElementsByTagName("img")[0];
+    var thumbUrl = withImageVersion(camera.imageUrl || camera.eventUrl || camera.eventImageUrl || "", getCameraImageVersion(camera));
+    if (img && img.getAttribute("src") !== thumbUrl) { img.src = thumbUrl; }
+
+    var timeText = formatCameraEventTime(camera).replace("Event: ", "");
+    var timeEl = buttons[j].getElementsByClassName("camera-thumb-time")[0];
+    if (timeEl && timeEl.textContent !== timeText) { timeEl.textContent = timeText; }
+
+    var titleText = camera.name || "Kamera";
+    var titleEl = buttons[j].getElementsByClassName("camera-strip-title")[0];
+    if (titleEl && titleEl.textContent !== titleText) { titleEl.textContent = titleText; }
   }
 }
 
@@ -242,7 +280,7 @@ function refreshCameraThumb(index, imageId, nameId, fallbackName) {
 
   setText(nameId, camera.name || fallbackName);
   setText(nameId.replace("Name", "Time"), formatCameraEventTime(camera).replace("Event: ", ""));
-  setImageSource(imageId, getCameraImageUrl(camera));
+  setImageSource(imageId, getCameraImageUrl(camera), getCameraImageVersion(camera));
 }
 
 function refreshActiveCameraImages() {
@@ -282,8 +320,8 @@ function updateMainCamera(index) {
   setText("cameraMainNameModal", camera.name || "Kamera");
   setText("cameraMainTime", formatCameraStatus(camera));
   setText("cameraModalTime", formatCameraStatus(camera));
-  setImageSource("cameraMainImage", getCameraImageUrl(camera));
-  setImageSource("cameraModalImage", getCameraImageUrl(camera));
+  setImageSource("cameraMainImage", getCameraImageUrl(camera), getCameraImageVersion(camera));
+  setImageSource("cameraModalImage", isCameraModalOpen() ? getCameraImageUrl(camera) : "", getCameraImageVersion(camera));
   setWebrtcFrame(camera);
 }
 
@@ -295,30 +333,8 @@ function selectCameraByIndex(index) {
 function openCameraModal() {
   openModal("cameraModal");
   holdActiveCameraSelection();
-}
-
-function updateClockTime() {
-  var el = document.getElementById("clockTime");
-  if (!el) {
-    return;
-  }
-
-  var now = new Date();
-  var h = now.getHours();
-  var m = now.getMinutes();
-  var s = now.getSeconds();
-
-  if (h < 10) {
-    h = "0" + h;
-  }
-  if (m < 10) {
-    m = "0" + m;
-  }
-  if (s < 10) {
-    s = "0" + s;
-  }
-
-  el.innerHTML = h + ":" + m + ":" + s;
+  // Das Modal-Bild wird nur bei offenem Modal geladen (spart Bild-Downloads bzw. eine Stream-Verbindung).
+  refreshActiveCameraImages();
 }
 
 function setText(id, value) {
@@ -786,7 +802,7 @@ function updateTorVisual(mode, text) {
 }
 
 function loadDashboard() {
-  if (dashboardRequestActive) {
+  if (dashboardRequestActive || document.hidden) {
     return;
   }
   dashboardRequestActive = true;
@@ -797,6 +813,12 @@ function loadDashboard() {
     if (xhr.readyState === 4) {
       dashboardRequestActive = false;
       if (xhr.status === 200) {
+        // Unveränderte Daten nicht neu rendern (spart auf alten iPads viel Rechenzeit).
+        // Ausnahme: Karten im Ladezustand müssen ihren echten Zustand wieder bekommen.
+        if (xhr.responseText === lastDashboardResponse && !document.querySelector(".is-loading")) {
+          return;
+        }
+        lastDashboardResponse = xhr.responseText;
         try {
           var data = JSON.parse(xhr.responseText);
 
@@ -1069,11 +1091,9 @@ loadDashboard();
 loadHomeStructure();
 loadHomeSecurityConfig();
 loadBoilerTimer();
-updateClockTime();
 setInterval(loadDashboard, 3000);
 setInterval(loadBoilerTimer, 5000);
 setInterval(loadHomeStructure, 10000);
-setInterval(updateClockTime, 1000);
 setInterval(function () {
   var camera = currentCameras && currentCameras[currentCameraIndex];
   if (currentCameraSourceMode === "live" && camera && !camera.streamUrl) {

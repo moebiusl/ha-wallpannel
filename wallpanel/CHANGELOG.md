@@ -1,3 +1,17 @@
+## 1.4.0
+
+### Performance für alte iPads
+- Kamerabilder werden nur noch neu geladen, wenn es wirklich ein neues Event gibt – vorher wurden Hauptbild, Modal-Bild und alle Vorschaubilder alle 3 Sekunden komplett neu heruntergeladen
+- Die Kamera-Vorschauleiste wird nicht mehr bei jeder Aktualisierung neu aufgebaut, sondern nur noch angepasst
+- Das Kamera-Modal lädt sein Bild bzw. seinen Live-Stream nur, solange es geöffnet ist
+- Die Startseite rendert nur noch neu, wenn sich die Daten tatsächlich geändert haben, und pausiert im Hintergrund
+- Nachtmodus nutzt ein dunkles Overlay statt eines Helligkeitsfilters auf der ganzen Seite (deutlich weniger Rechenlast)
+- CSS/JS werden gzip-komprimiert und vom Browser zwischengespeichert (Seitenwechsel schneller)
+- Doppelt laufende Uhr auf der Startseite entfernt
+
+### Fix: Offene Kamera-Streams
+- Wird die Live-Ansicht geschlossen, beendet der Server jetzt auch die Stream-Verbindung zu Home Assistant – vorher blieb pro Live-Ansicht eine Verbindung offen
+
 ## 1.3.9
 
 ### Vollbild-Modus vom iPad-Homescreen

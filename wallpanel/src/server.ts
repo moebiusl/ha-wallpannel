@@ -1,4 +1,5 @@
 import express, { Request, Response } from "express";
+import compression from "compression";
 import axios from "axios";
 import dotenv from "dotenv";
 import fs from "fs";
@@ -1298,10 +1299,13 @@ function getTorVisual(rawState: string | undefined): { mode: string; text: strin
 }
 
 
+app.use(compression());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, "../public"), {
   setHeaders: (res) => {
-    res.setHeader("Cache-Control", "no-store");
+    // no-cache statt no-store: Der Browser behält die Datei und fragt nur per ETag nach (304),
+    // statt CSS/JS bei jedem Seitenwechsel komplett neu zu laden. Updates kommen trotzdem sofort an.
+    res.setHeader("Cache-Control", "no-cache");
   }
 }));
 
@@ -1445,7 +1449,8 @@ app.get("/api/camera-image/:entityId", async (req: Request, res: Response) => {
   }
 
   res.setHeader("Content-Type", image.contentType);
-  res.setHeader("Cache-Control", "no-store");
+  // Mit ?v=<Event-Zeitstempel> ist die URL pro Event eindeutig und darf gecacht werden.
+  res.setHeader("Cache-Control", req.query.v ? "private, max-age=86400" : "no-store");
   res.send(image.data);
 });
 
@@ -1485,6 +1490,8 @@ app.get("/api/camera-stream/:entityId", async (req: Request, res: Response) => {
     const contentTypeHeader = response.headers["content-type"];
     res.setHeader("Content-Type", typeof contentTypeHeader === "string" ? contentTypeHeader : "multipart/x-mixed-replace");
     res.setHeader("Cache-Control", "no-store");
+    // Schließt das Tablet den Stream (Event-Modus, Seitenwechsel), auch die Verbindung zu HA beenden.
+    res.on("close", () => response.data.destroy());
     response.data.pipe(res);
     return;
   } catch (error) {

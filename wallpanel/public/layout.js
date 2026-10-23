@@ -438,12 +438,32 @@ function getNightModeSettings() {
   } catch (_e) { return defaults; }
 }
 
+function setNightOverlay(opacity) {
+  // Halbtransparentes schwarzes Overlay statt filter: brightness() auf body.
+  // Der Filter zwingt alte iPads, die komplette Seite bei jeder Änderung neu zu berechnen.
+  var overlay = document.getElementById('nightModeOverlay');
+  if (opacity <= 0) {
+    if (overlay) { overlay.style.display = 'none'; }
+    document.body.className = document.body.className.replace(/\bnight-mode-active\b/g, '').replace(/  +/g, ' ').replace(/^ | $/g, '');
+    return;
+  }
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.id = 'nightModeOverlay';
+    overlay.className = 'night-mode-overlay';
+    document.body.appendChild(overlay);
+  }
+  overlay.style.opacity = String(opacity);
+  overlay.style.display = 'block';
+  if (document.body.className.indexOf('night-mode-active') === -1) {
+    document.body.className = (document.body.className ? document.body.className + ' ' : '') + 'night-mode-active';
+  }
+}
+
 function applyNightMode() {
   var settings = getNightModeSettings();
   if (!settings.enabled) {
-    document.body.style.webkitFilter = '';
-    document.body.style.filter = '';
-    document.body.className = document.body.className.replace(/\bnight-mode-active\b/g, '').replace(/  +/g, ' ').replace(/^ | $/g, '');
+    setNightOverlay(0);
     return;
   }
   var now = new Date();
@@ -454,17 +474,7 @@ function applyNightMode() {
     ? (nowMin >= startMin || nowMin < endMin)
     : (nowMin >= startMin && nowMin < endMin);
   var fraction = Math.min(1, Math.max(0.01, (settings.brightness || 15) / 100));
-  if (isNight) {
-    document.body.style.webkitFilter = 'brightness(' + fraction + ')';
-    document.body.style.filter = 'brightness(' + fraction + ')';
-    if (document.body.className.indexOf('night-mode-active') === -1) {
-      document.body.className = (document.body.className ? document.body.className + ' ' : '') + 'night-mode-active';
-    }
-  } else {
-    document.body.style.webkitFilter = '';
-    document.body.style.filter = '';
-    document.body.className = document.body.className.replace(/\bnight-mode-active\b/g, '').replace(/  +/g, ' ').replace(/^ | $/g, '');
-  }
+  setNightOverlay(isNight ? 1 - fraction : 0);
 }
 
 document.addEventListener('DOMContentLoaded', renderSharedLayout);
