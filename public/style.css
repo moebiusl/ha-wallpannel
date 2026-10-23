@@ -4982,6 +4982,20 @@ Legacy declarations kept below only for browsers that understand Grid but not
   margin-right: 4px;
 }
 
+/* Rechts sitzen jetzt zwei Icons (Assist + Optionen): Navigation entsprechend mehr Platz lassen. */
+.topbar-inner .topnav-options {
+  width: 88px;
+  -webkit-flex: 0 0 88px;
+  flex: 0 0 88px;
+}
+
+.topbar-inner .topnav-main {
+  width: calc(100% - 100px);
+  -webkit-flex: 0 1 calc(100% - 100px);
+  flex: 0 1 calc(100% - 100px);
+  margin-right: 100px;
+}
+
 .assist-open-button svg {
   display: block;
 }
@@ -5087,7 +5101,12 @@ Legacy declarations kept below only for browsers that understand Grid but not
 
 .screensaver-clock {
   position: absolute;
+  top: 50%;
+  left: 50%;
+  -webkit-transform: translate(-50%, -50%);
+  transform: translate(-50%, -50%);
   color: #4d5d75;
+  text-align: center;
   white-space: nowrap;
 }
 

@@ -682,9 +682,6 @@ function updateScreensaverClock() {
   var months = ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'];
   clock.children[0].textContent = (h < 10 ? '0' + h : h) + ':' + (m < 10 ? '0' + m : m);
   clock.children[1].textContent = days[now.getDay()] + ', ' + now.getDate() + '. ' + months[now.getMonth()];
-  // Position jede Minute leicht verschieben, damit nichts dauerhaft an derselben Stelle steht.
-  clock.style.left = (5 + Math.floor(Math.random() * 35)) + '%';
-  clock.style.top = (15 + Math.floor(Math.random() * 55)) + '%';
 }
 
 function showScreensaver() {
