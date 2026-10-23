@@ -4,7 +4,7 @@ import axios from "axios";
 import dotenv from "dotenv";
 import fs from "fs";
 import path from "path";
-import { getHaRegistries, subscribeToStateChanges } from "./ha-websocket";
+import { getHaRegistries, runAssist, subscribeToStateChanges } from "./ha-websocket";
 import { readPanelConfig, writePanelConfig, getConfigPath } from "./panel-config";
 import { getDomain, getFriendlyEntityName, isProbablyUsefulEntity } from "./entity-filter";
 
@@ -1509,6 +1509,66 @@ app.get("/api/camera-stream/:entityId", async (req: Request, res: Response) => {
   }
 
   res.status(404).json({ ok: false, message: "camera stream not found" });
+});
+
+app.post("/api/assist", async (req: Request, res: Response) => {
+  const text = typeof req.body?.text === "string" ? req.body.text.trim() : "";
+  const conversationId = typeof req.body?.conversationId === "string" ? req.body.conversationId : null;
+  if (!text) {
+    res.status(400).json({ ok: false, message: "text fehlt" });
+    return;
+  }
+
+  try {
+    const result = await runAssist(HA_URL, HA_TOKEN, text, conversationId);
+    let audioUrl = "";
+    if (result.ttsUrl) {
+      // HA liefert den TTS-Link relativ oder absolut; das Tablet holt die Datei über unseren Proxy.
+      const ttsPath = result.ttsUrl.replace(/^https?:\/\/[^/]+/, "");
+      audioUrl = `api/assist/audio?path=${encodeURIComponent(ttsPath)}`;
+    }
+    res.json({ ok: true, speech: result.speech, conversationId: result.conversationId, audioUrl });
+  } catch (error) {
+    console.error(`Assist fehlgeschlagen: ${describeError(error)}`);
+    res.status(500).json({ ok: false, message: "Assist nicht erreichbar" });
+  }
+});
+
+app.get("/api/assist/audio", async (req: Request, res: Response) => {
+  const ttsPath = typeof req.query.path === "string" ? req.query.path : "";
+  if (!/^\/api\/tts_proxy\/[\w.-]+$/.test(ttsPath)) {
+    res.status(400).json({ ok: false, message: "ungültiger Pfad" });
+    return;
+  }
+
+  try {
+    const response = await ha.get(ttsPath, { responseType: "arraybuffer" });
+    const data = Buffer.from(response.data);
+    const contentType = response.headers["content-type"];
+    res.setHeader("Content-Type", typeof contentType === "string" ? contentType : "audio/mpeg");
+    res.setHeader("Cache-Control", "no-store");
+    res.setHeader("Accept-Ranges", "bytes");
+
+    // iOS-Safari spielt Audio nur ab, wenn Range-Requests (206) beantwortet werden.
+    const range = /^bytes=(\d*)-(\d*)$/.exec(String(req.headers.range || ""));
+    if (range && data.length > 0) {
+      const start = range[1] ? Number(range[1]) : Math.max(0, data.length - Number(range[2] || 0));
+      const end = range[1] && range[2] ? Math.min(Number(range[2]), data.length - 1) : data.length - 1;
+      if (start > end || start >= data.length) {
+        res.status(416).setHeader("Content-Range", `bytes */${data.length}`);
+        res.end();
+        return;
+      }
+      res.status(206);
+      res.setHeader("Content-Range", `bytes ${start}-${end}/${data.length}`);
+      res.send(data.subarray(start, end + 1));
+      return;
+    }
+    res.send(data);
+  } catch (error) {
+    console.error(`Assist-Audio nicht verfügbar: ${describeError(error)}`);
+    res.status(404).end();
+  }
 });
 
 app.get("/api/dashboard", async (_req: Request, res: Response) => {

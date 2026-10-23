@@ -1,3 +1,12 @@
+## 1.5.0
+
+### Neu: Assist-Button
+- Mikrofon-Button in der Kopfleiste öffnet ein Assist-Fenster
+- Befehle und Fragen gehen an die bevorzugte Assist-Pipeline von Home Assistant (Sprache, Agent und Stimme wie in HA eingestellt)
+- Die Antwort erscheint als Text und wird über den Lautsprecher des Tablets vorgelesen (sofern in der Pipeline eine Sprachausgabe eingerichtet ist)
+- Folgefragen laufen im selben Gespräch, solange das Fenster offen bleibt
+- Alte iPads (iOS 9) erlauben Webseiten keinen Mikrofonzugriff: Gesprochen wird über die Diktierfunktion der iPad-Tastatur (🎤-Taste)
+
 ## 1.4.0
 
 ### Performance für alte iPads

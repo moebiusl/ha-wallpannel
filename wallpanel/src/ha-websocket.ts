@@ -290,3 +290,107 @@ export async function getHaRegistries(haUrl: string, token: string): Promise<HaR
     };
   });
 }
+
+// ---------------------------------------------------------------------------
+// Assist pipeline (Text -> Intent -> optional TTS)
+// ---------------------------------------------------------------------------
+
+export type AssistResult = {
+  speech: string;
+  conversationId: string | null;
+  ttsUrl: string | null;
+};
+
+function runAssistOnce(
+  haUrl: string,
+  token: string,
+  text: string,
+  conversationId: string | null,
+  withTts: boolean
+): Promise<AssistResult> {
+  const wsUrl = wsUrlFromHaUrl(haUrl);
+
+  return new Promise((resolve, reject) => {
+    const ws = new WebSocket(wsUrl);
+    const runId = 1;
+    const result: AssistResult = { speech: "", conversationId, ttsUrl: null };
+    let finished = false;
+
+    function finish(error: Error | null): void {
+      if (finished) { return; }
+      finished = true;
+      clearTimeout(timeout);
+      try { ws.close(); } catch (_) { /* ignore */ }
+      if (error) { reject(error); } else { resolve(result); }
+    }
+
+    const timeout = setTimeout(() => finish(new Error("Timeout bei Assist")), 30000);
+
+    ws.onmessage = (event: { data: unknown }) => {
+      try {
+        const raw = typeof event.data === "string" ? event.data : Buffer.from(event.data as ArrayBuffer).toString();
+        const msg = JSON.parse(raw);
+
+        if (msg.type === "auth_required") {
+          ws.send(JSON.stringify({ type: "auth", access_token: token }));
+          return;
+        }
+        if (msg.type === "auth_invalid") {
+          finish(new Error("Home-Assistant-WebSocket-Auth fehlgeschlagen"));
+          return;
+        }
+        if (msg.type === "auth_ok") {
+          ws.send(JSON.stringify({
+            id: runId,
+            type: "assist_pipeline/run",
+            start_stage: "intent",
+            end_stage: withTts ? "tts" : "intent",
+            input: { text },
+            conversation_id: conversationId
+          }));
+          return;
+        }
+        if (msg.id !== runId) { return; }
+
+        if (msg.type === "result" && !msg.success) {
+          finish(new Error(msg.error?.message || "Assist-Pipeline fehlgeschlagen"));
+          return;
+        }
+        if (msg.type !== "event" || !msg.event) { return; }
+
+        const pipelineEvent = msg.event as { type: string; data?: any };
+        if (pipelineEvent.type === "intent-end") {
+          const output = pipelineEvent.data?.intent_output;
+          result.speech = output?.response?.speech?.plain?.speech || "";
+          result.conversationId = output?.conversation_id || result.conversationId;
+        } else if (pipelineEvent.type === "tts-end") {
+          result.ttsUrl = pipelineEvent.data?.tts_output?.url || null;
+        } else if (pipelineEvent.type === "error") {
+          // Ohne TTS-Engine bricht nur die Sprachausgabe ab – die Textantwort ist dann schon da.
+          if (result.speech) { finish(null); return; }
+          finish(new Error(pipelineEvent.data?.message || pipelineEvent.data?.code || "Assist-Fehler"));
+        } else if (pipelineEvent.type === "run-end") {
+          finish(null);
+        }
+      } catch (error) {
+        finish(error instanceof Error ? error : new Error(String(error)));
+      }
+    };
+
+    ws.onerror = (error: unknown) => finish(describeWsError(error, wsUrl));
+  });
+}
+
+export async function runAssist(
+  haUrl: string,
+  token: string,
+  text: string,
+  conversationId: string | null
+): Promise<AssistResult> {
+  try {
+    return await runAssistOnce(haUrl, token, text, conversationId, true);
+  } catch (error) {
+    // Pipeline ohne Sprachausgabe (keine TTS-Engine konfiguriert): nur Text abfragen.
+    return runAssistOnce(haUrl, token, text, conversationId, false);
+  }
+}

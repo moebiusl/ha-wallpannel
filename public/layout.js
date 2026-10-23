@@ -72,6 +72,7 @@ function buildHeader(activePage, roomLabel, roomId, visiblePages) {
           links +
         '</nav>' +
         '<div class="topnav-options">' +
+          '<a class="topnav-link topnav-link-icon assist-open-button" href="#" onclick="openAssistModal(); return false;" aria-label="Assist" title="Assist">' + assistMicIcon() + '</a>' +
           '<a class="' + (activePage === 'optionen' ? 'topnav-link topnav-link-icon active' : 'topnav-link topnav-link-icon') + '" href="optionen.html" aria-label="Optionen" title="Optionen">⚙</a>' +
         '</div>' +
       '</div>' +
@@ -150,6 +151,144 @@ function closeRoomsModal() {
   var modal = document.getElementById('roomsModal');
   if (backdrop) { backdrop.className = 'rooms-modal-backdrop'; }
   if (modal) { modal.className = 'rooms-modal'; }
+}
+
+// ── Assist ─────────────────────────────────────────────────────────
+// iOS 9 erlaubt Webseiten keinen Mikrofonzugriff. Gesprochen wird deshalb über die
+// Diktierfunktion der iPad-Tastatur; die Antwort kommt als Text und über den Lautsprecher.
+var assistConversationId = null;
+var assistBusy = false;
+var assistAudio = null;
+var ASSIST_SILENCE = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAIA+AAACABAAZGF0YQAAAAA=';
+
+function assistMicIcon() {
+  return '<svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">' +
+    '<path fill="currentColor" d="M12 14a3 3 0 0 0 3-3V5a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V21h2v-3.08A7 7 0 0 0 19 11h-2z"/>' +
+    '</svg>';
+}
+
+function ensureAssistModal() {
+  var existing = document.getElementById('assistModal');
+  if (existing) {
+    return existing;
+  }
+
+  var backdrop = document.createElement('div');
+  backdrop.id = 'assistModalBackdrop';
+  backdrop.className = 'rooms-modal-backdrop';
+  backdrop.onclick = closeAssistModal;
+  document.body.appendChild(backdrop);
+
+  var modal = document.createElement('div');
+  modal.id = 'assistModal';
+  modal.className = 'assist-modal';
+  modal.innerHTML = '' +
+    '<div class="rooms-modal-card assist-card">' +
+      '<div class="rooms-modal-header">' +
+        '<div><div class="panel-kicker">Assist</div><div class="rooms-modal-title">Was kann ich tun?</div></div>' +
+        '<button class="modal-close" type="button" onclick="closeAssistModal()">×</button>' +
+      '</div>' +
+      '<div id="assistLog" class="assist-log"><div class="assist-hint">Tippe auf der Tastatur auf 🎤 und sprich, z.&nbsp;B. „Schalte das Licht im Hof an“.</div></div>' +
+      '<form id="assistForm" class="assist-form" onsubmit="submitAssist(); return false;">' +
+        '<input id="assistInput" class="assist-input" type="text" autocomplete="off" autocorrect="on" placeholder="Frage oder Befehl …">' +
+        '<button id="assistSend" class="pill-button pill-button-large active assist-send" type="submit">Senden</button>' +
+      '</form>' +
+    '</div>';
+  document.body.appendChild(modal);
+  return modal;
+}
+
+function unlockAssistAudio() {
+  // iOS spielt Ton nur nach einem Fingertipp ab. Ein einmal per Tipp gestartetes
+  // Audio-Element darf danach auch später (nach der HA-Antwort) abspielen.
+  if (!assistAudio) {
+    assistAudio = document.createElement('audio');
+    assistAudio.setAttribute('preload', 'auto');
+    document.body.appendChild(assistAudio);
+  }
+  try {
+    assistAudio.src = ASSIST_SILENCE;
+    var played = assistAudio.play();
+    if (played && played.catch) { played.catch(function () { /* ignore */ }); }
+  } catch (_e) { /* ignore */ }
+}
+
+function openAssistModal() {
+  ensureAssistModal();
+  unlockAssistAudio();
+  document.getElementById('assistModalBackdrop').className = 'rooms-modal-backdrop open';
+  document.getElementById('assistModal').className = 'assist-modal open';
+  var input = document.getElementById('assistInput');
+  // Fokus direkt im Tipp-Handler, sonst öffnet iOS die Tastatur nicht.
+  if (input) { input.focus(); }
+}
+
+function closeAssistModal() {
+  var backdrop = document.getElementById('assistModalBackdrop');
+  var modal = document.getElementById('assistModal');
+  var input = document.getElementById('assistInput');
+  if (input) { input.blur(); }
+  if (backdrop) { backdrop.className = 'rooms-modal-backdrop'; }
+  if (modal) { modal.className = 'assist-modal'; }
+  if (assistAudio) { try { assistAudio.pause(); } catch (_e) { /* ignore */ } }
+  assistConversationId = null;
+}
+
+function appendAssistMessage(text, kind) {
+  var log = document.getElementById('assistLog');
+  if (!log) { return null; }
+  var hint = log.getElementsByClassName('assist-hint')[0];
+  if (hint) { log.removeChild(hint); }
+  var bubble = document.createElement('div');
+  bubble.className = 'assist-message assist-message-' + kind;
+  bubble.textContent = text;
+  log.appendChild(bubble);
+  log.scrollTop = log.scrollHeight;
+  return bubble;
+}
+
+function submitAssist() {
+  var input = document.getElementById('assistInput');
+  var text = input ? input.value.replace(/^\s+|\s+$/g, '') : '';
+  if (!text || assistBusy) { return; }
+
+  unlockAssistAudio();
+  assistBusy = true;
+  input.value = '';
+  appendAssistMessage(text, 'user');
+  var pending = appendAssistMessage('…', 'assist');
+  var sendButton = document.getElementById('assistSend');
+  if (sendButton) { sendButton.disabled = true; }
+
+  var xhr = new XMLHttpRequest();
+  xhr.open('POST', 'api/assist', true);
+  xhr.setRequestHeader('Content-Type', 'application/json');
+  xhr.onreadystatechange = function () {
+    if (xhr.readyState !== 4) { return; }
+    assistBusy = false;
+    if (sendButton) { sendButton.disabled = false; }
+    var payload = null;
+    try { payload = JSON.parse(xhr.responseText); } catch (_e) { payload = null; }
+
+    if (xhr.status !== 200 || !payload || !payload.ok) {
+      if (pending) {
+        pending.textContent = 'Assist ist gerade nicht erreichbar.';
+        pending.className = 'assist-message assist-message-error';
+      }
+      return;
+    }
+
+    assistConversationId = payload.conversationId || null;
+    if (pending) { pending.textContent = payload.speech || 'Erledigt.'; }
+    if (payload.audioUrl && assistAudio) {
+      try {
+        assistAudio.src = payload.audioUrl;
+        var played = assistAudio.play();
+        if (played && played.catch) { played.catch(function () { /* ignore */ }); }
+      } catch (_e) { /* ignore */ }
+    }
+  };
+  xhr.send(JSON.stringify({ text: text, conversationId: assistConversationId }));
 }
 
 function getActiveRoom(defaultRoom) {

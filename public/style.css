@@ -4976,3 +4976,98 @@ Legacy declarations kept below only for browsers that understand Grid but not
   font-weight: bold;
   margin-top: 4px;
 }
+
+/* ── Assist ──────────────────────────────────────────────────────── */
+.assist-open-button {
+  margin-right: 4px;
+}
+
+.assist-open-button svg {
+  display: block;
+}
+
+/* Oben statt mittig, damit die iPad-Tastatur das Fenster nicht verdeckt. */
+.assist-modal {
+  display: none;
+  position: fixed;
+  left: 50%;
+  top: 16px;
+  z-index: 3100;
+  width: 96vw;
+  max-width: 720px;
+  -webkit-transform: translateX(-50%);
+  transform: translateX(-50%);
+}
+
+.assist-modal.open {
+  display: block;
+}
+
+.assist-log {
+  max-height: 34vh;
+  min-height: 80px;
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
+  margin-bottom: 14px;
+}
+
+.assist-hint {
+  color: #94a7c6;
+  font-size: 15px;
+  line-height: 1.4;
+}
+
+.assist-message {
+  max-width: 85%;
+  margin-bottom: 8px;
+  padding: 10px 14px;
+  border-radius: 14px;
+  font-size: 17px;
+  line-height: 1.35;
+  word-wrap: break-word;
+}
+
+.assist-message-user {
+  margin-left: auto;
+  background: #1d3a5c;
+  color: #eef4ff;
+  text-align: right;
+}
+
+.assist-message-assist {
+  background: #132238;
+  border: 1px solid #2d445f;
+  color: #eef4ff;
+}
+
+.assist-message-error {
+  background: #3a1a1f;
+  border: 1px solid #6b2a33;
+  color: #ffd7dc;
+}
+
+.assist-form {
+  display: -webkit-box;
+  display: -webkit-flex;
+  display: flex;
+}
+
+.assist-input {
+  -webkit-box-flex: 1;
+  -webkit-flex: 1;
+  flex: 1;
+  min-width: 0;
+  margin-right: 10px;
+  padding: 12px 14px;
+  border: 1px solid #2d445f;
+  border-radius: 12px;
+  background: #0b1626;
+  color: #eef4ff;
+  font-size: 18px;
+  -webkit-appearance: none;
+}
+
+.assist-send {
+  -webkit-flex-shrink: 0;
+  flex-shrink: 0;
+}
