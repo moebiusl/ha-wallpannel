@@ -841,16 +841,75 @@ function handleAssetVersion(version) {
   if (tabletAssetVersion === null) { tabletAssetVersion = version; return; }
   // Nach einem Add-on-Update neu laden – aber nicht mitten in der Bedienung.
   if (version !== tabletAssetVersion && !window.wallpanelPopupOpen && isTabletIdle(20000)) {
-    window.location.reload();
+    reloadWallpanel();
   }
 }
 
+// ── Töne ──
+// In der Rahmenseite (start.html) spielt die dauerhaft entsperrte Rahmenseite den Ton.
+// Ohne Rahmen klappt es nur, wenn das Tablet seit dem Laden der Seite berührt wurde.
+var wallpanelSoundAudio = null;
+var wallpanelSoundUnlocked = false;
+
+function getShellWindow() {
+  try {
+    if (window.parent && window.parent !== window && window.parent.wallpanelShell) { return window.parent; }
+  } catch (_e) { /* ignore */ }
+  return null;
+}
+
+function playLocalAudio(src) {
+  if (!wallpanelSoundAudio) {
+    wallpanelSoundAudio = document.createElement('audio');
+    wallpanelSoundAudio.setAttribute('preload', 'auto');
+    document.body.appendChild(wallpanelSoundAudio);
+  }
+  try {
+    wallpanelSoundAudio.src = src;
+    var played = wallpanelSoundAudio.play();
+    if (played && played.catch) { played.catch(function () { /* ignore */ }); }
+  } catch (_e) { /* ignore */ }
+}
+
+function unlockLocalSound() {
+  if (wallpanelSoundUnlocked || getShellWindow()) { return; }
+  wallpanelSoundUnlocked = true;
+  playLocalAudio(ASSIST_SILENCE);
+}
+
+function playWallpanelSound(name) {
+  if (!name || name === 'none' || !/^[a-z]+$/.test(name)) { return; }
+  var shell = getShellWindow();
+  if (shell && typeof shell.wallpanelPlaySound === 'function') {
+    shell.wallpanelPlaySound(name);
+    return;
+  }
+  playLocalAudio('sounds/' + name + '.mp3');
+}
+
+document.addEventListener('touchend', unlockLocalSound, true);
+document.addEventListener('click', unlockLocalSound, true);
+
 function runTabletCommand(command) {
   if (!command || !command.type) { return; }
-  if (command.type === 'reload') { window.location.reload(); return; }
+  if (command.type === 'reload') { reloadWallpanel(); return; }
   if (command.type === 'identify') { showTabletIdentify(); return; }
-  if (command.type === 'notify') { showTabletNotice(command.title, command.message, command.duration); return; }
-  if (command.type === 'doorbell') { showDoorbellPopup(); }
+  if (command.type === 'sound') { playWallpanelSound(command.sound); return; }
+  if (command.type === 'notify') {
+    showTabletNotice(command.title, command.message, command.duration);
+    playWallpanelSound(command.sound);
+    return;
+  }
+  if (command.type === 'doorbell') {
+    showDoorbellPopup();
+    playWallpanelSound(command.sound);
+  }
+}
+
+function reloadWallpanel() {
+  // In der Rahmenseite alles neu laden, damit auch start.html aktuell ist.
+  var shell = getShellWindow();
+  if (shell) { shell.location.reload(); } else { window.location.reload(); }
 }
 
 function syncTablet() {

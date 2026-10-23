@@ -1832,6 +1832,7 @@ function renderTabletsAdmin() {
         '<label>Raum<select id="' + p + 'room" class="room-select">' + tabletRoomOptions(c.room || "") + "</select></label>" +
         '<label>Panel<select id="' + p + 'panel" class="room-select">' + tabletPanelOptions(c.panelId) + "</select></label>" +
         '<label class="settings-check"><input id="' + p + 'doorbell" type="checkbox"' + (c.doorbellWake !== false ? " checked" : "") + "><span>Klingel-Popup anzeigen</span></label>" +
+        '<label class="settings-check"><input id="' + p + 'sounds" type="checkbox"' + (c.sounds !== false ? " checked" : "") + "><span>Töne abspielen</span></label>" +
         '<label class="settings-check"><input id="' + p + 'ss" type="checkbox"' + (ss.enabled ? " checked" : "") + '><span>Bildschirmschoner nach</span></label>' +
         '<select id="' + p + 'ssmin" class="room-select">' + minutesOptions + "</select>" +
         '<label class="settings-check"><input id="' + p + 'nm" type="checkbox"' + (nm.enabled ? " checked" : "") + "><span>Nachtmodus</span></label>" +
@@ -1843,6 +1844,7 @@ function renderTabletsAdmin() {
         '<button class="pill-button active" type="button" onclick="saveTabletAdmin(\'' + t.id + '\')">Speichern</button>' +
         '<button class="pill-button" type="button" onclick="sendTabletCommand(\'' + t.id + '\', \'identify\')">Identifizieren</button>' +
         '<button class="pill-button" type="button" onclick="sendTabletNotice(\'' + t.id + '\')">Mitteilung senden</button>' +
+        '<button class="pill-button" type="button" onclick="sendTabletSound(\'' + t.id + '\')">Ton testen</button>' +
         '<button class="pill-button" type="button" onclick="sendTabletCommand(\'' + t.id + '\', \'reload\')">Neu laden</button>' +
         '<button class="pill-button" type="button" onclick="removeTabletAdmin(\'' + t.id + '\')">Entfernen</button>' +
         '<span id="' + p + 'state" class="settings-save-state"></span>' +
@@ -1873,6 +1875,7 @@ function saveTabletAdmin(id) {
     room: tabletAdminValue(p + "room") || "",
     panelId: tabletAdminValue(p + "panel") || "default",
     doorbellWake: !!tabletAdminValue(p + "doorbell"),
+    sounds: !!tabletAdminValue(p + "sounds"),
     screensaver: { enabled: !!tabletAdminValue(p + "ss"), minutes: num("ssmin", 5) },
     nightMode: {
       enabled: !!tabletAdminValue(p + "nm"),
@@ -1900,6 +1903,48 @@ function sendTabletNotice(id) {
   });
 }
 
+function sendTabletSound(id) {
+  var sound = tabletAdminValue("noticeSoundSelect") || "ping";
+  apiPost("api/tablets/" + id + "/command", { type: "sound", sound: sound }, function (error) {
+    setTabletAdminState(id, error ? "Fehler" : "Ton gesendet – iOS braucht vorher eine Berührung");
+  });
+}
+
+var SOUND_OPTIONS = [
+  ["gong", "Gong (Ding-Dong)"],
+  ["glocke", "Glocke"],
+  ["ping", "Ping (dezent)"],
+  ["hinweis", "Hinweis (drei Töne)"],
+  ["alarm", "Alarm (dringend)"],
+  ["none", "Kein Ton"]
+];
+
+function fillSoundSelect(id, selected) {
+  var select = document.getElementById(id);
+  if (!select) { return; }
+  var html = "";
+  for (var i = 0; i < SOUND_OPTIONS.length; i++) {
+    html += '<option value="' + SOUND_OPTIONS[i][0] + '"' + (SOUND_OPTIONS[i][0] === selected ? " selected" : "") + ">" + SOUND_OPTIONS[i][1] + "</option>";
+  }
+  select.innerHTML = html;
+}
+
+function previewSound(selectId) {
+  // Wird durch den Klick ausgelöst, darf also auch auf iOS sofort spielen.
+  var sound = tabletAdminValue(selectId);
+  if (typeof playWallpanelSound === "function") { playWallpanelSound(sound); }
+}
+
+function saveSoundSettings() {
+  apiPost("api/tablets/settings", {
+    doorbellSound: tabletAdminValue("doorbellSoundSelect") || "gong",
+    noticeSound: tabletAdminValue("noticeSoundSelect") || "ping"
+  }, function (error) {
+    var state = document.getElementById("soundSaveState");
+    if (state) { state.textContent = error ? "Fehler beim Speichern" : "Gespeichert"; }
+  });
+}
+
 function removeTabletAdmin(id) {
   if (!window.confirm("Tablet aus der Liste entfernen? Es meldet sich beim nächsten Öffnen neu an.")) { return; }
   var xhr = new XMLHttpRequest();
@@ -1912,6 +1957,8 @@ function renderDoorbellSettings() {
   if (!tabletsAdminState) { return; }
   var settings = tabletsAdminState.settings || {};
   var doorbell = tabletsAdminState.doorbell || {};
+  fillSoundSelect("doorbellSoundSelect", settings.doorbellSound || "gong");
+  fillSoundSelect("noticeSoundSelect", settings.noticeSound || "ping");
   var candidates = tabletsAdminState.candidates || {};
 
   var entitySelect = document.getElementById("doorbellEntitySelect");

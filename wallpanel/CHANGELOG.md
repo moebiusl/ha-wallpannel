@@ -1,3 +1,12 @@
+## 1.7.0
+
+### Neu: Töne
+- Fünf Töne: Gong (Ding-Dong), Glocke, Ping, Hinweis, Alarm
+- Klingel-Ton und Mitteilungston unter Optionen → Tablets → Töne wählbar und direkt anhörbar
+- Pro Tablet „Töne abspielen“ an/aus und „Ton testen“
+- HA-Event `wallpanel_notify` unterstützt `sound` (auch nur Ton ohne Mitteilung)
+- Neue Rahmenseite `start.html`: bleibt dauerhaft geladen, damit Töne auch nach Seitenwechseln und im Bildschirmschoner funktionieren (iOS erlaubt Ton sonst nur nach einer Berührung auf der aktuellen Seite)
+
 ## 1.6.0
 
 ### Neu: Tablets zentral verwalten

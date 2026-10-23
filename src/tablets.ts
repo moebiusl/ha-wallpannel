@@ -20,7 +20,18 @@ export type TabletConfig = {
     brightness: number;
   };
   doorbellWake?: boolean;
+  /** Töne bei Klingel und Mitteilungen abspielen (Standard: an). */
+  sounds?: boolean;
 };
+
+export const SOUNDS = ["gong", "glocke", "ping", "hinweis", "alarm"] as const;
+
+/** Gültiger Tonname, "none" für stumm, sonst der Standard. */
+export function normalizeSound(value: unknown, fallback: string): string {
+  const sound = String(value || "").trim().toLowerCase();
+  if (sound === "none" || sound === "aus") { return "none"; }
+  return (SOUNDS as readonly string[]).includes(sound) ? sound : fallback;
+}
 
 export type TabletRecord = {
   id: string;
@@ -33,12 +44,13 @@ export type TabletRecord = {
 };
 
 export type TabletCommand = {
-  type: "notify" | "doorbell" | "identify" | "reload";
+  type: "notify" | "doorbell" | "identify" | "reload" | "sound";
   createdAt: number;
   title?: string;
   message?: string;
   duration?: number;
   camera?: string;
+  sound?: string;
 };
 
 export type TabletsSettings = {
@@ -46,6 +58,8 @@ export type TabletsSettings = {
   doorbellCamera: string;
   /** Licht-Buttons im Klingel-Popup (leer = automatisch erkennen). */
   doorbellLights: string[];
+  doorbellSound: string;
+  noticeSound: string;
 };
 
 type TabletsFile = {
@@ -85,6 +99,7 @@ function sanitizeConfig(input: unknown): TabletConfig {
     };
   }
   if (typeof source.doorbellWake === "boolean") { config.doorbellWake = source.doorbellWake; }
+  if (typeof source.sounds === "boolean") { config.sounds = source.sounds; }
   return config;
 }
 
@@ -192,7 +207,9 @@ export function createTabletRegistry(filePath: string, defaults: TabletsSettings
   function enqueue(ids: string[], command: Omit<TabletCommand, "createdAt">): number {
     for (const id of ids) {
       const queue = queues.get(id) || [];
-      queue.push({ ...command, createdAt: Date.now() });
+      // Tablets mit ausgeschalteten Tönen bekommen den Befehl ohne Ton (Test-Ton ausgenommen).
+      const muted = tablets.get(id)?.config.sounds === false && command.type !== "sound";
+      queue.push({ ...command, sound: muted ? "none" : command.sound, createdAt: Date.now() });
       queues.set(id, queue.slice(-COMMAND_QUEUE_LIMIT));
     }
     return ids.length;
@@ -209,6 +226,8 @@ export function createTabletRegistry(filePath: string, defaults: TabletsSettings
   function updateSettings(input: Partial<TabletsSettings>): TabletsSettings {
     if (typeof input.doorbellEntity === "string") { settings.doorbellEntity = input.doorbellEntity.trim(); }
     if (typeof input.doorbellCamera === "string") { settings.doorbellCamera = input.doorbellCamera.trim(); }
+    if (input.doorbellSound !== undefined) { settings.doorbellSound = normalizeSound(input.doorbellSound, "gong"); }
+    if (input.noticeSound !== undefined) { settings.noticeSound = normalizeSound(input.noticeSound, "ping"); }
     if (Array.isArray(input.doorbellLights)) {
       settings.doorbellLights = input.doorbellLights
         .map((entityId) => String(entityId).trim())

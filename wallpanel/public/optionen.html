@@ -331,6 +331,19 @@
                 </section>
 
                 <section class="settings-section settings-section-wide">
+                  <div class="settings-title">Töne</div>
+                  <label class="select-label" for="doorbellSoundSelect">Klingel-Ton</label>
+                  <div class="tablets-sound-row"><select id="doorbellSoundSelect" class="room-select"></select><button class="pill-button" type="button" onclick="previewSound('doorbellSoundSelect')">▶ Anhören</button></div>
+                  <label class="select-label settings-label-spaced" for="noticeSoundSelect">Mitteilungston</label>
+                  <div class="tablets-sound-row"><select id="noticeSoundSelect" class="room-select"></select><button class="pill-button" type="button" onclick="previewSound('noticeSoundSelect')">▶ Anhören</button></div>
+                  <div style="margin-top:12px">
+                    <button class="pill-button active" type="button" onclick="saveSoundSettings()">Töne speichern</button>
+                    <span id="soundSaveState" class="settings-save-state"></span>
+                  </div>
+                  <div class="settings-hint" style="margin-top:12px">iOS spielt Töne erst ab, nachdem das Tablet seit dem Laden der Seite einmal berührt wurde – jeder Seitenwechsel setzt das zurück. Zuverlässig klappt es, wenn das Wallpanel über <code>http://&lt;HA-IP&gt;:3000/start.html</code> zum Homescreen hinzugefügt wird: Diese Rahmenseite bleibt geladen und muss nur einmal nach dem Start berührt werden.</div>
+                </section>
+
+                <section class="settings-section settings-section-wide">
                   <div class="settings-title">Mitteilungen aus Home Assistant</div>
                   <div class="settings-hint">In einer HA-Automation als Aktion ein Event auslösen. <code>tablet</code> ist der Tablet-Name oder <code>all</code>.</div>
                   <pre class="tablets-yaml">action: event
@@ -339,7 +352,8 @@ event_data:
   tablet: Flur
   title: Hoftor
   message: Das Tor ist seit 10 Minuten offen.
-  duration: 60</pre>
+  duration: 60
+  sound: hinweis   # gong, glocke, ping, hinweis, alarm oder none</pre>
                 </section>
               </div>
             </div>

@@ -5451,3 +5451,11 @@ html {
   white-space: pre;
   overflow: auto;
 }
+
+.tablets-sound-row .room-select {
+  display: inline-block;
+  width: auto;
+  min-width: 220px;
+  margin-right: 8px;
+  vertical-align: middle;
+}

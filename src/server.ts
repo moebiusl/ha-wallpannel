@@ -5,7 +5,7 @@ import dotenv from "dotenv";
 import fs from "fs";
 import path from "path";
 import { getHaRegistries, HaRegistries, runAssist, subscribeToHaEvents, subscribeToStateChanges } from "./ha-websocket";
-import { computeAssetVersion, createTabletRegistry } from "./tablets";
+import { computeAssetVersion, createTabletRegistry, normalizeSound } from "./tablets";
 import { createCameraLive, LiveSource } from "./camera-live";
 import { readPanelConfig, writePanelConfig, getConfigPath } from "./panel-config";
 import { getDomain, getFriendlyEntityName, isProbablyUsefulEntity } from "./entity-filter";
@@ -2114,7 +2114,9 @@ const TABLET_ONLINE_MS = 20000;
 const tabletRegistry = createTabletRegistry(path.join(path.dirname(getConfigPath()), "tablets.json"), {
   doorbellEntity: envValue("DOORBELL_ENTITY", ""),
   doorbellCamera: ENTITIES.cameraFeeds.klingel,
-  doorbellLights: []
+  doorbellLights: [],
+  doorbellSound: "gong",
+  noticeSound: "ping"
 });
 
 function isValidTabletId(id: unknown): id is string {
@@ -2178,7 +2180,8 @@ function triggerDoorbell(source: string, target?: string): number {
     tabletRegistry.list().find((record) => record.id === id)?.config.doorbellWake !== false
   );
   console.log(`Klingel (${source}) -> ${ids.length} Tablet(s)`);
-  return tabletRegistry.enqueue(ids, { type: "doorbell", camera: tabletRegistry.getSettings().doorbellCamera });
+  const settings = tabletRegistry.getSettings();
+  return tabletRegistry.enqueue(ids, { type: "doorbell", camera: settings.doorbellCamera, sound: settings.doorbellSound });
 }
 
 app.post("/api/tablet/sync", (req: Request, res: Response) => {
@@ -2253,7 +2256,8 @@ app.post("/api/tablets/notify", (req: Request, res: Response) => {
     type: "notify",
     title: typeof req.body?.title === "string" ? req.body.title.slice(0, 80) : "",
     message: message.slice(0, 500),
-    duration: Math.min(600, Math.max(5, Number(req.body?.duration) || 30))
+    duration: Math.min(600, Math.max(5, Number(req.body?.duration) || 30)),
+    sound: normalizeSound(req.body?.sound, tabletRegistry.getSettings().noticeSound)
   });
   res.json({ ok: true, delivered: count });
 });
@@ -2275,11 +2279,12 @@ app.post("/api/tablets/:id", (req: Request, res: Response) => {
 app.post("/api/tablets/:id/command", (req: Request, res: Response) => {
   const id = String(req.params.id);
   const type = req.body?.type;
-  if (!isValidTabletId(id) || (type !== "identify" && type !== "reload")) {
+  if (!isValidTabletId(id) || (type !== "identify" && type !== "reload" && type !== "sound")) {
     res.status(400).json({ ok: false });
     return;
   }
-  res.json({ ok: true, delivered: tabletRegistry.enqueue([id], { type }) });
+  const sound = type === "sound" ? normalizeSound(req.body?.sound, "ping") : undefined;
+  res.json({ ok: true, delivered: tabletRegistry.enqueue([id], { type, sound }) });
 });
 
 app.delete("/api/tablets/:id", (req: Request, res: Response) => {
@@ -2317,12 +2322,18 @@ function handleHaEvent(eventType: string, data: any): void {
       tabletRegistry.enqueue(tabletRegistry.resolveTargets(target), { type: data.command });
       return;
     }
+    if (data?.command === "sound" || (data?.sound && !data?.message)) {
+      // Nur einen Ton abspielen, ohne Mitteilung.
+      tabletRegistry.enqueue(tabletRegistry.resolveTargets(target), { type: "sound", sound: normalizeSound(data.sound, "ping") });
+      return;
+    }
     if (typeof data?.message === "string" && data.message.trim()) {
       tabletRegistry.enqueue(tabletRegistry.resolveTargets(target), {
         type: "notify",
         title: typeof data.title === "string" ? data.title.slice(0, 80) : "",
         message: data.message.trim().slice(0, 500),
-        duration: Math.min(600, Math.max(5, Number(data.duration) || 30))
+        duration: Math.min(600, Math.max(5, Number(data.duration) || 30)),
+        sound: normalizeSound(data.sound, tabletRegistry.getSettings().noticeSound)
       });
     }
     return;

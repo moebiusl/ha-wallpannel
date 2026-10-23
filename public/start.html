@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <title>HA Wallpanel</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <meta name="apple-mobile-web-app-title" content="Wallpanel">
+  <meta name="theme-color" content="#09111f">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <style>
+    html, body { margin: 0; height: 100%; overflow: hidden; background: #09111f; }
+    /* Hülle mit eigenem Scrollen: iOS passt iframes sonst an ihre Inhaltshöhe an. */
+    .frame-wrap { position: fixed; top: 0; right: 0; bottom: 0; left: 0; overflow: auto; -webkit-overflow-scrolling: touch; }
+    .frame-wrap iframe { display: block; width: 100%; height: 100%; border: 0; }
+  </style>
+</head>
+<body>
+  <!--
+    Rahmenseite für Töne: iOS spielt Ton nur nach einer Berührung auf der aktuellen Seite ab,
+    und jeder Seitenwechsel setzt das zurück. Diese Seite bleibt dauerhaft geladen, das Wallpanel
+    läuft im iframe. Einmal entsperrt, kann sie Töne auch Stunden später abspielen (Klingel).
+  -->
+  <div class="frame-wrap"><iframe id="wallpanelFrame" src="index.html" title="Wallpanel"></iframe></div>
+  <audio id="wallpanelShellAudio" preload="auto"></audio>
+  <script>
+    var SILENCE = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAIA+AAACABAAZGF0YQAAAAA=';
+    var shellAudio = document.getElementById('wallpanelShellAudio');
+    var shellFrame = document.getElementById('wallpanelFrame');
+    var shellUnlocked = false;
+
+    function playShellAudio(src) {
+      try {
+        shellAudio.src = src;
+        var played = shellAudio.play();
+        if (played && played.catch) { played.catch(function () { /* ignore */ }); }
+      } catch (_e) { /* ignore */ }
+    }
+
+    function unlockShellAudio() {
+      if (shellUnlocked) { return; }
+      shellUnlocked = true;
+      playShellAudio(SILENCE);
+    }
+
+    window.wallpanelShell = true;
+    window.wallpanelPlaySound = function (name) {
+      if (!/^[a-z]+$/.test(name || '') || name === 'none') { return; }
+      playShellAudio('sounds/' + name + '.mp3');
+    };
+
+    document.addEventListener('touchend', unlockShellAudio, true);
+    document.addEventListener('click', unlockShellAudio, true);
+    shellFrame.onload = function () {
+      try {
+        // Berührungen im Wallpanel entsperren den Ton der Rahmenseite.
+        var doc = shellFrame.contentWindow.document;
+        doc.addEventListener('touchend', unlockShellAudio, true);
+        doc.addEventListener('click', unlockShellAudio, true);
+        document.title = doc.title || 'HA Wallpanel';
+      } catch (_e) { /* ignore */ }
+    };
+  </script>
+</body>
+</html>

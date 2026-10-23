@@ -58,6 +58,12 @@ event_data:
 
 Statt `message` geht auch `command: doorbell`, `command: reload` oder `command: identify`.
 
+Mit `sound` spielt das Tablet einen Ton: `gong`, `glocke`, `ping`, `hinweis`, `alarm` oder `none`. Ohne `sound` gilt der Mitteilungston aus Optionen → Tablets → Töne. Nur `sound` ohne `message` spielt den Ton ohne Mitteilung.
+
+### Töne zuverlässig abspielen
+
+iOS spielt Töne erst ab, nachdem das Tablet seit dem Laden der Seite einmal berührt wurde, und jeder Seitenwechsel setzt das zurück. Damit z. B. die Klingel auch im Bildschirmschoner zu hören ist, das Wallpanel über `http://<HA-IP>:3000/start.html` zum Homescreen hinzufügen. Diese Rahmenseite bleibt dauerhaft geladen und muss nur einmal nach dem Start berührt werden.
+
 ## Direkter Zugriff
 
 Neben Ingress wird Port `3000` nach aussen angeboten. Das ist praktisch fuer alte iPads, die du direkt aufrufen kannst:
