@@ -2262,6 +2262,13 @@ app.post("/api/tablets/notify", (req: Request, res: Response) => {
   res.json({ ok: true, delivered: count });
 });
 
+app.post("/api/tablets/doorbell-close", (req: Request, res: Response) => {
+  // Klingel-Popup wurde auf einem Tablet geschlossen: auf allen anderen ebenfalls schließen.
+  const sourceId = req.body?.id;
+  const ids = tabletRegistry.resolveTargets("all").filter((id) => id !== sourceId);
+  res.json({ ok: true, delivered: tabletRegistry.enqueue(ids, { type: "doorbell-close" }) });
+});
+
 app.post("/api/tablets/doorbell-test", (req: Request, res: Response) => {
   res.json({ ok: true, delivered: triggerDoorbell("Test", req.body?.tablet || "all") });
 });

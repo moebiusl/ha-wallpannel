@@ -44,7 +44,7 @@ export type TabletRecord = {
 };
 
 export type TabletCommand = {
-  type: "notify" | "doorbell" | "identify" | "reload" | "sound";
+  type: "notify" | "doorbell" | "doorbell-close" | "identify" | "reload" | "sound";
   createdAt: number;
   title?: string;
   message?: string;

@@ -903,7 +903,9 @@ function runTabletCommand(command) {
   if (command.type === 'doorbell') {
     showDoorbellPopup();
     playWallpanelSound(command.sound);
+    return;
   }
+  if (command.type === 'doorbell-close') { closeDoorbellPopup(true); }
 }
 
 function reloadWallpanel() {
@@ -1008,7 +1010,7 @@ function ensureDoorbellPopup() {
   el.innerHTML = '<div class="doorbell-card">' +
     '<div class="doorbell-header">' +
       '<div><div class="panel-kicker">Klingel</div><div class="doorbell-title">Es hat geklingelt <span id="doorbellTime"></span></div></div>' +
-      '<button class="modal-close" type="button" onclick="closeDoorbellPopup()">×</button>' +
+      '<button class="modal-close" type="button" onclick="closeDoorbellPopup(false, true)">×</button>' +
     '</div>' +
     '<div class="doorbell-stage">' +
       '<img id="doorbellImage" class="doorbell-image" alt="Klingel live">' +
@@ -1086,9 +1088,17 @@ function showDoorbellPopup() {
   resetDoorbellCloseTimer();
 }
 
-function closeDoorbellPopup() {
+/**
+ * fromRemote: Schließen kam von einem anderen Tablet (nicht weitermelden).
+ * byUser: Jemand hat auf diesem Tablet geschlossen – dann auf allen Tablets schließen.
+ */
+function closeDoorbellPopup(fromRemote, byUser) {
   var el = document.getElementById('doorbellPopup');
+  var wasOpen = window.wallpanelPopupOpen;
   if (el) { el.style.display = 'none'; }
+  if (byUser && !fromRemote && wasOpen && shouldRegisterAsTablet()) {
+    apiPost('api/tablets/doorbell-close', { id: getTabletId() });
+  }
   var image = document.getElementById('doorbellImage');
   // src entfernen beendet den Live-Stream (und damit den Eufy-P2P-Stream auf dem Server).
   if (image) { image.onload = null; image.removeAttribute('src'); }

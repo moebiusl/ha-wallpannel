@@ -1,3 +1,8 @@
+## 1.7.1
+
+### Klingel
+- Wird das Klingel-Popup auf einem Tablet geschlossen, schließt es sich auf allen Tablets (das automatische Schließen nach 3 Minuten bleibt pro Tablet)
+
 ## 1.7.0
 
 ### Neu: Töne
