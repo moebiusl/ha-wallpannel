@@ -83,10 +83,14 @@ export function createCameraLive(deps: LiveDeps) {
     if (await hasFrame(base, source.streamName)) { return true; }
     if (source.isEufy) {
       try {
+        console.log(`Starte Eufy-Livestream: ${cameraEntityId} -> go2rtc-Stream ${source.streamName}`);
         await deps.ha.post("/api/services/eufy_security/start_p2p_livestream", { entity_id: cameraEntityId });
+        console.log(`Eufy-Livestream angefordert (${cameraEntityId}), warte auf Bild von go2rtc …`);
       } catch (error) {
         console.warn(`Eufy-Livestream konnte nicht gestartet werden (${cameraEntityId}): ${deps.describeError(error)}`);
       }
+    } else {
+      console.log(`Live ${cameraEntityId} -> go2rtc-Stream ${source.streamName} (keine Eufy-Kamera, kein Startbefehl)`);
     }
     const deadline = Date.now() + READY_TIMEOUT_MS;
     while (Date.now() < deadline) {
@@ -132,7 +136,10 @@ export function createCameraLive(deps: LiveDeps) {
     const base = await deps.getGo2RtcBase();
     if (!base) { return null; }
     const source = await resolveSource(cameraEntityId, streamOverride);
-    if (!source) { return null; }
+    if (!source) {
+      console.warn(`Kein passender go2rtc-Stream für ${cameraEntityId} gefunden (go2rtc: ${base})`);
+      return null;
+    }
 
     addViewer(cameraEntityId);
     let released = false;

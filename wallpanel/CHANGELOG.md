@@ -3,6 +3,7 @@
 ### Fixes
 - Assist-Button überlappte den letzten Navigationspunkt (z. B. „Sicherheit“) – die Navigation lässt jetzt Platz für beide Icons
 - Uhr im Bildschirmschoner steht jetzt fest in der Bildschirmmitte
+- Ausführlichere Log-Meldungen beim Kamera-Live (welcher go2rtc-Stream, ob der Eufy-Livestream angefordert wurde), um Startprobleme leichter einzugrenzen
 
 ## 1.5.0
 
