@@ -120,6 +120,23 @@
                   </div>
                 </section>
 
+                <section class="settings-section settings-section-wide">
+                  <div class="settings-title">Bildschirmschoner</div>
+                  <label class="settings-check" style="margin-bottom:12px;">
+                    <input type="checkbox" id="screensaverEnabled" onchange="saveScreensaverSettings()">
+                    <span>Bildschirmschoner auf diesem Tablet aktivieren</span>
+                  </label>
+                  <div id="screensaverConfig" style="display:none">
+                    <label class="select-label" for="screensaverMinutes">Einschalten nach</label>
+                    <select id="screensaverMinutes" class="room-select" onchange="saveScreensaverSettings()">
+                      <option value="1">1 Minute</option>
+                      <option value="2">2 Minuten</option>
+                      <option value="5">5 Minuten</option>
+                      <option value="10">10 Minuten</option>
+                    </select>
+                  </div>
+                </section>
+
               </div>
             </div>
 

@@ -4,7 +4,8 @@ import axios from "axios";
 import dotenv from "dotenv";
 import fs from "fs";
 import path from "path";
-import { getHaRegistries, runAssist, subscribeToStateChanges } from "./ha-websocket";
+import { getHaRegistries, HaRegistries, runAssist, subscribeToStateChanges } from "./ha-websocket";
+import { createCameraLive, LiveSource } from "./camera-live";
 import { readPanelConfig, writePanelConfig, getConfigPath } from "./panel-config";
 import { getDomain, getFriendlyEntityName, isProbablyUsefulEntity } from "./entity-filter";
 
@@ -234,6 +235,10 @@ type CameraConfig = {
   name: string;
   eventImageEntityId: string;
   liveCameraEntityId: string;
+  /** Kamera-Entity in HA (für Livestream-Start und HA-Fallback). */
+  haCameraEntityId: string;
+  /** Optional explizit gesetzter go2rtc-Streamname. */
+  streamOverride: string;
 };
 
 const ENTITIES = {
@@ -319,27 +324,37 @@ const CAMERA_CONFIGS: CameraConfig[] = [
   {
     name: envValue("CAMERA_EINFAHRT_NAME", "Einfahrt"),
     eventImageEntityId: ENTITIES.cameras.einfahrtEventImage,
-    liveCameraEntityId: envValue("CAMERA_EINFAHRT_STREAM", ENTITIES.cameraFeeds.einfahrt)
+    liveCameraEntityId: envValue("CAMERA_EINFAHRT_STREAM", ENTITIES.cameraFeeds.einfahrt),
+    haCameraEntityId: ENTITIES.cameraFeeds.einfahrt,
+    streamOverride: envValue("CAMERA_EINFAHRT_STREAM", "")
   },
   {
     name: envValue("CAMERA_HOF_NAME", "Hof"),
     eventImageEntityId: ENTITIES.cameras.hofEventImage,
-    liveCameraEntityId: envValue("CAMERA_HOF_STREAM", ENTITIES.cameraFeeds.hof)
+    liveCameraEntityId: envValue("CAMERA_HOF_STREAM", ENTITIES.cameraFeeds.hof),
+    haCameraEntityId: ENTITIES.cameraFeeds.hof,
+    streamOverride: envValue("CAMERA_HOF_STREAM", "")
   },
   {
     name: envValue("CAMERA_HOF_VON_GARAGE_NAME", "Hof von Garage"),
     eventImageEntityId: ENTITIES.cameras.hofVonGarageEventImage,
-    liveCameraEntityId: envValue("CAMERA_HOF_VON_GARAGE_STREAM", ENTITIES.cameraFeeds.hofVonGarage)
+    liveCameraEntityId: envValue("CAMERA_HOF_VON_GARAGE_STREAM", ENTITIES.cameraFeeds.hofVonGarage),
+    haCameraEntityId: ENTITIES.cameraFeeds.hofVonGarage,
+    streamOverride: envValue("CAMERA_HOF_VON_GARAGE_STREAM", "")
   },
   {
     name: envValue("CAMERA_WERKSTATT_GARTEN_NAME", "Werkstatt Richtung Garten"),
     eventImageEntityId: ENTITIES.cameras.werkstattRichtungGartenEventImage,
-    liveCameraEntityId: envValue("CAMERA_WERKSTATT_GARTEN_STREAM", ENTITIES.cameraFeeds.werkstattRichtungGarten)
+    liveCameraEntityId: envValue("CAMERA_WERKSTATT_GARTEN_STREAM", ENTITIES.cameraFeeds.werkstattRichtungGarten),
+    haCameraEntityId: ENTITIES.cameraFeeds.werkstattRichtungGarten,
+    streamOverride: envValue("CAMERA_WERKSTATT_GARTEN_STREAM", "")
   },
   {
     name: envValue("CAMERA_KLINGEL_NAME", "Klingel"),
     eventImageEntityId: ENTITIES.cameras.klingelEventImage,
-    liveCameraEntityId: envValue("CAMERA_KLINGEL_STREAM", ENTITIES.cameraFeeds.klingel)
+    liveCameraEntityId: envValue("CAMERA_KLINGEL_STREAM", ENTITIES.cameraFeeds.klingel),
+    haCameraEntityId: ENTITIES.cameraFeeds.klingel,
+    streamOverride: envValue("CAMERA_KLINGEL_STREAM", "")
   }
 ];
 
@@ -462,20 +477,21 @@ function mapLight(entity: HaState | null, fallbackName: string): LightSummary {
   };
 }
 
-function mapCamera(
-  entity: HaState | null,
-  fallbackName: string,
-  liveCameraEntityId: string
-): CameraSummary {
+function mapCamera(entity: HaState | null, config: CameraConfig): CameraSummary {
+  const fallbackName = config.name;
+  const liveCameraEntityId = config.liveCameraEntityId;
   const entityId = entity?.entity_id ?? fallbackName;
   const eventDate = entity?.state && !["unknown", "unavailable"].includes(entity.state)
     ? entity.state
     : entity?.last_updated || entity?.last_changed;
-  const webrtcUrl = getGo2RtcWebUrl(liveCameraEntityId);
-  const shortCameraId = liveCameraEntityId.replace(/^camera\./, "");
-  const webrtcFallbackUrl = getGo2RtcWebUrl(shortCameraId);
-  const mjpegUrl = getGo2RtcMjpegUrl(liveCameraEntityId);
-  const mjpegFallbackUrl = getGo2RtcMjpegUrl(shortCameraId);
+  // Live läuft über den eigenen Proxy (/api/camera-stream), der go2rtc nutzt und Eufy-Streams startet.
+  // WebRTC direkt zu go2rtc nur, wenn die Quelle ohne Startbefehl läuft (keine Eufy-Kamera).
+  const liveSource = liveSourceCache.get(config.haCameraEntityId);
+  const webrtcUrl = liveSource && !liveSource.isEufy ? getGo2RtcWebUrl(liveSource.streamName) : "";
+  const webrtcFallbackUrl = "";
+  const mjpegUrl = "";
+  const mjpegFallbackUrl = "";
+  const streamPath = `/api/camera-stream/${encodeURIComponent(config.haCameraEntityId)}?fallbackImage=${encodeURIComponent(entityId)}`;
 
   return {
     entity_id: entityId,
@@ -483,8 +499,8 @@ function mapCamera(
     name: fallbackName,
     state: entity?.state ?? "unavailable",
     imageUrl: `/api/camera-image/${encodeURIComponent(entityId)}`,
-    liveUrl: `/api/camera-stream/${encodeURIComponent(liveCameraEntityId)}?fallbackImage=${encodeURIComponent(entityId)}`,
-    streamUrl: `/api/camera-stream/${encodeURIComponent(liveCameraEntityId)}?fallbackImage=${encodeURIComponent(entityId)}`,
+    liveUrl: streamPath,
+    streamUrl: streamPath,
     webrtcUrl,
     webrtcFallbackUrl,
     mjpegUrl,
@@ -494,18 +510,69 @@ function mapCamera(
   };
 }
 
+let supervisorHostIp: { at: number; ip: string } | null = null;
+
+async function getSupervisorHostIp(): Promise<string> {
+  if (!SUPERVISOR_TOKEN) { return ""; }
+  if (supervisorHostIp && Date.now() - supervisorHostIp.at < 10 * 60 * 1000) { return supervisorHostIp.ip; }
+  try {
+    const response = await supervisor.get("/network/info");
+    const interfaces: any[] = response.data?.data?.interfaces || [];
+    const primary = interfaces.find((entry) => entry.primary) || interfaces[0];
+    const address = String(primary?.ipv4?.address?.[0] || "").split("/")[0];
+    supervisorHostIp = { at: Date.now(), ip: address };
+    return address;
+  } catch (error) {
+    console.warn(`Host-IP über Supervisor nicht ermittelbar: ${describeError(error)}`);
+    supervisorHostIp = { at: Date.now(), ip: "" };
+    return "";
+  }
+}
+
+/** go2rtc-Adresse, die der Server selbst erreicht (im Add-on: Host-IP, da go2rtc im Host-Netz läuft). */
+async function getServerGo2RtcBase(): Promise<string> {
+  const configured = (GO2RTC_PUBLIC_URL || inferGo2RtcUrlFromHaUrl()).replace(/\/$/, "");
+  if (configured) { return configured; }
+  const hostIp = await getSupervisorHostIp();
+  return hostIp ? `http://${hostIp}:${process.env.GO2RTC_PORT || "1984"}` : "";
+}
+
+let registriesCache: { at: number; value: HaRegistries } | null = null;
+
+async function getCachedRegistries(): Promise<HaRegistries> {
+  if (registriesCache && Date.now() - registriesCache.at < 5 * 60 * 1000) { return registriesCache.value; }
+  const value = await getHaRegistries(HA_URL, HA_TOKEN);
+  registriesCache = { at: Date.now(), value };
+  return value;
+}
+
+const cameraLive = createCameraLive({
+  ha,
+  http: axios.create(),
+  getGo2RtcBase: getServerGo2RtcBase,
+  getRegistries: getCachedRegistries,
+  describeError
+});
+
+const liveSourceCache = new Map<string, LiveSource>();
+let liveSourceRefreshAt = 0;
+
+function refreshLiveSourceCache(): void {
+  if (Date.now() - liveSourceRefreshAt < 60000) { return; }
+  liveSourceRefreshAt = Date.now();
+  for (const config of CAMERA_CONFIGS) {
+    cameraLive.getSourceInfo(config.haCameraEntityId, config.streamOverride).then((source) => {
+      if (source) { liveSourceCache.set(config.haCameraEntityId, source); }
+      else { liveSourceCache.delete(config.haCameraEntityId); }
+    });
+  }
+}
+
 function getGo2RtcWebUrl(cameraEntityId: string): string {
   const base = GO2RTC_PUBLIC_URL || inferGo2RtcUrlFromHaUrl();
   if (!base) { return ""; }
   const normalized = base.replace(/\/$/, "");
   return `${normalized}/stream.html?src=${encodeURIComponent(cameraEntityId)}`;
-}
-
-function getGo2RtcMjpegUrl(cameraEntityId: string): string {
-  const base = GO2RTC_PUBLIC_URL || inferGo2RtcUrlFromHaUrl();
-  if (!base) { return ""; }
-  const normalized = base.replace(/\/$/, "");
-  return `${normalized}/api/stream.mjpeg?src=${encodeURIComponent(cameraEntityId)}`;
 }
 
 function inferGo2RtcUrlFromHaUrl(): string {
@@ -1479,6 +1546,25 @@ app.get("/api/camera-stream/:entityId", async (req: Request, res: Response) => {
       ? decodeURIComponent(fallbackImageParam)
       : "";
 
+  const cameraConfig = CAMERA_CONFIGS.find((config) =>
+    config.haCameraEntityId === entityId || config.liveCameraEntityId === entityId
+  );
+  const live = await cameraLive.openMjpeg(
+    cameraConfig?.haCameraEntityId || entityId,
+    cameraConfig?.streamOverride || ""
+  );
+  if (live) {
+    res.setHeader("Content-Type", live.contentType);
+    res.setHeader("Cache-Control", "no-store");
+    res.on("close", () => {
+      live.stream.destroy();
+      live.release();
+    });
+    live.stream.on("error", () => live.release());
+    live.stream.pipe(res);
+    return;
+  }
+
   try {
     const response = await ha.get(`/api/camera_proxy_stream/${entityId}`, {
       responseType: "stream",
@@ -1612,16 +1698,13 @@ app.get("/api/dashboard", async (_req: Request, res: Response) => {
     mapLight(esstischKueche, "Esstisch Küche"),
     mapLight(esstischWohnzimmer, "Esstisch Wohnzimmer")
   ];
+  refreshLiveSourceCache();
   const cameras = [
-    mapCamera(einfahrtEventImage, CAMERA_CONFIGS[0].name, CAMERA_CONFIGS[0].liveCameraEntityId),
-    mapCamera(hofEventImage, CAMERA_CONFIGS[1].name, CAMERA_CONFIGS[1].liveCameraEntityId),
-    mapCamera(hofVonGarageEventImage, CAMERA_CONFIGS[2].name, CAMERA_CONFIGS[2].liveCameraEntityId),
-    mapCamera(
-      werkstattRichtungGartenEventImage,
-      CAMERA_CONFIGS[3].name,
-      CAMERA_CONFIGS[3].liveCameraEntityId
-    ),
-    mapCamera(klingelEventImage, CAMERA_CONFIGS[4].name, CAMERA_CONFIGS[4].liveCameraEntityId)
+    mapCamera(einfahrtEventImage, CAMERA_CONFIGS[0]),
+    mapCamera(hofEventImage, CAMERA_CONFIGS[1]),
+    mapCamera(hofVonGarageEventImage, CAMERA_CONFIGS[2]),
+    mapCamera(werkstattRichtungGartenEventImage, CAMERA_CONFIGS[3]),
+    mapCamera(klingelEventImage, CAMERA_CONFIGS[4])
   ];
   const energy = await buildEnergySummary(stateMap);
   const waterTank = buildWaterTankSummary(stateMap);

@@ -4450,7 +4450,7 @@ Legacy declarations kept below only for browsers that understand Grid but not
   right: 0;
   bottom: 0;
   left: 0;
-  z-index: 9999;
+  z-index: 10001; /* über dem Bildschirmschoner, damit auch dessen Uhr nachts gedimmt ist */
   background: #000;
   pointer-events: none;
 }
@@ -5070,4 +5070,35 @@ Legacy declarations kept below only for browsers that understand Grid but not
 .assist-send {
   -webkit-flex-shrink: 0;
   flex-shrink: 0;
+}
+
+/* ── Bildschirmschoner ───────────────────────────────────────────── */
+.screensaver {
+  display: none;
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 10000;
+  background: #000;
+  cursor: pointer;
+}
+
+.screensaver-clock {
+  position: absolute;
+  color: #4d5d75;
+  white-space: nowrap;
+}
+
+.screensaver-time {
+  font-size: 96px;
+  font-weight: 200;
+  line-height: 1;
+  letter-spacing: 2px;
+}
+
+.screensaver-date {
+  margin-top: 10px;
+  font-size: 24px;
 }

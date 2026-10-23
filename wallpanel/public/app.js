@@ -802,7 +802,7 @@ function updateTorVisual(mode, text) {
 }
 
 function loadDashboard() {
-  if (dashboardRequestActive || document.hidden) {
+  if (dashboardRequestActive || document.hidden || window.wallpanelScreensaverActive) {
     return;
   }
   dashboardRequestActive = true;

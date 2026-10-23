@@ -616,6 +616,136 @@ function applyNightMode() {
   setNightOverlay(isNight ? 1 - fraction : 0);
 }
 
+/* ── Bildschirmschoner ───────────────────────────────────────────── */
+// Pro Tablet einstellbar (localStorage). Ein Tipp weckt das Tablet, ohne dass der Tipp
+// darunterliegende Buttons auslöst. Solange er läuft, pausiert die Datenabfrage der Startseite.
+var SCREENSAVER_ALLOWED_MINUTES = [1, 2, 5, 10];
+var screensaverTimer = null;
+var screensaverClockTimer = null;
+var screensaverLastStore = 0;
+window.wallpanelScreensaverActive = false;
+
+function getScreensaverSettings() {
+  var settings = { enabled: false, minutes: 5 };
+  try {
+    var stored = JSON.parse(window.localStorage.getItem('haWallpanel.screensaver') || 'null');
+    if (stored) {
+      settings.enabled = !!stored.enabled;
+      if (SCREENSAVER_ALLOWED_MINUTES.indexOf(stored.minutes) !== -1) { settings.minutes = stored.minutes; }
+    }
+  } catch (_e) { /* ignore */ }
+  return settings;
+}
+
+function readLastActivity() {
+  try {
+    var value = parseInt(window.localStorage.getItem('haWallpanel.lastActivity') || '0', 10);
+    return value > 0 ? value : 0;
+  } catch (_e) { return 0; }
+}
+
+function storeLastActivity(now) {
+  // Über Seitenwechsel hinweg merken (z. B. Rücksprung zur Startseite), gedrosselt.
+  if (now - screensaverLastStore < 5000) { return; }
+  screensaverLastStore = now;
+  try { window.localStorage.setItem('haWallpanel.lastActivity', String(now)); } catch (_e) { /* ignore */ }
+}
+
+function ensureScreensaver() {
+  var existing = document.getElementById('screensaver');
+  if (existing) { return existing; }
+  var el = document.createElement('div');
+  el.id = 'screensaver';
+  el.className = 'screensaver';
+  el.innerHTML = '<div id="screensaverClock" class="screensaver-clock"><div class="screensaver-time"></div><div class="screensaver-date"></div></div>';
+  // touchend + preventDefault: verhindert den nachfolgenden Klick auf das Element darunter.
+  el.addEventListener('touchend', function (event) {
+    event.preventDefault();
+    hideScreensaver();
+  }, false);
+  el.addEventListener('click', function (event) {
+    event.preventDefault();
+    event.stopPropagation();
+    hideScreensaver();
+  }, false);
+  document.body.appendChild(el);
+  return el;
+}
+
+function updateScreensaverClock() {
+  var clock = document.getElementById('screensaverClock');
+  if (!clock) { return; }
+  var now = new Date();
+  var h = now.getHours();
+  var m = now.getMinutes();
+  var days = ['Sonntag', 'Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag'];
+  var months = ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'];
+  clock.children[0].textContent = (h < 10 ? '0' + h : h) + ':' + (m < 10 ? '0' + m : m);
+  clock.children[1].textContent = days[now.getDay()] + ', ' + now.getDate() + '. ' + months[now.getMonth()];
+  // Position jede Minute leicht verschieben, damit nichts dauerhaft an derselben Stelle steht.
+  clock.style.left = (5 + Math.floor(Math.random() * 35)) + '%';
+  clock.style.top = (15 + Math.floor(Math.random() * 55)) + '%';
+}
+
+function showScreensaver() {
+  if (window.wallpanelScreensaverActive) { return; }
+  // Offene Fenster schließen – v. a. Kamera-Live, damit kein Stream im Hintergrund weiterläuft.
+  if (typeof closeModal === 'function') { closeModal(); }
+  if (typeof closeAssistModal === 'function') { closeAssistModal(); }
+  if (typeof closeRoomsModal === 'function') { closeRoomsModal(); }
+  var el = ensureScreensaver();
+  window.wallpanelScreensaverActive = true;
+  updateScreensaverClock();
+  el.style.display = 'block';
+  screensaverClockTimer = setInterval(updateScreensaverClock, 60000);
+}
+
+function hideScreensaver() {
+  var el = document.getElementById('screensaver');
+  if (el) { el.style.display = 'none'; }
+  if (screensaverClockTimer) {
+    clearInterval(screensaverClockTimer);
+    screensaverClockTimer = null;
+  }
+  var wasActive = window.wallpanelScreensaverActive;
+  window.wallpanelScreensaverActive = false;
+  registerScreensaverActivity();
+  if (wasActive && typeof loadDashboard === 'function') { loadDashboard(); }
+}
+
+function scheduleScreensaver(delayMs) {
+  if (screensaverTimer) { clearTimeout(screensaverTimer); }
+  screensaverTimer = null;
+  var settings = getScreensaverSettings();
+  if (!settings.enabled || document.body.getAttribute('data-page') === 'optionen') { return; }
+  screensaverTimer = setTimeout(showScreensaver, Math.max(1000, delayMs));
+}
+
+function registerScreensaverActivity() {
+  if (window.wallpanelScreensaverActive) { return; }
+  var now = new Date().getTime();
+  storeLastActivity(now);
+  scheduleScreensaver(getScreensaverSettings().minutes * 60000);
+}
+
+function restartScreensaverTimer() {
+  screensaverLastStore = 0;
+  registerScreensaverActivity();
+}
+
+function setupScreensaver() {
+  var settings = getScreensaverSettings();
+  var events = ['touchstart', 'click', 'mousemove', 'keydown', 'scroll'];
+  for (var i = 0; i < events.length; i++) {
+    document.addEventListener(events[i], registerScreensaverActivity, true);
+  }
+  // Restzeit seit der letzten Bedienung (auch auf einer anderen Seite) berücksichtigen.
+  var last = readLastActivity();
+  var elapsed = last ? new Date().getTime() - last : 0;
+  scheduleScreensaver(settings.minutes * 60000 - elapsed);
+}
+
+document.addEventListener('DOMContentLoaded', setupScreensaver);
 document.addEventListener('DOMContentLoaded', renderSharedLayout);
 document.addEventListener('DOMContentLoaded', function () {
   applyNightMode();

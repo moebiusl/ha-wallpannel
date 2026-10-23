@@ -30,6 +30,8 @@ export type DeviceRegistryEntry = {
   model?: string | null;
   area_id?: string | null;
   disabled_by?: string | null;
+  identifiers?: [string, string][];
+  serial_number?: string | null;
 };
 
 export type EntityRegistryEntry = {

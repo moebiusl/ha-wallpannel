@@ -1,5 +1,19 @@
 ## 1.5.0
 
+### Neu: Bildschirmschoner
+- Pro Tablet in den Optionen einstellbar: an/aus und nach 1, 2, 5 oder 10 Minuten ohne Bedienung
+- Schwarzer Bildschirm mit gedimmter Uhr und Datum (wandert jede Minute leicht)
+- Ein Tipp weckt das Tablet, ohne dass der Tipp einen Button darunter auslöst
+- Solange er läuft, pausiert die Datenabfrage der Startseite; offene Fenster (z. B. Kamera-Live) werden geschlossen
+- Der Nachtmodus dimmt auch den Bildschirmschoner
+
+### Fix: Kamera-Live mit Eufy und go2rtc
+- Eufy-Kameras haben in go2rtc nur einen Platzhalter als Quelle (`tcp://127.0.0.1:65535 … connection refused`), bis ein P2P-Livestream gestartet wird
+- Das Add-on startet den Eufy-P2P-Livestream jetzt selbst, wartet auf das erste Bild und stoppt ihn wieder, wenn niemand mehr zuschaut
+- go2rtc-Streams werden automatisch zugeordnet – auch über die Eufy-Seriennummer
+- Live läuft über das Add-on als MJPEG, damit auch alte iPads (iOS 9) das Bild anzeigen
+- go2rtc-Adresse wird im Add-on automatisch aus der Host-IP ermittelt, wenn `go2rtc_public_url` leer ist
+
 ### Neu: Assist-Button
 - Mikrofon-Button in der Kopfleiste öffnet ein Assist-Fenster
 - Befehle und Fragen gehen an die bevorzugte Assist-Pipeline von Home Assistant (Sprache, Agent und Stimme wie in HA eingestellt)

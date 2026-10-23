@@ -1114,6 +1114,31 @@ function saveNightModeSettings() {
   if (typeof applyNightMode === "function") { applyNightMode(); }
 }
 
+function loadScreensaverSettings() {
+  var settings = typeof getScreensaverSettings === "function" ? getScreensaverSettings() : { enabled: false, minutes: 5 };
+  var enabled = document.getElementById("screensaverEnabled");
+  if (enabled) { enabled.checked = !!settings.enabled; }
+  var minutes = document.getElementById("screensaverMinutes");
+  if (minutes) { minutes.value = String(settings.minutes); }
+  var config = document.getElementById("screensaverConfig");
+  if (config) { config.style.display = settings.enabled ? "block" : "none"; }
+}
+
+function saveScreensaverSettings() {
+  var enabled = document.getElementById("screensaverEnabled");
+  var minutes = document.getElementById("screensaverMinutes");
+  var settings = {
+    enabled: enabled ? enabled.checked : false,
+    minutes: minutes ? parseInt(minutes.value, 10) || 5 : 5
+  };
+  var config = document.getElementById("screensaverConfig");
+  if (config) { config.style.display = settings.enabled ? "block" : "none"; }
+  try {
+    window.localStorage.setItem("haWallpanel.screensaver", JSON.stringify(settings));
+  } catch (_e) { /* ignore */ }
+  if (typeof restartScreensaverTimer === "function") { restartScreensaverTimer(); }
+}
+
 function renderOptions() {
   fillPanelSelect();
   fillTabletRoomSelect();
@@ -1123,6 +1148,7 @@ function renderOptions() {
   renderCards();
   renderDeviceAndEntityLists();
   loadNightModeSettings();
+  loadScreensaverSettings();
 }
 
 function savePanelOptions() {
