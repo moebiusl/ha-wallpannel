@@ -1,11 +1,13 @@
 import { AxiosInstance } from "axios";
-import { Readable } from "stream";
+import { Readable, Transform, TransformCallback } from "stream";
 import { HaRegistries } from "./ha-websocket";
 
 // Live-Ansicht über go2rtc.
 // Eufy-Kameras haben in go2rtc nur einen Platzhalter als Quelle (tcp://127.0.0.1:65535), bis die
 // Eufy-Integration einen P2P-Livestream startet. Der Server startet ihn deshalb selbst, wartet auf
 // das erste Bild und reicht den Stream als MJPEG weiter – das können auch alte iPads (iOS 9) anzeigen.
+// go2rtc wandelt H.264 für stream.mjpeg nicht selbst um; dafür legt der Server einen abgeleiteten
+// ffmpeg-Stream an (wallpanel_<name>) und drosselt die Bildrate, damit alte iPads mitkommen.
 
 type LiveDeps = {
   ha: AxiosInstance;
@@ -23,12 +25,71 @@ export type LiveSource = {
 const STREAMS_CACHE_MS = 30000;
 const READY_TIMEOUT_MS = 25000;
 const STOP_DELAY_MS = 20000;
+const TRANSCODE_PREFIX = "wallpanel_";
+const MJPEG_WIDTH = 960;
+const MAX_FPS = 4;
+// Hängt das Tablet hinterher (langsames WLAN), Bilder verwerfen statt Verzögerung aufzustauen.
+const MAX_BUFFERED_BYTES = 256 * 1024;
+
+/** Liest einen multipart-MJPEG-Strom und gibt höchstens MAX_FPS Bilder pro Sekunde weiter. */
+class MjpegThrottle extends Transform {
+  private buffer: Buffer = Buffer.alloc(0);
+  private lastEmit = 0;
+
+  _transform(chunk: Buffer, _encoding: BufferEncoding, callback: TransformCallback): void {
+    this.buffer = this.buffer.length ? Buffer.concat([this.buffer, chunk]) : chunk;
+    if (this.buffer.length > 8 * 1024 * 1024) {
+      this.buffer = Buffer.alloc(0);
+    }
+
+    for (;;) {
+      const headerEnd = this.buffer.indexOf("\r\n\r\n");
+      if (headerEnd === -1) { break; }
+      const header = this.buffer.subarray(0, headerEnd).toString("latin1");
+      const match = /content-length:\s*(\d+)/i.exec(header);
+      const start = headerEnd + 4;
+      let end: number;
+      if (match) {
+        end = start + Number(match[1]);
+        if (this.buffer.length < end) { break; }
+      } else {
+        const eoi = this.buffer.indexOf(Buffer.from([0xff, 0xd9]), start);
+        if (eoi === -1) { break; }
+        end = eoi + 2;
+      }
+      const frame = this.buffer.subarray(start, end);
+      this.buffer = this.buffer.subarray(end);
+      this.emitFrame(frame);
+    }
+    callback();
+  }
+
+  private emitFrame(frame: Buffer): void {
+    const now = Date.now();
+    if (frame.length === 0 || now - this.lastEmit < 1000 / MAX_FPS) { return; }
+    if (this.readableLength > MAX_BUFFERED_BYTES) { return; }
+    this.lastEmit = now;
+    this.push(Buffer.concat([
+      Buffer.from(`--frame\r\nContent-Type: image/jpeg\r\nContent-Length: ${frame.length}\r\n\r\n`, "latin1"),
+      frame,
+      Buffer.from("\r\n", "latin1")
+    ]));
+  }
+}
 
 export function createCameraLive(deps: LiveDeps) {
   let streamsCache: { at: number; names: string[] } | null = null;
   const viewers = new Map<string, number>();
   const stopTimers = new Map<string, NodeJS.Timeout>();
   const startPromises = new Map<string, Promise<boolean>>();
+
+  async function ensureTranscodeStream(base: string, streamName: string): Promise<string> {
+    const name = TRANSCODE_PREFIX + streamName;
+    const src = `ffmpeg:${streamName}#video=mjpeg#width=${MJPEG_WIDTH}`;
+    // PUT ist idempotent; go2rtc verliert dynamische Streams beim Neustart, daher jedes Mal anlegen.
+    await deps.http.put(`${base}/api/streams?name=${encodeURIComponent(name)}&src=${encodeURIComponent(src)}`, null, { timeout: 5000 });
+    return name;
+  }
 
   async function getGo2RtcStreamNames(base: string): Promise<string[]> {
     if (streamsCache && Date.now() - streamsCache.at < STREAMS_CACHE_MS) {
@@ -161,14 +222,19 @@ export function createCameraLive(deps: LiveDeps) {
         return null;
       }
 
-      const response = await deps.http.get(`${base}/api/stream.mjpeg?src=${encodeURIComponent(source.streamName)}`, {
+      const transcodeName = await ensureTranscodeStream(base, source.streamName);
+      const response = await deps.http.get(`${base}/api/stream.mjpeg?src=${encodeURIComponent(transcodeName)}`, {
         responseType: "stream",
         timeout: 15000
       });
-      const contentType = response.headers["content-type"];
+      const upstream = response.data as Readable;
+      const throttled = new MjpegThrottle();
+      upstream.on("error", (error) => throttled.destroy(error));
+      throttled.on("close", () => upstream.destroy());
+      upstream.pipe(throttled);
       return {
-        stream: response.data as Readable,
-        contentType: typeof contentType === "string" ? contentType : "multipart/x-mixed-replace",
+        stream: throttled,
+        contentType: "multipart/x-mixed-replace; boundary=frame",
         release
       };
     } catch (error) {

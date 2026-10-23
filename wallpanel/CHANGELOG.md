@@ -3,6 +3,7 @@
 ### Fixes
 - Assist-Button überlappte den letzten Navigationspunkt (z. B. „Sicherheit“) – die Navigation lässt jetzt Platz für beide Icons
 - Uhr im Bildschirmschoner steht jetzt fest in der Bildschirmmitte
+- Kamera-Live für Eufy: go2rtc wandelt H.264 nicht selbst in MJPEG um, daher blieb das Bild leer. Das Add-on legt jetzt in go2rtc einen abgeleiteten ffmpeg-Stream (`wallpanel_<Seriennummer>`, 960 px breit) an und drosselt auf ca. 4 Bilder/s – passend für alte iPads
 - Ausführlichere Log-Meldungen beim Kamera-Live (welcher go2rtc-Stream, ob der Eufy-Livestream angefordert wurde), um Startprobleme leichter einzugrenzen
 
 ## 1.5.0
