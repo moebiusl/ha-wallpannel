@@ -1,3 +1,23 @@
+## 1.6.0
+
+### Neu: Tablets zentral verwalten
+- Jedes Wandtablet meldet sich mit eigener Kennung an und erscheint unter Optionen → Tablets – mit Online-Status, Gerät und aktueller Seite
+- Name, Raum, Panel, Bildschirmschoner, Nachtmodus und Klingel-Popup pro Tablet aus der Ferne einstellbar (z. B. vom Mac)
+- „Identifizieren“, „Mitteilung senden“, „Neu laden“ und „Entfernen“ pro Tablet
+- Name des Tablets auch direkt am Tablet unter „Dieses Tablet“ einstellbar; Änderungen am Tablet werden zentral übernommen
+
+### Neu: Klingel-Popup
+- Klingelt es, zeigen die Tablets ein großes Popup mit Live-Bild der Klingelkamera – auch aus dem Bildschirmschoner heraus
+- Buttons für „Hoftor auto öffnen“ und Licht (Hof, Garage, Terrasse – automatisch erkannt, anpassbar)
+- Schließt sich nach 3 Minuten ohne Bedienung und beendet dabei den Live-Stream
+- Klingel-Signal, Kamera und Lichter unter Optionen → Tablets → Klingel; dort auch „Klingel testen“
+
+### Neu: Mitteilungen auf bestimmten Tablets
+- HA-Automationen können per Event `wallpanel_notify` Mitteilungen an ein Tablet (nach Name) oder alle senden
+
+### Neu: Automatisch neu laden nach Updates
+- Tablets erkennen ein Add-on-Update und laden sich neu, sobald sie kurz nicht bedient werden
+
 ## 1.5.2
 
 ### Neu

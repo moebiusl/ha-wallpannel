@@ -396,3 +396,96 @@ export async function runAssist(
     return runAssistOnce(haUrl, token, text, conversationId, false);
   }
 }
+
+// ---------------------------------------------------------------------------
+// Generic persistent event subscription (mehrere Event-Typen über eine Verbindung)
+// ---------------------------------------------------------------------------
+
+export type HaEventCallback = (eventType: string, data: any) => void;
+
+/**
+ * Abonniert die angegebenen HA-Event-Typen (z. B. state_changed, wallpanel_notify)
+ * und verbindet sich bei Abbruch automatisch neu.
+ */
+export function subscribeToHaEvents(
+  haUrl: string,
+  token: string,
+  eventTypes: ReadonlyArray<string>,
+  onEvent: HaEventCallback
+): () => void {
+  let cancelled = false;
+  let ws: WsLike | null = null;
+  let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+  let reconnectDelay = 5000;
+
+  function scheduleReconnect(): void {
+    if (cancelled) return;
+    reconnectTimer = setTimeout(() => {
+      reconnectTimer = null;
+      connect();
+    }, reconnectDelay);
+    reconnectDelay = Math.min(reconnectDelay * 2, 60_000);
+  }
+
+  function connect(): void {
+    if (cancelled) return;
+    const socket = new WebSocket(wsUrlFromHaUrl(haUrl));
+    ws = socket;
+    const subscriptions = new Map<number, string>();
+    let nextId = 1;
+
+    socket.onmessage = (event: { data: unknown }) => {
+      try {
+        const raw = typeof event.data === "string" ? event.data : Buffer.from(event.data as ArrayBuffer).toString();
+        const msg = JSON.parse(raw);
+
+        if (msg.type === "auth_required") {
+          socket.send(JSON.stringify({ type: "auth", access_token: token }));
+          return;
+        }
+        if (msg.type === "auth_ok") {
+          reconnectDelay = 5000;
+          for (const eventType of eventTypes) {
+            const id = nextId++;
+            subscriptions.set(id, eventType);
+            socket.send(JSON.stringify({ id, type: "subscribe_events", event_type: eventType }));
+          }
+          return;
+        }
+        if (msg.type === "auth_invalid") {
+          console.error("[events] HA WebSocket-Auth fehlgeschlagen — kein Reconnect");
+          cancelled = true;
+          try { socket.close(); } catch (_) { /* ignore */ }
+          return;
+        }
+        if (msg.type === "event" && subscriptions.has(msg.id)) {
+          onEvent(subscriptions.get(msg.id)!, msg.event?.data ?? {});
+        }
+      } catch (_err) {
+        // Ignore JSON parse errors etc.
+      }
+    };
+
+    socket.onerror = (_err: unknown) => {
+      try { socket.close(); } catch (_) { /* ignore */ }
+    };
+    socket.onclose = (_evt: unknown) => {
+      ws = null;
+      scheduleReconnect();
+    };
+  }
+
+  connect();
+
+  return () => {
+    cancelled = true;
+    if (reconnectTimer !== null) {
+      clearTimeout(reconnectTimer);
+      reconnectTimer = null;
+    }
+    if (ws) {
+      try { ws.close(); } catch (_) { /* ignore */ }
+      ws = null;
+    }
+  };
+}

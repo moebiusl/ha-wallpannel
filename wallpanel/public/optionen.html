@@ -60,6 +60,7 @@
             <!-- Tab-Navigation -->
             <nav class="settings-tabs">
               <button id="settingsTabBtn-tablet"      class="settings-tab active" type="button" onclick="showSettingsTab('tablet')">Dieses Tablet</button>
+              <button id="settingsTabBtn-tablets"     class="settings-tab"        type="button" onclick="showSettingsTab('tablets')">Tablets</button>
               <button id="settingsTabBtn-inhalte"     class="settings-tab"        type="button" onclick="showSettingsTab('inhalte')">Inhalte</button>
               <button id="settingsTabBtn-automationen" class="settings-tab"       type="button" onclick="showSettingsTab('automationen')">Automationen</button>
               <button id="settingsTabBtn-system"      class="settings-tab"        type="button" onclick="showSettingsTab('system')">System</button>
@@ -71,6 +72,12 @@
             <!-- ── Tab: Dieses Tablet ─────────────────────────────── -->
             <div id="settingsTab-tablet" class="settings-tab-panel">
               <div class="settings-layout-grid">
+
+                <section class="settings-section settings-section-wide">
+                  <div class="settings-title">Name dieses Tablets</div>
+                  <input id="tabletNameInput" class="assist-input tablet-name-input" type="text" maxlength="40" placeholder="z. B. Flur, Küche" onchange="saveTabletName()">
+                  <div id="tabletIdentityHint" class="settings-hint"></div>
+                </section>
 
                 <section class="settings-section">
                   <div class="settings-title">Panel &amp; Raum</div>
@@ -296,6 +303,45 @@
                 <button class="pill-button" type="button" onclick="loadAddons()">Aktualisieren</button>
               </div>
               <div id="addonsMount" class="addons-list"></div>
+            </div>
+
+            <!-- ── Tab: Tablets (Verwaltung aller Wandtablets, z. B. vom Mac) ── -->
+            <div id="settingsTab-tablets" class="settings-tab-panel" style="display:none">
+              <div class="settings-layout-grid">
+                <section class="settings-section settings-section-wide">
+                  <div class="settings-title">Wandtablets</div>
+                  <div class="settings-hint">Alle Tablets, die das Wallpanel als Web-App geöffnet haben. Änderungen werden innerhalb weniger Sekunden auf dem Tablet übernommen.</div>
+                  <button class="pill-button" type="button" onclick="loadTabletsAdmin()" style="margin:10px 0">Aktualisieren</button>
+                  <div id="tabletsAdminMount" class="tablets-admin-list"><div class="settings-empty">Lade…</div></div>
+                </section>
+
+                <section class="settings-section settings-section-wide">
+                  <div class="settings-title">Klingel</div>
+                  <label class="select-label" for="doorbellEntitySelect">Klingel-Signal (Entity)</label>
+                  <select id="doorbellEntitySelect" class="room-select"></select>
+                  <label class="select-label settings-label-spaced" for="doorbellCameraSelect">Kamera im Klingel-Popup</label>
+                  <select id="doorbellCameraSelect" class="room-select"></select>
+                  <div class="select-label settings-label-spaced">Licht-Buttons im Klingel-Popup</div>
+                  <div id="doorbellLightsMount" class="tablets-light-list"></div>
+                  <div style="margin-top:12px">
+                    <button class="pill-button active" type="button" onclick="saveDoorbellSettings()">Klingel speichern</button>
+                    <button class="pill-button" type="button" onclick="testDoorbell()">Klingel testen</button>
+                    <span id="doorbellSaveState" class="settings-save-state"></span>
+                  </div>
+                </section>
+
+                <section class="settings-section settings-section-wide">
+                  <div class="settings-title">Mitteilungen aus Home Assistant</div>
+                  <div class="settings-hint">In einer HA-Automation als Aktion ein Event auslösen. <code>tablet</code> ist der Tablet-Name oder <code>all</code>.</div>
+                  <pre class="tablets-yaml">action: event
+event: wallpanel_notify
+event_data:
+  tablet: Flur
+  title: Hoftor
+  message: Das Tor ist seit 10 Minuten offen.
+  duration: 60</pre>
+                </section>
+              </div>
             </div>
 
             <!-- ── Tab: Info ─────────────────────────────────────── -->

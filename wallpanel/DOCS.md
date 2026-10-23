@@ -32,6 +32,32 @@ Diese Werte kannst du im Add-on unter **Konfiguration** setzen:
 
 Live-Ansicht: Das Add-on holt den Stream selbst von go2rtc und reicht ihn als MJPEG an das Tablet weiter – das funktioniert auch auf alten iPads (iOS 9), das Tablet muss go2rtc nicht direkt erreichen. Bei Eufy-Kameras (Integration `eufy_security`) startet das Add-on dafür automatisch den P2P-Livestream und stoppt ihn wieder, wenn niemand mehr zuschaut. Der Start kann einige Sekunden dauern; kommt nach 25 Sekunden kein Bild, wird das Event-Bild angezeigt.
 
+## Tablets verwalten
+
+Jedes iPad, das das Wallpanel als Web-App vom Homescreen öffnet, meldet sich mit einer eigenen Kennung an. Unter **Optionen → Tablets** (z. B. vom Mac über `http://<HA-IP>:3000/optionen.html`) kannst du für jedes Tablet Name, Raum, Panel, Bildschirmschoner, Nachtmodus und das Klingel-Popup einstellen. Änderungen kommen innerhalb weniger Sekunden auf dem Tablet an. Dort gibt es auch „Identifizieren“ (zeigt den Namen groß auf dem Tablet), „Mitteilung senden“ und „Neu laden“.
+
+Nach einem Add-on-Update laden sich die Tablets automatisch neu, sobald sie kurz nicht bedient werden.
+
+### Klingel
+
+Klingelt es, zeigen die Tablets ein großes Popup mit dem Live-Bild der Klingelkamera und Buttons für „Hoftor auto öffnen“ und Licht. Klingel-Signal, Kamera und Licht-Buttons werden automatisch erkannt und lassen sich unter **Optionen → Tablets → Klingel** anpassen. Mit „Klingel testen“ lässt sich das Popup ausprobieren.
+
+### Mitteilungen aus Home Assistant
+
+In einer Automation ein Event auslösen – `tablet` ist der Tablet-Name oder `all`:
+
+```yaml
+action: event
+event: wallpanel_notify
+event_data:
+  tablet: Flur
+  title: Hoftor
+  message: Das Tor ist seit 10 Minuten offen.
+  duration: 60
+```
+
+Statt `message` geht auch `command: doorbell`, `command: reload` oder `command: identify`.
+
 ## Direkter Zugriff
 
 Neben Ingress wird Port `3000` nach aussen angeboten. Das ist praktisch fuer alte iPads, die du direkt aufrufen kannst:

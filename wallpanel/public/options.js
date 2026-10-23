@@ -122,6 +122,7 @@ function startOptionsPage() {
   // Tablet-lokale Einstellungen sofort zeigen, sie brauchen keine Serverdaten.
   loadNightModeSettings();
   loadScreensaverSettings();
+  loadTabletIdentity();
   initOptionsPage();
 }
 
@@ -135,7 +136,7 @@ function showSettingsContent() {
   startOptionsPage();
 }
 
-var SETTINGS_TABS = ["tablet", "inhalte", "automationen", "system", "server", "addons", "info"];
+var SETTINGS_TABS = ["tablet", "tablets", "inhalte", "automationen", "system", "server", "addons", "info"];
 
 function showSettingsTab(tab) {
   for (var i = 0; i < SETTINGS_TABS.length; i++) {
@@ -145,6 +146,7 @@ function showSettingsTab(tab) {
     if (panel) { panel.style.display = t === tab ? "" : "none"; }
     if (btn) { btn.className = t === tab ? "settings-tab active" : "settings-tab"; }
   }
+  if (tab === "tablets") { loadTabletsAdmin(); }
   if (tab === "automationen") { loadAutomations(); }
   if (tab === "system") { loadNotificationSettings(); showLog("gate"); }
   if (tab === "server") { loadSystemSensors(); }
@@ -595,6 +597,7 @@ function fillPanelSelect() {
   select.onchange = function () {
     optionState.panelId = select.value;
     setPanelId(optionState.panelId);
+    if (typeof reportTabletConfig === "function") { reportTabletConfig({ panelId: optionState.panelId }); }
     renderOptions();
   };
 }
@@ -629,6 +632,7 @@ function fillTabletRoomSelect() {
     if (typeof setTabletRoom === "function") {
       setTabletRoom(select.value);
     }
+    if (typeof reportTabletConfig === "function") { reportTabletConfig({ room: select.value }); }
     document.body.setAttribute("data-room", select.value);
     renderSharedLayout();
   };
@@ -1135,6 +1139,7 @@ function saveNightModeSettings() {
     window.localStorage.setItem("haWallpanel.nightMode", JSON.stringify(settings));
   }
   if (typeof applyNightMode === "function") { applyNightMode(); }
+  if (typeof reportTabletConfig === "function") { reportTabletConfig({ nightMode: settings }); }
 }
 
 function loadScreensaverSettings() {
@@ -1160,6 +1165,7 @@ function saveScreensaverSettings() {
     window.localStorage.setItem("haWallpanel.screensaver", JSON.stringify(settings));
   } catch (_e) { /* ignore */ }
   if (typeof restartScreensaverTimer === "function") { restartScreensaverTimer(); }
+  if (typeof reportTabletConfig === "function") { reportTabletConfig({ screensaver: settings }); }
 }
 
 function renderOptions() {
@@ -1172,6 +1178,9 @@ function renderOptions() {
   renderDeviceAndEntityLists();
   loadNightModeSettings();
   loadScreensaverSettings();
+  // Tablets-Tab mit Raumnamen neu zeichnen, sobald die HA-Struktur da ist.
+  var tabletsTab = document.getElementById("settingsTab-tablets");
+  if (tabletsAdminState && tabletsTab && tabletsTab.style.display !== "none") { renderTabletsAdmin(); }
 }
 
 function savePanelOptions() {
@@ -1703,6 +1712,261 @@ function renderAddonRow(addon) {
 function updateAddon(slug, callback) {
   apiPost("api/addons/" + encodeURIComponent(slug) + "/update", {}, function (error) {
     if (callback) { callback(!error); }
+  });
+}
+
+
+/* ── Dieses Tablet: Name ──────────────────────────────────────────── */
+function loadTabletIdentity() {
+  var input = document.getElementById("tabletNameInput");
+  var hint = document.getElementById("tabletIdentityHint");
+  var isTablet = typeof shouldRegisterAsTablet === "function" && shouldRegisterAsTablet();
+  var name = "";
+  try { name = window.localStorage.getItem("haWallpanel.tabletName") || ""; } catch (_e) { name = ""; }
+  if (input) {
+    input.value = name;
+    input.disabled = !isTablet;
+  }
+  if (hint) {
+    hint.textContent = isTablet
+      ? "Kennung: " + getTabletId() + " – unter diesem Namen erscheint das Tablet in der Verwaltung und für Mitteilungen."
+      : "Dieses Gerät ist kein Wandtablet. Alle Tablets verwaltest du im Tab „Tablets“.";
+  }
+}
+
+function saveTabletName() {
+  var input = document.getElementById("tabletNameInput");
+  if (!input) { return; }
+  var name = input.value.replace(/^\s+|\s+$/g, "");
+  try { window.localStorage.setItem("haWallpanel.tabletName", name); } catch (_e) { /* ignore */ }
+  if (typeof reportTabletConfig === "function") { reportTabletConfig({ name: name }); }
+}
+
+/* ── Tablets: Verwaltung ──────────────────────────────────────────── */
+var tabletsAdminState = null;
+
+function loadTabletsAdmin() {
+  apiGet("api/tablets", function (error, payload) {
+    var mount = document.getElementById("tabletsAdminMount");
+    if (error || !payload) {
+      if (mount) { mount.innerHTML = '<div class="settings-empty">Tablets konnten nicht geladen werden</div>'; }
+      return;
+    }
+    tabletsAdminState = payload;
+    renderTabletsAdmin();
+    renderDoorbellSettings();
+  });
+}
+
+function formatLastSeen(timestamp) {
+  if (!timestamp) { return "nie"; }
+  var seconds = Math.round((new Date().getTime() - timestamp) / 1000);
+  if (seconds < 60) { return "gerade eben"; }
+  if (seconds < 3600) { return "vor " + Math.round(seconds / 60) + " Min."; }
+  if (seconds < 86400) { return "vor " + Math.round(seconds / 3600) + " Std."; }
+  return "vor " + Math.round(seconds / 86400) + " Tagen";
+}
+
+function tabletRoomOptions(selected) {
+  var html = "";
+  var tree = optionState.structure && optionState.structure.tree ? optionState.structure.tree : [];
+  var found = false;
+  for (var f = 0; f < tree.length; f++) {
+    var areas = tree[f].areas || [];
+    if (!areas.length) { continue; }
+    html += '<optgroup label="' + escapeHtml(tree[f].floorName || "Ohne Etage") + '">';
+    for (var a = 0; a < areas.length; a++) {
+      if (!areas[a].areaId) { continue; }
+      if (areas[a].areaId === selected) { found = true; }
+      html += '<option value="' + escapeHtml(areas[a].areaId) + '"' + (areas[a].areaId === selected ? " selected" : "") + ">" + escapeHtml(areas[a].name) + "</option>";
+    }
+    html += "</optgroup>";
+  }
+  if (selected && !found) {
+    html = '<option value="' + escapeHtml(selected) + '" selected>' + escapeHtml(selected) + "</option>" + html;
+  }
+  return html;
+}
+
+function tabletPanelOptions(selected) {
+  var panels = optionState.config && optionState.config.panels ? optionState.config.panels : { "default": { name: "Standard Wallpanel" } };
+  var html = "";
+  for (var panelId in panels) {
+    html += '<option value="' + escapeHtml(panelId) + '"' + (panelId === (selected || "default") ? " selected" : "") + ">" + escapeHtml(panels[panelId].name || panelId) + "</option>";
+  }
+  return html;
+}
+
+function numberInput(id, value, min, max) {
+  return '<input type="number" id="' + id + '" class="settings-time-input" min="' + min + '" max="' + max + '" value="' + value + '">';
+}
+
+function renderTabletsAdmin() {
+  var mount = document.getElementById("tabletsAdminMount");
+  if (!mount || !tabletsAdminState) { return; }
+  var tablets = tabletsAdminState.tablets || [];
+  if (!tablets.length) {
+    mount.innerHTML = '<div class="settings-empty">Noch kein Tablet registriert. Öffne das Wallpanel auf einem iPad als Web-App vom Homescreen.</div>';
+    return;
+  }
+  var html = "";
+  for (var i = 0; i < tablets.length; i++) {
+    var t = tablets[i];
+    var c = t.config || {};
+    var ss = c.screensaver || { enabled: false, minutes: 5 };
+    var nm = c.nightMode || { enabled: false, startHour: 22, startMinute: 0, endHour: 7, endMinute: 0, brightness: 15 };
+    var p = "tab_" + t.id + "_";
+    var minutesOptions = "";
+    var allowed = [1, 2, 5, 10];
+    for (var m = 0; m < allowed.length; m++) {
+      minutesOptions += '<option value="' + allowed[m] + '"' + (ss.minutes === allowed[m] ? " selected" : "") + ">" + allowed[m] + (allowed[m] === 1 ? " Minute" : " Minuten") + "</option>";
+    }
+    html += '<div class="tablet-admin-card">' +
+      '<div class="tablet-admin-head">' +
+        '<span class="tablet-admin-dot' + (t.online ? " is-online" : "") + '"></span>' +
+        '<strong>' + escapeHtml(c.name || "Ohne Namen") + "</strong>" +
+        '<small>' + escapeHtml(t.device) + " · " + (t.online ? "online" : "zuletzt " + formatLastSeen(t.lastSeen)) + (t.page ? " · Seite: " + escapeHtml(t.page) : "") + (t.ip ? " · " + escapeHtml(t.ip) : "") + "</small>" +
+      "</div>" +
+      '<div class="tablet-admin-grid">' +
+        '<label>Name<input id="' + p + 'name" class="assist-input" type="text" maxlength="40" value="' + escapeHtml(c.name || "") + '"></label>' +
+        '<label>Raum<select id="' + p + 'room" class="room-select">' + tabletRoomOptions(c.room || "") + "</select></label>" +
+        '<label>Panel<select id="' + p + 'panel" class="room-select">' + tabletPanelOptions(c.panelId) + "</select></label>" +
+        '<label class="settings-check"><input id="' + p + 'doorbell" type="checkbox"' + (c.doorbellWake !== false ? " checked" : "") + "><span>Klingel-Popup anzeigen</span></label>" +
+        '<label class="settings-check"><input id="' + p + 'ss" type="checkbox"' + (ss.enabled ? " checked" : "") + '><span>Bildschirmschoner nach</span></label>' +
+        '<select id="' + p + 'ssmin" class="room-select">' + minutesOptions + "</select>" +
+        '<label class="settings-check"><input id="' + p + 'nm" type="checkbox"' + (nm.enabled ? " checked" : "") + "><span>Nachtmodus</span></label>" +
+        '<div class="settings-time-row">' + numberInput(p + "nmsh", nm.startHour, 0, 23) + "<span>:</span>" + numberInput(p + "nmsm", nm.startMinute, 0, 59) +
+          "<span>bis</span>" + numberInput(p + "nmeh", nm.endHour, 0, 23) + "<span>:</span>" + numberInput(p + "nmem", nm.endMinute, 0, 59) +
+          "<span>Helligkeit</span>" + numberInput(p + "nmb", nm.brightness, 2, 50) + "<span>%</span></div>" +
+      "</div>" +
+      '<div class="tablet-admin-actions">' +
+        '<button class="pill-button active" type="button" onclick="saveTabletAdmin(\'' + t.id + '\')">Speichern</button>' +
+        '<button class="pill-button" type="button" onclick="sendTabletCommand(\'' + t.id + '\', \'identify\')">Identifizieren</button>' +
+        '<button class="pill-button" type="button" onclick="sendTabletNotice(\'' + t.id + '\')">Mitteilung senden</button>' +
+        '<button class="pill-button" type="button" onclick="sendTabletCommand(\'' + t.id + '\', \'reload\')">Neu laden</button>' +
+        '<button class="pill-button" type="button" onclick="removeTabletAdmin(\'' + t.id + '\')">Entfernen</button>' +
+        '<span id="' + p + 'state" class="settings-save-state"></span>' +
+      "</div>" +
+    "</div>";
+  }
+  mount.innerHTML = html;
+}
+
+function tabletAdminValue(id) {
+  var el = document.getElementById(id);
+  if (!el) { return null; }
+  return el.type === "checkbox" ? el.checked : el.value;
+}
+
+function setTabletAdminState(id, text) {
+  var el = document.getElementById("tab_" + id + "_state");
+  if (!el) { return; }
+  el.textContent = text;
+  setTimeout(function () { if (el.textContent === text) { el.textContent = ""; } }, 3000);
+}
+
+function saveTabletAdmin(id) {
+  var p = "tab_" + id + "_";
+  var num = function (key, fallback) { var v = parseInt(tabletAdminValue(p + key), 10); return isNaN(v) ? fallback : v; };
+  var config = {
+    name: tabletAdminValue(p + "name") || "",
+    room: tabletAdminValue(p + "room") || "",
+    panelId: tabletAdminValue(p + "panel") || "default",
+    doorbellWake: !!tabletAdminValue(p + "doorbell"),
+    screensaver: { enabled: !!tabletAdminValue(p + "ss"), minutes: num("ssmin", 5) },
+    nightMode: {
+      enabled: !!tabletAdminValue(p + "nm"),
+      startHour: num("nmsh", 22), startMinute: num("nmsm", 0),
+      endHour: num("nmeh", 7), endMinute: num("nmem", 0),
+      brightness: num("nmb", 15)
+    }
+  };
+  apiPost("api/tablets/" + id, { config: config }, function (error) {
+    setTabletAdminState(id, error ? "Fehler beim Speichern" : "Gespeichert – wird übernommen");
+  });
+}
+
+function sendTabletCommand(id, type) {
+  apiPost("api/tablets/" + id + "/command", { type: type }, function (error) {
+    setTabletAdminState(id, error ? "Fehler" : "Gesendet");
+  });
+}
+
+function sendTabletNotice(id) {
+  var message = window.prompt("Mitteilung an dieses Tablet:");
+  if (!message) { return; }
+  apiPost("api/tablets/notify", { tablet: id, message: message, duration: 60 }, function (error) {
+    setTabletAdminState(id, error ? "Fehler" : "Mitteilung gesendet");
+  });
+}
+
+function removeTabletAdmin(id) {
+  if (!window.confirm("Tablet aus der Liste entfernen? Es meldet sich beim nächsten Öffnen neu an.")) { return; }
+  var xhr = new XMLHttpRequest();
+  xhr.open("DELETE", "api/tablets/" + id, true);
+  xhr.onreadystatechange = function () { if (xhr.readyState === 4) { loadTabletsAdmin(); } };
+  xhr.send();
+}
+
+function renderDoorbellSettings() {
+  if (!tabletsAdminState) { return; }
+  var settings = tabletsAdminState.settings || {};
+  var doorbell = tabletsAdminState.doorbell || {};
+  var candidates = tabletsAdminState.candidates || {};
+
+  var entitySelect = document.getElementById("doorbellEntitySelect");
+  if (entitySelect) {
+    var html = '<option value="">Automatisch' + (doorbell.autoEntity ? " (" + escapeHtml(doorbell.autoEntity) + ")" : " – nichts gefunden") + "</option>";
+    var list = candidates.doorbell || [];
+    for (var i = 0; i < list.length; i++) {
+      html += '<option value="' + escapeHtml(list[i].entityId) + '"' + (list[i].entityId === settings.doorbellEntity ? " selected" : "") + ">" + escapeHtml(list[i].name) + " (" + escapeHtml(list[i].entityId) + ")</option>";
+    }
+    entitySelect.innerHTML = html;
+  }
+
+  var cameraSelect = document.getElementById("doorbellCameraSelect");
+  if (cameraSelect) {
+    var cameras = candidates.cameras || [];
+    var cameraHtml = "";
+    for (var c = 0; c < cameras.length; c++) {
+      cameraHtml += '<option value="' + escapeHtml(cameras[c].entityId) + '"' + (cameras[c].entityId === settings.doorbellCamera ? " selected" : "") + ">" + escapeHtml(cameras[c].name) + "</option>";
+    }
+    cameraSelect.innerHTML = cameraHtml;
+  }
+
+  var lightsMount = document.getElementById("doorbellLightsMount");
+  if (lightsMount) {
+    var active = doorbell.lights || [];
+    var lights = candidates.lights || [];
+    var lightsHtml = '<div class="settings-hint">' + ((settings.doorbellLights || []).length ? "Eigene Auswahl." : "Automatisch erkannt – zum Ändern Häkchen setzen und speichern.") + "</div>";
+    for (var l = 0; l < lights.length; l++) {
+      lightsHtml += '<label class="settings-check"><input type="checkbox" class="doorbell-light-check" value="' + escapeHtml(lights[l].entityId) + '"' + (active.indexOf(lights[l].entityId) !== -1 ? " checked" : "") + "><span>" + escapeHtml(lights[l].name) + " <small>" + escapeHtml(lights[l].entityId) + "</small></span></label>";
+    }
+    lightsMount.innerHTML = lightsHtml;
+  }
+}
+
+function saveDoorbellSettings() {
+  var checks = document.getElementsByClassName("doorbell-light-check");
+  var lights = [];
+  for (var i = 0; i < checks.length; i++) {
+    if (checks[i].checked) { lights.push(checks[i].value); }
+  }
+  apiPost("api/tablets/settings", {
+    doorbellEntity: tabletAdminValue("doorbellEntitySelect") || "",
+    doorbellCamera: tabletAdminValue("doorbellCameraSelect") || "",
+    doorbellLights: lights
+  }, function (error) {
+    var state = document.getElementById("doorbellSaveState");
+    if (state) { state.textContent = error ? "Fehler beim Speichern" : "Gespeichert"; }
+    if (!error) { loadTabletsAdmin(); }
+  });
+}
+
+function testDoorbell() {
+  apiPost("api/tablets/doorbell-test", { tablet: "all" }, function (error) {
+    var state = document.getElementById("doorbellSaveState");
+    if (state) { state.textContent = error ? "Fehler" : "Klingel-Test an alle Tablets gesendet"; }
   });
 }
 

@@ -4,7 +4,8 @@ import axios from "axios";
 import dotenv from "dotenv";
 import fs from "fs";
 import path from "path";
-import { getHaRegistries, HaRegistries, runAssist, subscribeToStateChanges } from "./ha-websocket";
+import { getHaRegistries, HaRegistries, runAssist, subscribeToHaEvents, subscribeToStateChanges } from "./ha-websocket";
+import { computeAssetVersion, createTabletRegistry } from "./tablets";
 import { createCameraLive, LiveSource } from "./camera-live";
 import { readPanelConfig, writePanelConfig, getConfigPath } from "./panel-config";
 import { getDomain, getFriendlyEntityName, isProbablyUsefulEntity } from "./entity-filter";
@@ -2104,6 +2105,242 @@ app.get("/api/changelog", (_req: Request, res: Response) => {
   }
 });
 
+// ---------------------------------------------------------------------------
+// Tablets: Erkennung, Fernkonfiguration, Mitteilungen, Klingel, Auto-Neuladen
+// ---------------------------------------------------------------------------
+
+const ASSET_VERSION = computeAssetVersion(path.join(__dirname, "../public"));
+const TABLET_ONLINE_MS = 20000;
+const tabletRegistry = createTabletRegistry(path.join(path.dirname(getConfigPath()), "tablets.json"), {
+  doorbellEntity: envValue("DOORBELL_ENTITY", ""),
+  doorbellCamera: ENTITIES.cameraFeeds.klingel,
+  doorbellLights: []
+});
+
+function isValidTabletId(id: unknown): id is string {
+  return typeof id === "string" && /^[a-z0-9]{8,40}$/i.test(id);
+}
+
+function describeDevice(userAgent: string): string {
+  const ios = /OS (\d+)_(\d+)/.exec(userAgent);
+  if (/iPad/.test(userAgent)) { return `iPad${ios ? ` (iOS ${ios[1]}.${ios[2]})` : ""}`; }
+  if (/iPhone/.test(userAgent)) { return `iPhone${ios ? ` (iOS ${ios[1]}.${ios[2]})` : ""}`; }
+  if (/Android/.test(userAgent)) { return "Android"; }
+  if (/Macintosh/.test(userAgent)) { return "Mac"; }
+  return userAgent ? userAgent.slice(0, 40) : "unbekannt";
+}
+
+let autoDoorbellEntity = "";
+let autoDoorbellLights: string[] = [];
+let doorbellAutoDetectAt = 0;
+
+async function refreshDoorbellAutoDetect(): Promise<void> {
+  if (Date.now() - doorbellAutoDetectAt < 5 * 60 * 1000) { return; }
+  doorbellAutoDetectAt = Date.now();
+  try {
+    const states = await getAllStates();
+    const ids = states.map((state) => state.entity_id);
+    // Klingel-Signal: bevorzugt binary_sensor mit "ring", sonst event-Entities.
+    const doorbellCandidates = ids.filter((id) =>
+      /^(binary_sensor|event)\./.test(id) && /(ring|klingel|doorbell)/i.test(id) && !/(motion|person|battery|bewegung)/i.test(id)
+    ).sort((a, b) => Number(/ring/i.test(b)) - Number(/ring/i.test(a)) || a.length - b.length);
+    autoDoorbellEntity = doorbellCandidates[0] || "";
+
+    // Licht-Buttons: je ein Licht für Hof, Garage und Terrasse.
+    const lights = ids.filter((id) => /^light\./.test(id) && !/(wasserstand|panel|test|led)/i.test(id));
+    const friendly = (id: string) => String(states.find((state) => state.entity_id === id)?.attributes?.friendly_name || "");
+    autoDoorbellLights = [/^light\.hof$|hof/i, /garage/i, /terr?ass/i]
+      .map((pattern) => lights
+        .filter((id) => pattern.test(id) || pattern.test(friendly(id)))
+        .sort((a, b) => a.length - b.length)[0])
+      .filter((id): id is string => !!id);
+  } catch (error) {
+    console.warn(`Klingel-Erkennung fehlgeschlagen: ${describeError(error)}`);
+  }
+}
+
+function getDoorbellEntity(): string {
+  return tabletRegistry.getSettings().doorbellEntity || autoDoorbellEntity;
+}
+
+function getDoorbellLights(): string[] {
+  const configured = tabletRegistry.getSettings().doorbellLights;
+  return configured.length ? configured : autoDoorbellLights;
+}
+
+let lastDoorbellAt = 0;
+
+function triggerDoorbell(source: string, target?: string): number {
+  // Mehrfach-Signale (an/aus, mehrere Entities) innerhalb weniger Sekunden nur einmal melden.
+  if (Date.now() - lastDoorbellAt < 8000 && !target) { return 0; }
+  lastDoorbellAt = Date.now();
+  const ids = tabletRegistry.resolveTargets(target).filter((id) =>
+    tabletRegistry.list().find((record) => record.id === id)?.config.doorbellWake !== false
+  );
+  console.log(`Klingel (${source}) -> ${ids.length} Tablet(s)`);
+  return tabletRegistry.enqueue(ids, { type: "doorbell", camera: tabletRegistry.getSettings().doorbellCamera });
+}
+
+app.post("/api/tablet/sync", (req: Request, res: Response) => {
+  const id = req.body?.id;
+  if (!isValidTabletId(id)) {
+    res.status(400).json({ ok: false, message: "ungültige Tablet-ID" });
+    return;
+  }
+  const result = tabletRegistry.sync(id, {
+    page: String(req.body?.page || "").slice(0, 40),
+    userAgent: String(req.headers["user-agent"] || ""),
+    ip: String(req.headers["x-forwarded-for"] || req.socket.remoteAddress || "").replace(/^::ffff:/, ""),
+    localConfig: req.body?.local
+  });
+  res.setHeader("Cache-Control", "no-store");
+  res.json({ ok: true, assetVersion: ASSET_VERSION, config: result.config, commands: result.commands });
+});
+
+app.post("/api/tablet/report", (req: Request, res: Response) => {
+  // Änderungen, die direkt am Tablet gemacht wurden, an die zentrale Konfiguration melden.
+  const id = req.body?.id;
+  if (!isValidTabletId(id) || !tabletRegistry.updateConfig(id, req.body?.config)) {
+    res.status(404).json({ ok: false });
+    return;
+  }
+  res.json({ ok: true });
+});
+
+app.get("/api/tablets", async (_req: Request, res: Response) => {
+  await refreshDoorbellAutoDetect();
+  const now = Date.now();
+  const states = await getAllStates().catch(() => [] as HaState[]);
+  const pick = (pattern: RegExp) => states
+    .filter((state) => pattern.test(state.entity_id))
+    .map((state) => ({ entityId: state.entity_id, name: String(state.attributes?.friendly_name || state.entity_id) }))
+    .sort((a, b) => a.name.localeCompare(b.name, "de"));
+  res.setHeader("Cache-Control", "no-store");
+  res.json({
+    ok: true,
+    tablets: tabletRegistry.list().map((record) => ({
+      id: record.id,
+      config: record.config,
+      online: now - record.lastSeen < TABLET_ONLINE_MS,
+      lastSeen: record.lastSeen,
+      page: record.page,
+      device: describeDevice(record.userAgent),
+      ip: record.ip
+    })),
+    settings: tabletRegistry.getSettings(),
+    doorbell: { entity: getDoorbellEntity(), lights: getDoorbellLights(), autoEntity: autoDoorbellEntity, autoLights: autoDoorbellLights },
+    candidates: {
+      doorbell: pick(/^(binary_sensor|event)\./),
+      lights: pick(/^(light|switch)\./),
+      cameras: CAMERA_CONFIGS.map((config) => ({ entityId: config.haCameraEntityId, name: config.name }))
+    }
+  });
+});
+
+app.post("/api/tablets/settings", (req: Request, res: Response) => {
+  const settings = tabletRegistry.updateSettings(req.body || {});
+  doorbellAutoDetectAt = 0;
+  res.json({ ok: true, settings });
+});
+
+app.post("/api/tablets/notify", (req: Request, res: Response) => {
+  const message = typeof req.body?.message === "string" ? req.body.message.trim() : "";
+  if (!message) {
+    res.status(400).json({ ok: false, message: "message fehlt" });
+    return;
+  }
+  const count = tabletRegistry.enqueue(tabletRegistry.resolveTargets(req.body?.tablet), {
+    type: "notify",
+    title: typeof req.body?.title === "string" ? req.body.title.slice(0, 80) : "",
+    message: message.slice(0, 500),
+    duration: Math.min(600, Math.max(5, Number(req.body?.duration) || 30))
+  });
+  res.json({ ok: true, delivered: count });
+});
+
+app.post("/api/tablets/doorbell-test", (req: Request, res: Response) => {
+  res.json({ ok: true, delivered: triggerDoorbell("Test", req.body?.tablet || "all") });
+});
+
+app.post("/api/tablets/:id", (req: Request, res: Response) => {
+  const id = String(req.params.id);
+  const record = isValidTabletId(id) ? tabletRegistry.updateConfig(id, req.body?.config) : null;
+  if (!record) {
+    res.status(404).json({ ok: false });
+    return;
+  }
+  res.json({ ok: true, config: record.config });
+});
+
+app.post("/api/tablets/:id/command", (req: Request, res: Response) => {
+  const id = String(req.params.id);
+  const type = req.body?.type;
+  if (!isValidTabletId(id) || (type !== "identify" && type !== "reload")) {
+    res.status(400).json({ ok: false });
+    return;
+  }
+  res.json({ ok: true, delivered: tabletRegistry.enqueue([id], { type }) });
+});
+
+app.delete("/api/tablets/:id", (req: Request, res: Response) => {
+  res.json({ ok: tabletRegistry.remove(String(req.params.id)) });
+});
+
+app.get("/api/doorbell", async (_req: Request, res: Response) => {
+  await refreshDoorbellAutoDetect();
+  const stateMap = await getStateMap();
+  const camera = tabletRegistry.getSettings().doorbellCamera;
+  const cameraConfig = CAMERA_CONFIGS.find((config) => config.haCameraEntityId === camera);
+  res.setHeader("Cache-Control", "no-store");
+  res.json({
+    ok: true,
+    camera,
+    cameraName: cameraConfig?.name || "Klingel",
+    streamUrl: `api/camera-stream/${encodeURIComponent(camera)}${cameraConfig ? `?fallbackImage=${encodeURIComponent(cameraConfig.eventImageEntityId)}` : ""}`,
+    lights: getDoorbellLights().map((entityId) => {
+      const state = readStateFromMap(stateMap, entityId);
+      return {
+        entityId,
+        name: String(state?.attributes?.friendly_name || entityId),
+        state: state?.state || "unavailable"
+      };
+    })
+  });
+});
+
+function handleHaEvent(eventType: string, data: any): void {
+  if (eventType === "wallpanel_notify") {
+    // Aus HA-Automationen: event wallpanel_notify mit tablet, title, message, duration (oder command: doorbell/reload)
+    const target = typeof data?.tablet === "string" ? data.tablet : "all";
+    if (data?.command === "doorbell") { triggerDoorbell("HA-Event", target); return; }
+    if (data?.command === "reload" || data?.command === "identify") {
+      tabletRegistry.enqueue(tabletRegistry.resolveTargets(target), { type: data.command });
+      return;
+    }
+    if (typeof data?.message === "string" && data.message.trim()) {
+      tabletRegistry.enqueue(tabletRegistry.resolveTargets(target), {
+        type: "notify",
+        title: typeof data.title === "string" ? data.title.slice(0, 80) : "",
+        message: data.message.trim().slice(0, 500),
+        duration: Math.min(600, Math.max(5, Number(data.duration) || 30))
+      });
+    }
+    return;
+  }
+
+  if (eventType === "state_changed") {
+    const doorbellEntity = getDoorbellEntity();
+    if (!doorbellEntity || data?.entity_id !== doorbellEntity) { return; }
+    const newState = data?.new_state?.state;
+    const oldState = data?.old_state?.state;
+    if (!newState || newState === oldState || newState === "unavailable" || newState === "unknown") { return; }
+    // binary_sensor/input_boolean: nur beim Einschalten; event-Entities: jeder neue Zeitstempel.
+    if (/^event\./.test(doorbellEntity) ? !!oldState : newState === "on") {
+      triggerDoorbell(doorbellEntity);
+    }
+  }
+}
+
 app.use((_req: Request, res: Response) => {
   res.sendFile(path.join(__dirname, "../public/index.html"));
 });
@@ -2185,8 +2422,14 @@ function formatGateAction(entityId: string, newState: string, label: string): st
   return `${label}: ${newState}`;
 }
 
+
 app.listen(PORT, "0.0.0.0", () => {
   console.log(`Wallpanel läuft auf Port ${PORT}`);
+
+  refreshDoorbellAutoDetect().then(() => {
+    console.log(`Klingel-Signal: ${getDoorbellEntity() || "nicht gefunden (in den Optionen unter Tablets einstellen)"}`);
+  });
+  subscribeToHaEvents(HA_URL, HA_TOKEN, ["state_changed", "wallpanel_notify"], handleHaEvent);
 
   subscribeToStateChanges(
     HA_URL,

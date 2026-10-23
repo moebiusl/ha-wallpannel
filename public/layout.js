@@ -686,6 +686,11 @@ function updateScreensaverClock() {
 
 function showScreensaver() {
   if (window.wallpanelScreensaverActive) { return; }
+  if (window.wallpanelPopupOpen) {
+    screensaverLastActivity = 0;
+    registerScreensaverActivity();
+    return;
+  }
   // Offene Fenster schließen – v. a. Kamera-Live, damit kein Stream im Hintergrund weiterläuft.
   if (typeof closeModal === 'function') { closeModal(); }
   if (typeof closeAssistModal === 'function') { closeAssistModal(); }
@@ -748,6 +753,319 @@ function setupScreensaver() {
   scheduleScreensaver(settings.minutes * 60000 - elapsed);
 }
 
+/* ── Tablet-Verwaltung: Sync, Fernkonfiguration, Mitteilungen, Klingel ── */
+// Jedes Wandtablet hat eine eigene Kennung und meldet sich alle paar Sekunden beim Server.
+// Darüber kommen zentral gepflegte Einstellungen, Mitteilungen, die Klingel und Update-Hinweise.
+var TABLET_SYNC_MS = 3000;
+var tabletAssetVersion = null;
+var tabletConfigLockUntil = 0;
+var tabletSyncBusy = false;
+window.wallpanelPopupOpen = false;
+
+function readStoredJson(key) {
+  try { return JSON.parse(window.localStorage.getItem(key) || 'null'); } catch (_e) { return null; }
+}
+
+function writeStored(key, value) {
+  try { window.localStorage.setItem(key, value); } catch (_e) { /* ignore */ }
+}
+
+function shouldRegisterAsTablet() {
+  // Der Mac zur Verwaltung soll nicht als Tablet auftauchen.
+  return !!window.navigator.standalone || /iPad|iPhone|Android/.test(navigator.userAgent || '') ||
+    (readStoredJson('haWallpanel.forceTablet') === true);
+}
+
+function getTabletId() {
+  var id = '';
+  try { id = window.localStorage.getItem('haWallpanel.tabletId') || ''; } catch (_e) { id = ''; }
+  if (!/^[a-z0-9]{8,40}$/.test(id)) {
+    id = '';
+    var chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
+    for (var i = 0; i < 16; i++) { id += chars.charAt(Math.floor(Math.random() * chars.length)); }
+    writeStored('haWallpanel.tabletId', id);
+  }
+  return id;
+}
+
+function getLocalTabletConfig() {
+  return {
+    room: typeof getTabletRoom === 'function' ? getTabletRoom() : '',
+    panelId: typeof getPanelId === 'function' ? getPanelId() : 'default',
+    screensaver: getScreensaverSettings(),
+    nightMode: getNightModeSettings()
+  };
+}
+
+/** Am Tablet geänderte Einstellungen an den Server melden (Optionen-Seite). */
+function reportTabletConfig(partial) {
+  if (!shouldRegisterAsTablet()) { return; }
+  tabletConfigLockUntil = new Date().getTime() + 6000;
+  var xhr = new XMLHttpRequest();
+  xhr.open('POST', 'api/tablet/report', true);
+  xhr.setRequestHeader('Content-Type', 'application/json');
+  xhr.send(JSON.stringify({ id: getTabletId(), config: partial }));
+}
+
+function applyTabletConfig(config) {
+  if (!config || new Date().getTime() < tabletConfigLockUntil) { return; }
+  if (typeof config.name === 'string') { writeStored('haWallpanel.tabletName', config.name); }
+
+  if (config.screensaver && JSON.stringify(config.screensaver) !== JSON.stringify(readStoredJson('haWallpanel.screensaver'))) {
+    writeStored('haWallpanel.screensaver', JSON.stringify(config.screensaver));
+    restartScreensaverTimer();
+  }
+  if (config.nightMode && JSON.stringify(config.nightMode) !== JSON.stringify(readStoredJson('haWallpanel.nightMode'))) {
+    writeStored('haWallpanel.nightMode', JSON.stringify(config.nightMode));
+    applyNightMode();
+  }
+  if (config.room && typeof getTabletRoom === 'function' && config.room !== getTabletRoom()) {
+    setTabletRoom(config.room);
+    document.body.setAttribute('data-room', config.room);
+    if (typeof renderSharedLayout === 'function') { renderSharedLayout(); }
+  }
+  if (config.panelId && typeof getPanelId === 'function' && config.panelId !== getPanelId()) {
+    // Anderes Anzeigeprofil: Seiten und Navigation neu aufbauen.
+    setPanelId(config.panelId);
+    if (document.body.getAttribute('data-page') !== 'optionen') { window.location.reload(); }
+  }
+}
+
+function isTabletIdle(ms) {
+  if (window.wallpanelScreensaverActive) { return true; }
+  return new Date().getTime() - (screensaverLastActivity || readLastActivity() || 0) > ms;
+}
+
+function handleAssetVersion(version) {
+  if (!version) { return; }
+  if (tabletAssetVersion === null) { tabletAssetVersion = version; return; }
+  // Nach einem Add-on-Update neu laden – aber nicht mitten in der Bedienung.
+  if (version !== tabletAssetVersion && !window.wallpanelPopupOpen && isTabletIdle(20000)) {
+    window.location.reload();
+  }
+}
+
+function runTabletCommand(command) {
+  if (!command || !command.type) { return; }
+  if (command.type === 'reload') { window.location.reload(); return; }
+  if (command.type === 'identify') { showTabletIdentify(); return; }
+  if (command.type === 'notify') { showTabletNotice(command.title, command.message, command.duration); return; }
+  if (command.type === 'doorbell') { showDoorbellPopup(); }
+}
+
+function syncTablet() {
+  if (tabletSyncBusy || document.hidden) { return; }
+  tabletSyncBusy = true;
+  var xhr = new XMLHttpRequest();
+  xhr.open('POST', 'api/tablet/sync', true);
+  xhr.setRequestHeader('Content-Type', 'application/json');
+  xhr.timeout = 10000;
+  xhr.onreadystatechange = function () {
+    if (xhr.readyState !== 4) { return; }
+    tabletSyncBusy = false;
+    if (xhr.status !== 200) { return; }
+    var payload = null;
+    try { payload = JSON.parse(xhr.responseText); } catch (_e) { return; }
+    applyTabletConfig(payload.config);
+    var commands = payload.commands || [];
+    for (var i = 0; i < commands.length; i++) { runTabletCommand(commands[i]); }
+    handleAssetVersion(payload.assetVersion);
+  };
+  xhr.send(JSON.stringify({
+    id: getTabletId(),
+    page: document.body.getAttribute('data-page') || '',
+    local: getLocalTabletConfig()
+  }));
+}
+
+function wakeForPopup() {
+  if (window.wallpanelScreensaverActive) { hideScreensaver(); }
+  if (typeof closeAssistModal === 'function') { closeAssistModal(); }
+  if (typeof closeRoomsModal === 'function') { closeRoomsModal(); }
+}
+
+// ── Mitteilung ──
+var tabletNoticeTimer = null;
+
+function showTabletNotice(title, message, duration) {
+  wakeForPopup();
+  var el = document.getElementById('tabletNotice');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'tabletNotice';
+    el.className = 'tablet-notice';
+    el.innerHTML = '<div class="tablet-notice-card">' +
+      '<div class="panel-kicker">Mitteilung</div>' +
+      '<div id="tabletNoticeTitle" class="tablet-notice-title"></div>' +
+      '<div id="tabletNoticeMessage" class="tablet-notice-message"></div>' +
+      '<button class="pill-button pill-button-large active" type="button" onclick="hideTabletNotice()">OK</button>' +
+      '</div>';
+    document.body.appendChild(el);
+  }
+  document.getElementById('tabletNoticeTitle').textContent = title || '';
+  document.getElementById('tabletNoticeTitle').style.display = title ? 'block' : 'none';
+  document.getElementById('tabletNoticeMessage').textContent = message || '';
+  el.style.display = 'block';
+  if (tabletNoticeTimer) { clearTimeout(tabletNoticeTimer); }
+  tabletNoticeTimer = setTimeout(hideTabletNotice, Math.max(5, duration || 30) * 1000);
+}
+
+function hideTabletNotice() {
+  var el = document.getElementById('tabletNotice');
+  if (el) { el.style.display = 'none'; }
+  if (tabletNoticeTimer) { clearTimeout(tabletNoticeTimer); tabletNoticeTimer = null; }
+}
+
+// ── Identifizieren ──
+function showTabletIdentify() {
+  wakeForPopup();
+  var el = document.getElementById('tabletIdentify');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'tabletIdentify';
+    el.className = 'tablet-identify';
+    el.onclick = function () { el.style.display = 'none'; };
+    document.body.appendChild(el);
+  }
+  var name = '';
+  try { name = window.localStorage.getItem('haWallpanel.tabletName') || ''; } catch (_e) { name = ''; }
+  el.innerHTML = '<div class="tablet-identify-name">' + escapeHtml(name || 'Tablet ohne Namen') + '</div>' +
+    '<div class="tablet-identify-id">' + escapeHtml(getTabletId()) + '</div>';
+  el.style.display = 'block';
+  setTimeout(function () { el.style.display = 'none'; }, 8000);
+}
+
+// ── Klingel-Popup ──
+var DOORBELL_AUTO_CLOSE_MS = 3 * 60 * 1000;
+var doorbellCloseTimer = null;
+var doorbellRefreshTimer = null;
+
+function ensureDoorbellPopup() {
+  var existing = document.getElementById('doorbellPopup');
+  if (existing) { return existing; }
+  var el = document.createElement('div');
+  el.id = 'doorbellPopup';
+  el.className = 'doorbell-popup';
+  el.innerHTML = '<div class="doorbell-card">' +
+    '<div class="doorbell-header">' +
+      '<div><div class="panel-kicker">Klingel</div><div class="doorbell-title">Es hat geklingelt <span id="doorbellTime"></span></div></div>' +
+      '<button class="modal-close" type="button" onclick="closeDoorbellPopup()">×</button>' +
+    '</div>' +
+    '<div class="doorbell-stage">' +
+      '<img id="doorbellImage" class="doorbell-image" alt="Klingel live">' +
+      '<div id="doorbellLoading" class="camera-live-loading" style="display:block"><span class="camera-live-spinner"></span><span class="camera-live-loading-text">Live wird gestartet …</span></div>' +
+    '</div>' +
+    '<div id="doorbellActions" class="doorbell-actions">' +
+      '<button id="doorbellGate" class="doorbell-action doorbell-action-gate" type="button" onclick="doorbellOpenGate()">Hoftor auto öffnen</button>' +
+      '<span id="doorbellLights"></span>' +
+    '</div>' +
+  '</div>';
+  // Jede Berührung im Popup verlängert die Anzeige.
+  el.addEventListener('touchstart', resetDoorbellCloseTimer, false);
+  el.addEventListener('click', resetDoorbellCloseTimer, false);
+  document.body.appendChild(el);
+  return el;
+}
+
+function resetDoorbellCloseTimer() {
+  if (doorbellCloseTimer) { clearTimeout(doorbellCloseTimer); }
+  doorbellCloseTimer = setTimeout(closeDoorbellPopup, DOORBELL_AUTO_CLOSE_MS);
+}
+
+function renderDoorbellLights(lights) {
+  var mount = document.getElementById('doorbellLights');
+  if (!mount) { return; }
+  var html = '';
+  for (var i = 0; i < lights.length; i++) {
+    var isOn = lights[i].state === 'on';
+    html += '<button class="doorbell-action' + (isOn ? ' is-on' : '') + '" type="button" data-entity="' + escapeHtml(lights[i].entityId) + '" onclick="doorbellToggleLight(this)">' +
+      escapeHtml(lights[i].name) + '<small>' + (isOn ? 'an' : 'aus') + '</small></button>';
+  }
+  mount.innerHTML = html;
+}
+
+function loadDoorbellInfo(setStream) {
+  var xhr = new XMLHttpRequest();
+  xhr.open('GET', 'api/doorbell', true);
+  xhr.onreadystatechange = function () {
+    if (xhr.readyState !== 4 || xhr.status !== 200) { return; }
+    var info = null;
+    try { info = JSON.parse(xhr.responseText); } catch (_e) { return; }
+    renderDoorbellLights(info.lights || []);
+    if (setStream) {
+      var image = document.getElementById('doorbellImage');
+      var loading = document.getElementById('doorbellLoading');
+      if (image && info.streamUrl) {
+        image.onload = function () { if (loading) { loading.style.display = 'none'; } };
+        image.onerror = function () { if (loading) { loading.style.display = 'none'; } };
+        image.src = info.streamUrl;
+      }
+    }
+  };
+  xhr.send();
+}
+
+function showDoorbellPopup() {
+  wakeForPopup();
+  // Kamera-Modal der Startseite schließen, damit nicht zwei Live-Streams laufen.
+  if (typeof closeModal === 'function') { closeModal(); }
+  var el = ensureDoorbellPopup();
+  var now = new Date();
+  var m = now.getMinutes();
+  document.getElementById('doorbellTime').textContent = '· ' + now.getHours() + ':' + (m < 10 ? '0' + m : m) + ' Uhr';
+  var gate = document.getElementById('doorbellGate');
+  if (gate) { gate.className = 'doorbell-action doorbell-action-gate'; gate.textContent = 'Hoftor auto öffnen'; }
+  var alreadyOpen = window.wallpanelPopupOpen;
+  window.wallpanelPopupOpen = true;
+  el.style.display = 'block';
+  if (!alreadyOpen) {
+    document.getElementById('doorbellLoading').style.display = 'block';
+    loadDoorbellInfo(true);
+  }
+  if (doorbellRefreshTimer) { clearInterval(doorbellRefreshTimer); }
+  doorbellRefreshTimer = setInterval(function () { loadDoorbellInfo(false); }, 5000);
+  resetDoorbellCloseTimer();
+}
+
+function closeDoorbellPopup() {
+  var el = document.getElementById('doorbellPopup');
+  if (el) { el.style.display = 'none'; }
+  var image = document.getElementById('doorbellImage');
+  // src entfernen beendet den Live-Stream (und damit den Eufy-P2P-Stream auf dem Server).
+  if (image) { image.onload = null; image.removeAttribute('src'); }
+  if (doorbellCloseTimer) { clearTimeout(doorbellCloseTimer); doorbellCloseTimer = null; }
+  if (doorbellRefreshTimer) { clearInterval(doorbellRefreshTimer); doorbellRefreshTimer = null; }
+  window.wallpanelPopupOpen = false;
+  registerScreensaverActivity();
+}
+
+function doorbellOpenGate() {
+  var gate = document.getElementById('doorbellGate');
+  if (!gate || gate.className.indexOf('is-busy') !== -1) { return; }
+  gate.className = 'doorbell-action doorbell-action-gate is-busy';
+  gate.textContent = 'Tor öffnet …';
+  apiPost('api/tor/auto-open', {}, function (error) {
+    gate.className = 'doorbell-action doorbell-action-gate' + (error ? ' is-error' : ' is-on');
+    gate.textContent = error ? 'Fehler – nochmal tippen' : 'Tor wird geöffnet';
+  });
+}
+
+function doorbellToggleLight(button) {
+  var entityId = button.getAttribute('data-entity');
+  if (!entityId) { return; }
+  button.className += ' is-busy';
+  apiPost('api/entity/' + encodeURIComponent(entityId) + '/toggle', {}, function () {
+    setTimeout(function () { loadDoorbellInfo(false); }, 800);
+  });
+}
+
+function setupTabletSync() {
+  if (!shouldRegisterAsTablet()) { return; }
+  syncTablet();
+  setInterval(syncTablet, TABLET_SYNC_MS);
+}
+
+document.addEventListener('DOMContentLoaded', setupTabletSync);
 document.addEventListener('DOMContentLoaded', setupScreensaver);
 document.addEventListener('DOMContentLoaded', renderSharedLayout);
 document.addEventListener('DOMContentLoaded', function () {
