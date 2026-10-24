@@ -1,3 +1,11 @@
+## 1.7.2
+
+### Schönere Mitteilungen
+- Neues Design: Glocken-Symbol, Uhrzeit, linksbündiger Text, großer OK-Button und ein ablaufender Balken bis zum Ausblenden
+- Farbe nach Dringlichkeit: Alarm-Ton = rot („Dringend“), Hinweis/Glocke = gelb, sonst türkis – auch auf stummgeschalteten Tablets
+- Ohne Titel wird der Text selbst zur Überschrift
+- Verwaltung: Statt einer einfachen Eingabebox gibt es ein Formular mit Titel, Text, Ton und Anzeigedauer – pro Tablet und „An alle Tablets“
+
 ## 1.7.1
 
 ### Klingel

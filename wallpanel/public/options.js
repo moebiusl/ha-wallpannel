@@ -1849,9 +1849,15 @@ function renderTabletsAdmin() {
         '<button class="pill-button" type="button" onclick="removeTabletAdmin(\'' + t.id + '\')">Entfernen</button>' +
         '<span id="' + p + 'state" class="settings-save-state"></span>' +
       "</div>" +
+      noticeFormHtml(p, t.id) +
     "</div>";
   }
-  mount.innerHTML = html;
+  mount.innerHTML = '<div class="tablet-admin-card tablet-admin-broadcast">' +
+      '<div class="tablet-admin-head"><strong>An alle Tablets</strong></div>' +
+      '<button class="pill-button" type="button" onclick="sendTabletNotice(\'all\')">Mitteilung an alle</button>' +
+      '<span id="tab_all_state" class="settings-save-state"></span>' +
+      noticeFormHtml("tab_all_", "all") +
+    "</div>" + html;
 }
 
 function tabletAdminValue(id) {
@@ -1895,11 +1901,57 @@ function sendTabletCommand(id, type) {
   });
 }
 
+function noticeFormHtml(prefix, target) {
+  var soundOptions = '<option value="">Standard-Mitteilungston</option>';
+  for (var i = 0; i < SOUND_OPTIONS.length; i++) {
+    soundOptions += '<option value="' + SOUND_OPTIONS[i][0] + '">' + SOUND_OPTIONS[i][1] + "</option>";
+  }
+  return '<div id="' + prefix + 'noticeForm" class="tablet-notice-form" style="display:none">' +
+    '<label>Titel (optional)<input id="' + prefix + 'noticeTitle" class="assist-input" type="text" maxlength="80" placeholder="z. B. Hoftor"></label>' +
+    '<label>Text<textarea id="' + prefix + 'noticeMessage" class="assist-input" rows="3" maxlength="500" placeholder="Was soll angezeigt werden?"></textarea></label>' +
+    '<div class="tablet-notice-form-row">' +
+      '<label>Ton<select id="' + prefix + 'noticeSound" class="room-select">' + soundOptions + "</select></label>" +
+      '<label>Anzeigen für<select id="' + prefix + 'noticeDuration" class="room-select">' +
+        '<option value="15">15 Sekunden</option><option value="30" selected>30 Sekunden</option>' +
+        '<option value="60">1 Minute</option><option value="300">5 Minuten</option><option value="600">10 Minuten</option>' +
+      "</select></label>" +
+    "</div>" +
+    '<div class="settings-hint">Farbe folgt dem Ton: Alarm = rot, Hinweis/Glocke = gelb, sonst türkis.</div>' +
+    '<button class="pill-button active" type="button" onclick="submitTabletNotice(\'' + prefix + "\', \'" + target + '\')">Senden</button>' +
+  "</div>";
+}
+
 function sendTabletNotice(id) {
-  var message = window.prompt("Mitteilung an dieses Tablet:");
-  if (!message) { return; }
-  apiPost("api/tablets/notify", { tablet: id, message: message, duration: 60 }, function (error) {
-    setTabletAdminState(id, error ? "Fehler" : "Mitteilung gesendet");
+  var form = document.getElementById("tab_" + id + "_noticeForm");
+  if (!form) { return; }
+  form.style.display = form.style.display === "none" ? "block" : "none";
+  if (form.style.display === "block") {
+    var message = document.getElementById("tab_" + id + "_noticeMessage");
+    if (message) { message.focus(); }
+  }
+}
+
+function submitTabletNotice(prefix, target) {
+  var message = (tabletAdminValue(prefix + "noticeMessage") || "").replace(/^\s+|\s+$/g, "");
+  if (!message) {
+    setTabletAdminState(target, "Bitte einen Text eingeben");
+    return;
+  }
+  var payload = {
+    tablet: target,
+    title: tabletAdminValue(prefix + "noticeTitle") || "",
+    message: message,
+    duration: parseInt(tabletAdminValue(prefix + "noticeDuration"), 10) || 30
+  };
+  var sound = tabletAdminValue(prefix + "noticeSound");
+  if (sound) { payload.sound = sound; }
+  apiPost("api/tablets/notify", payload, function (error) {
+    setTabletAdminState(target, error ? "Fehler beim Senden" : "Mitteilung gesendet");
+    if (!error) {
+      document.getElementById(prefix + "noticeMessage").value = "";
+      document.getElementById(prefix + "noticeTitle").value = "";
+      document.getElementById(prefix + "noticeForm").style.display = "none";
+    }
   });
 }
 

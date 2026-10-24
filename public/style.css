@@ -5309,38 +5309,145 @@ html {
   bottom: 0;
   left: 0;
   z-index: 10003;
-  background: rgba(5, 10, 18, 0.72);
+  background: rgba(5, 10, 18, 0.6);
+  opacity: 0;
+  -webkit-transition: opacity 0.25s ease;
+  transition: opacity 0.25s ease;
+}
+
+.tablet-notice.is-visible {
+  opacity: 1;
 }
 
 .tablet-notice-card {
   position: absolute;
-  top: 12vh;
+  top: 16vh;
   left: 50%;
-  width: 90vw;
-  max-width: 720px;
-  -webkit-transform: translateX(-50%);
-  transform: translateX(-50%);
-  padding: 24px;
+  width: 88vw;
+  max-width: 640px;
+  overflow: hidden;
+  padding: 22px 24px 0;
   border: 1px solid #2d445f;
+  border-left: 6px solid #5dd9c7;
   border-radius: 20px;
   background: #101b2d;
-  text-align: center;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.55);
+  -webkit-transform: translate(-50%, -16px);
+  transform: translate(-50%, -16px);
+  -webkit-transition: -webkit-transform 0.3s ease;
+  transition: transform 0.3s ease;
+}
+
+.tablet-notice.is-visible .tablet-notice-card {
+  -webkit-transform: translate(-50%, 0);
+  transform: translate(-50%, 0);
+}
+
+.tablet-notice-head {
+  display: -webkit-box;
+  display: -webkit-flex;
+  display: flex;
+  -webkit-box-align: center;
+  -webkit-align-items: center;
+  align-items: center;
+  margin-bottom: 14px;
+}
+
+.tablet-notice-icon {
+  display: -webkit-inline-box;
+  display: -webkit-inline-flex;
+  display: inline-flex;
+  -webkit-box-align: center;
+  -webkit-align-items: center;
+  align-items: center;
+  -webkit-box-pack: center;
+  -webkit-justify-content: center;
+  justify-content: center;
+  width: 46px;
+  height: 46px;
+  margin-right: 12px;
+  border-radius: 50%;
+  background: rgba(93, 217, 199, 0.16);
+  color: #5dd9c7;
+}
+
+.tablet-notice-icon svg {
+  display: block;
+}
+
+.tablet-notice-kicker {
+  -webkit-box-flex: 1;
+  -webkit-flex: 1;
+  flex: 1;
+  color: #5dd9c7;
+  font-size: 13px;
+  font-weight: bold;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+}
+
+.tablet-notice-time {
+  color: #94a7c6;
+  font-size: 15px;
 }
 
 .tablet-notice-title {
-  margin-top: 6px;
   color: #eef4ff;
-  font-size: 28px;
+  font-size: 30px;
   font-weight: bold;
+  line-height: 1.25;
+  word-wrap: break-word;
 }
 
 .tablet-notice-message {
-  margin: 14px 0 20px;
-  color: #eef4ff;
-  font-size: 22px;
-  line-height: 1.4;
+  margin-top: 10px;
+  color: #c9d6ea;
+  font-size: 21px;
+  line-height: 1.45;
   white-space: pre-wrap;
+  word-wrap: break-word;
 }
+
+.tablet-notice-ok {
+  display: block;
+  width: 100%;
+  min-height: 58px;
+  margin: 22px 0 18px;
+  border: 0;
+  border-radius: 14px;
+  background: #5dd9c7;
+  color: #0c1828;
+  font-size: 20px;
+  font-weight: bold;
+  -webkit-appearance: none;
+}
+
+.tablet-notice-progress {
+  height: 4px;
+  margin: 0 -24px;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.tablet-notice-progress span {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: #5dd9c7;
+}
+
+/* Hinweis (gelb) */
+.tablet-notice-card.is-warning { border-left-color: #f3c35b; }
+.tablet-notice-card.is-warning .tablet-notice-icon { background: rgba(243, 195, 91, 0.16); color: #f3c35b; }
+.tablet-notice-card.is-warning .tablet-notice-kicker { color: #f3c35b; }
+.tablet-notice-card.is-warning .tablet-notice-ok,
+.tablet-notice-card.is-warning .tablet-notice-progress span { background: #f3c35b; }
+
+/* Dringend (rot) */
+.tablet-notice-card.is-urgent { border-left-color: #ff6b7a; }
+.tablet-notice-card.is-urgent .tablet-notice-icon { background: rgba(255, 107, 122, 0.18); color: #ff6b7a; }
+.tablet-notice-card.is-urgent .tablet-notice-kicker { color: #ff6b7a; }
+.tablet-notice-card.is-urgent .tablet-notice-ok,
+.tablet-notice-card.is-urgent .tablet-notice-progress span { background: #ff6b7a; color: #1d0a0d; }
 
 .tablet-identify {
   display: none;
@@ -5458,4 +5565,38 @@ html {
   min-width: 220px;
   margin-right: 8px;
   vertical-align: middle;
+}
+
+.tablet-notice-form {
+  margin-top: 12px;
+  padding: 12px;
+  border: 1px dashed #345071;
+  border-radius: 12px;
+}
+
+.tablet-notice-form label {
+  display: block;
+  margin-bottom: 10px;
+  color: #94a7c6;
+  font-size: 13px;
+}
+
+.tablet-notice-form .assist-input,
+.tablet-notice-form .room-select {
+  display: block;
+  width: 100%;
+  max-width: 520px;
+  margin: 4px 0 0;
+  font-family: inherit;
+}
+
+.tablet-notice-form-row label {
+  display: inline-block;
+  width: 240px;
+  margin-right: 12px;
+  vertical-align: top;
+}
+
+.tablet-admin-broadcast {
+  border-style: dashed;
 }

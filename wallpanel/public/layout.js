@@ -896,7 +896,7 @@ function runTabletCommand(command) {
   if (command.type === 'identify') { showTabletIdentify(); return; }
   if (command.type === 'sound') { playWallpanelSound(command.sound); return; }
   if (command.type === 'notify') {
-    showTabletNotice(command.title, command.message, command.duration);
+    showTabletNotice(command.title, command.message, command.duration, command.level);
     playWallpanelSound(command.sound);
     return;
   }
@@ -948,32 +948,73 @@ function wakeForPopup() {
 // ── Mitteilung ──
 var tabletNoticeTimer = null;
 
-function showTabletNotice(title, message, duration) {
+function tabletNoticeIcon() {
+  return '<svg width="26" height="26" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 22a2.5 2.5 0 0 0 2.45-2h-4.9A2.5 2.5 0 0 0 12 22zm7-6V11a7 7 0 0 0-5.5-6.84V3.5a1.5 1.5 0 0 0-3 0v.66A7 7 0 0 0 5 11v5l-2 2v1h18v-1l-2-2z"/></svg>';
+}
+
+function showTabletNotice(title, message, duration, level) {
   wakeForPopup();
   var el = document.getElementById('tabletNotice');
   if (!el) {
     el = document.createElement('div');
     el.id = 'tabletNotice';
     el.className = 'tablet-notice';
-    el.innerHTML = '<div class="tablet-notice-card">' +
-      '<div class="panel-kicker">Mitteilung</div>' +
+    el.innerHTML = '<div id="tabletNoticeCard" class="tablet-notice-card">' +
+      '<div class="tablet-notice-head">' +
+        '<span class="tablet-notice-icon">' + tabletNoticeIcon() + '</span>' +
+        '<span id="tabletNoticeKicker" class="tablet-notice-kicker">Mitteilung</span>' +
+        '<span id="tabletNoticeTime" class="tablet-notice-time"></span>' +
+      '</div>' +
       '<div id="tabletNoticeTitle" class="tablet-notice-title"></div>' +
       '<div id="tabletNoticeMessage" class="tablet-notice-message"></div>' +
-      '<button class="pill-button pill-button-large active" type="button" onclick="hideTabletNotice()">OK</button>' +
+      '<button class="tablet-notice-ok" type="button" onclick="hideTabletNotice()">OK</button>' +
+      '<div class="tablet-notice-progress"><span id="tabletNoticeProgress"></span></div>' +
       '</div>';
     document.body.appendChild(el);
   }
-  document.getElementById('tabletNoticeTitle').textContent = title || '';
-  document.getElementById('tabletNoticeTitle').style.display = title ? 'block' : 'none';
-  document.getElementById('tabletNoticeMessage').textContent = message || '';
+
+  // Farbe nach Dringlichkeit (Server leitet sie aus dem Ton ab): Alarm rot, Hinweis/Glocke gelb, sonst türkis.
+  if (level !== 'urgent' && level !== 'warning') { level = 'info'; }
+  var kickers = { urgent: 'Dringend', warning: 'Hinweis', info: 'Mitteilung' };
+  document.getElementById('tabletNoticeCard').className = 'tablet-notice-card is-' + level;
+  document.getElementById('tabletNoticeKicker').textContent = kickers[level];
+
+  var now = new Date();
+  var minutes = now.getMinutes();
+  document.getElementById('tabletNoticeTime').textContent = now.getHours() + ':' + (minutes < 10 ? '0' + minutes : minutes) + ' Uhr';
+
+  // Ohne Titel wird der Text selbst zur Überschrift.
+  var titleEl = document.getElementById('tabletNoticeTitle');
+  var messageEl = document.getElementById('tabletNoticeMessage');
+  titleEl.textContent = title || message || '';
+  messageEl.textContent = title ? (message || '') : '';
+  messageEl.style.display = title && message ? 'block' : 'none';
+
+  var seconds = Math.max(5, duration || 30);
+  var progress = document.getElementById('tabletNoticeProgress');
+  progress.style.webkitTransition = 'none';
+  progress.style.transition = 'none';
+  progress.style.width = '100%';
+
   el.style.display = 'block';
+  el.className = 'tablet-notice';
+  // Reflow erzwingen, dann Einblenden und Countdown-Balken starten.
+  void el.offsetWidth;
+  el.className = 'tablet-notice is-visible';
+  progress.style.webkitTransition = 'width ' + seconds + 's linear';
+  progress.style.transition = 'width ' + seconds + 's linear';
+  progress.style.width = '0%';
+
   if (tabletNoticeTimer) { clearTimeout(tabletNoticeTimer); }
-  tabletNoticeTimer = setTimeout(hideTabletNotice, Math.max(5, duration || 30) * 1000);
+  tabletNoticeTimer = setTimeout(hideTabletNotice, seconds * 1000);
 }
 
 function hideTabletNotice() {
   var el = document.getElementById('tabletNotice');
-  if (el) { el.style.display = 'none'; }
+  if (el) {
+    el.style.display = 'none';
+    el.className = 'tablet-notice';
+  }
   if (tabletNoticeTimer) { clearTimeout(tabletNoticeTimer); tabletNoticeTimer = null; }
 }
 

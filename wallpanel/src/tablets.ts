@@ -51,7 +51,15 @@ export type TabletCommand = {
   duration?: number;
   camera?: string;
   sound?: string;
+  /** Darstellung der Mitteilung: info, warning, urgent (aus dem Ton abgeleitet, bleibt auch bei Stumm). */
+  level?: string;
 };
+
+function levelForSound(sound: string | undefined): string {
+  if (sound === "alarm") { return "urgent"; }
+  if (sound === "hinweis" || sound === "glocke") { return "warning"; }
+  return "info";
+}
 
 export type TabletsSettings = {
   doorbellEntity: string;
@@ -209,7 +217,8 @@ export function createTabletRegistry(filePath: string, defaults: TabletsSettings
       const queue = queues.get(id) || [];
       // Tablets mit ausgeschalteten Tönen bekommen den Befehl ohne Ton (Test-Ton ausgenommen).
       const muted = tablets.get(id)?.config.sounds === false && command.type !== "sound";
-      queue.push({ ...command, sound: muted ? "none" : command.sound, createdAt: Date.now() });
+      const level = command.type === "notify" ? command.level || levelForSound(command.sound) : undefined;
+      queue.push({ ...command, level, sound: muted ? "none" : command.sound, createdAt: Date.now() });
       queues.set(id, queue.slice(-COMMAND_QUEUE_LIMIT));
     }
     return ids.length;
