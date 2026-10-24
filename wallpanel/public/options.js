@@ -1916,6 +1916,7 @@ function noticeFormHtml(prefix, target) {
         '<option value="60">1 Minute</option><option value="300">5 Minuten</option><option value="600">10 Minuten</option>' +
       "</select></label>" +
     "</div>" +
+    '<label class="settings-check"><input id="' + prefix + 'noticeSpeak" type="checkbox"><span>Vorlesen (Stimme der HA-Assist-Pipeline)</span></label>' +
     '<div class="settings-hint">Farbe folgt dem Ton: Alarm = rot, Hinweis/Glocke = gelb, sonst türkis.</div>' +
     '<button class="pill-button active" type="button" onclick="submitTabletNotice(\'' + prefix + "\', \'" + target + '\')">Senden</button>' +
   "</div>";
@@ -1945,6 +1946,7 @@ function submitTabletNotice(prefix, target) {
   };
   var sound = tabletAdminValue(prefix + "noticeSound");
   if (sound) { payload.sound = sound; }
+  if (tabletAdminValue(prefix + "noticeSpeak")) { payload.speak = true; }
   apiPost("api/tablets/notify", payload, function (error) {
     setTabletAdminState(target, error ? "Fehler beim Senden" : "Mitteilung gesendet");
     if (!error) {
@@ -1987,6 +1989,15 @@ function previewSound(selectId) {
   if (typeof playWallpanelSound === "function") { playWallpanelSound(sound); }
 }
 
+function saveAnnouncePresets() {
+  var input = document.getElementById("announcePresetsInput");
+  var lines = input ? input.value.split("\n") : [];
+  apiPost("api/tablets/settings", { announcementPresets: lines }, function (error) {
+    var state = document.getElementById("announcePresetsState");
+    if (state) { state.textContent = error ? "Fehler beim Speichern" : "Gespeichert"; }
+  });
+}
+
 function saveSoundSettings() {
   apiPost("api/tablets/settings", {
     doorbellSound: tabletAdminValue("doorbellSoundSelect") || "gong",
@@ -2010,6 +2021,8 @@ function renderDoorbellSettings() {
   var settings = tabletsAdminState.settings || {};
   var doorbell = tabletsAdminState.doorbell || {};
   fillSoundSelect("doorbellSoundSelect", settings.doorbellSound || "gong");
+  var presets = document.getElementById("announcePresetsInput");
+  if (presets) { presets.value = (settings.announcementPresets || []).join("\n"); }
   fillSoundSelect("noticeSoundSelect", settings.noticeSound || "ping");
   var candidates = tabletsAdminState.candidates || {};
 

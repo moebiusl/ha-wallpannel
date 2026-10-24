@@ -1,3 +1,16 @@
+## 1.8.0
+
+### Neu: Durchsagen von jedem Tablet
+- Megafon-Button in der Kopfleiste: an alle Tablets oder an ein bestimmtes Tablet „anbimmeln“
+- Schnell-Durchsagen als große Buttons (ein Tipp sendet sofort), eigene Texte möglich
+- Das sendende Tablet bekommt die eigene Durchsage nicht; Titel zeigt, aus welchem Raum sie kommt
+- Schnell-Durchsagen unter Optionen → Tablets frei festlegbar
+
+### Neu: Mitteilungen vorlesen
+- Optional wird eine Mitteilung nach dem Ton vorgelesen – mit der Stimme der HA-Assist-Pipeline
+- Für Durchsagen (Häkchen „Vorlesen“), die Verwaltung am Mac und HA-Automationen (`speak: true`)
+- Die Sprachausgabe wird einmal erzeugt und von allen Tablets abgespielt; Tablets mit ausgeschalteten Tönen bleiben stumm
+
 ## 1.7.2
 
 ### Schönere Mitteilungen

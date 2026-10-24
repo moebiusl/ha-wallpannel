@@ -4,7 +4,7 @@ import axios from "axios";
 import dotenv from "dotenv";
 import fs from "fs";
 import path from "path";
-import { getHaRegistries, HaRegistries, runAssist, subscribeToHaEvents, subscribeToStateChanges } from "./ha-websocket";
+import { getHaRegistries, HaRegistries, runAssist, runTts, subscribeToHaEvents, subscribeToStateChanges } from "./ha-websocket";
 import { computeAssetVersion, createTabletRegistry, normalizeSound } from "./tablets";
 import { createCameraLive, LiveSource } from "./camera-live";
 import { readPanelConfig, writePanelConfig, getConfigPath } from "./panel-config";
@@ -2116,8 +2116,47 @@ const tabletRegistry = createTabletRegistry(path.join(path.dirname(getConfigPath
   doorbellCamera: ENTITIES.cameraFeeds.klingel,
   doorbellLights: [],
   doorbellSound: "gong",
-  noticeSound: "ping"
+  noticeSound: "ping",
+  announcementPresets: ["Essen ist fertig!", "Bitte mal runterkommen.", "Telefon für dich!", "Gute Nacht!"]
 });
+
+type NoticeRequest = {
+  target?: string;
+  /** Kennung des sendenden Tablets – bekommt die eigene Durchsage nicht. */
+  from?: string;
+  title?: unknown;
+  message: string;
+  duration?: unknown;
+  sound?: unknown;
+  speak?: unknown;
+};
+
+/** Mitteilung an Tablets senden; mit speak wird sie über die HA-Sprachausgabe vorgelesen. */
+async function sendNotice(request: NoticeRequest): Promise<number> {
+  const title = typeof request.title === "string" ? request.title.trim().slice(0, 80) : "";
+  const message = request.message.trim().slice(0, 500);
+  let speechUrl: string | undefined;
+  if (request.speak === true || request.speak === "true") {
+    try {
+      const ttsUrl = await runTts(HA_URL, HA_TOKEN, title ? `${title}. ${message}` : message);
+      if (ttsUrl) {
+        const ttsPath = ttsUrl.replace(/^https?:\/\/[^/]+/, "");
+        speechUrl = `api/assist/audio?path=${encodeURIComponent(ttsPath)}`;
+      }
+    } catch (error) {
+      console.warn(`Vorlesen nicht möglich, sende ohne Sprache: ${describeError(error)}`);
+    }
+  }
+  const ids = tabletRegistry.resolveTargets(request.target).filter((id) => id !== request.from);
+  return tabletRegistry.enqueue(ids, {
+    type: "notify",
+    title,
+    message,
+    duration: Math.min(600, Math.max(5, Number(request.duration) || 30)),
+    sound: normalizeSound(request.sound, tabletRegistry.getSettings().noticeSound),
+    speechUrl
+  });
+}
 
 function isValidTabletId(id: unknown): id is string {
   return typeof id === "string" && /^[a-z0-9]{8,40}$/i.test(id);
@@ -2246,20 +2285,38 @@ app.post("/api/tablets/settings", (req: Request, res: Response) => {
   res.json({ ok: true, settings });
 });
 
-app.post("/api/tablets/notify", (req: Request, res: Response) => {
+app.post("/api/tablets/notify", async (req: Request, res: Response) => {
   const message = typeof req.body?.message === "string" ? req.body.message.trim() : "";
   if (!message) {
     res.status(400).json({ ok: false, message: "message fehlt" });
     return;
   }
-  const count = tabletRegistry.enqueue(tabletRegistry.resolveTargets(req.body?.tablet), {
-    type: "notify",
-    title: typeof req.body?.title === "string" ? req.body.title.slice(0, 80) : "",
-    message: message.slice(0, 500),
-    duration: Math.min(600, Math.max(5, Number(req.body?.duration) || 30)),
-    sound: normalizeSound(req.body?.sound, tabletRegistry.getSettings().noticeSound)
+  const from = isValidTabletId(req.body?.from) ? req.body.from : undefined;
+  const count = await sendNotice({
+    target: req.body?.tablet,
+    from,
+    title: req.body?.title,
+    message,
+    duration: req.body?.duration,
+    sound: req.body?.sound,
+    speak: req.body?.speak
   });
   res.json({ ok: true, delivered: count });
+});
+
+app.get("/api/tablets/directory", (_req: Request, res: Response) => {
+  // Leichtgewichtige Liste für das Durchsage-Fenster der Tablets.
+  const now = Date.now();
+  res.setHeader("Cache-Control", "no-store");
+  res.json({
+    ok: true,
+    presets: tabletRegistry.getSettings().announcementPresets,
+    tablets: tabletRegistry.list().map((record) => ({
+      id: record.id,
+      name: record.config.name || "",
+      online: now - record.lastSeen < TABLET_ONLINE_MS
+    }))
+  });
 });
 
 app.post("/api/tablets/doorbell-close", (req: Request, res: Response) => {
@@ -2335,13 +2392,8 @@ function handleHaEvent(eventType: string, data: any): void {
       return;
     }
     if (typeof data?.message === "string" && data.message.trim()) {
-      tabletRegistry.enqueue(tabletRegistry.resolveTargets(target), {
-        type: "notify",
-        title: typeof data.title === "string" ? data.title.slice(0, 80) : "",
-        message: data.message.trim().slice(0, 500),
-        duration: Math.min(600, Math.max(5, Number(data.duration) || 30)),
-        sound: normalizeSound(data.sound, tabletRegistry.getSettings().noticeSound)
-      });
+      sendNotice({ target, title: data.title, message: data.message, duration: data.duration, sound: data.sound, speak: data.speak })
+        .catch((error) => console.warn(`Mitteilung aus HA fehlgeschlagen: ${describeError(error)}`));
     }
     return;
   }

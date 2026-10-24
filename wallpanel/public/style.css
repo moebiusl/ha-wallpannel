@@ -4982,18 +4982,18 @@ Legacy declarations kept below only for browsers that understand Grid but not
   margin-right: 4px;
 }
 
-/* Rechts sitzen jetzt zwei Icons (Assist + Optionen): Navigation entsprechend mehr Platz lassen. */
+/* Rechts sitzen drei Icons (Durchsage, Assist, Optionen): Navigation entsprechend mehr Platz lassen. */
 .topbar-inner .topnav-options {
-  width: 88px;
-  -webkit-flex: 0 0 88px;
-  flex: 0 0 88px;
+  width: 132px;
+  -webkit-flex: 0 0 132px;
+  flex: 0 0 132px;
 }
 
 .topbar-inner .topnav-main {
-  width: calc(100% - 100px);
-  -webkit-flex: 0 1 calc(100% - 100px);
-  flex: 0 1 calc(100% - 100px);
-  margin-right: 100px;
+  width: calc(100% - 144px);
+  -webkit-flex: 0 1 calc(100% - 144px);
+  flex: 0 1 calc(100% - 144px);
+  margin-right: 144px;
 }
 
 .assist-open-button svg {
@@ -5599,4 +5599,62 @@ html {
 
 .tablet-admin-broadcast {
   border-style: dashed;
+}
+
+/* ── Durchsage ───────────────────────────────────────────────────── */
+.announce-options {
+  margin-bottom: 12px;
+}
+
+.announce-options .room-select {
+  display: inline-block;
+  width: auto;
+  min-width: 220px;
+  margin-right: 14px;
+  vertical-align: middle;
+}
+
+.announce-speak {
+  display: inline-block;
+  vertical-align: middle;
+}
+
+.announce-presets {
+  margin: 0 -5px 12px;
+  font-size: 0;
+}
+
+.announce-preset {
+  display: inline-block;
+  vertical-align: top;
+  width: 48%;
+  width: calc(50% - 10px);
+  min-height: 64px;
+  margin: 5px;
+  padding: 10px 12px;
+  border: 1px solid #2d445f;
+  border-radius: 14px;
+  background: #1a2b44;
+  color: #eef4ff;
+  font-size: 18px;
+  font-weight: bold;
+  -webkit-appearance: none;
+}
+
+.announce-preset:active {
+  background: #24456b;
+}
+
+.announce-state {
+  min-height: 20px;
+  margin-top: 10px;
+  color: #5dd9c7;
+  font-size: 15px;
+}
+
+.tablets-presets-input {
+  display: block;
+  width: 100%;
+  max-width: 520px;
+  font-family: inherit;
 }

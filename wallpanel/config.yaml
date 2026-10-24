@@ -1,6 +1,6 @@
 name: "HA Wallpanel"
 description: "Touch-optimiertes Home-Assistant-Wallpanel fuer iPad und Tablet."
-version: "1.7.2"
+version: "1.8.0"
 slug: "wallpanel"
 init: false
 

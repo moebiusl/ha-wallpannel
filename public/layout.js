@@ -72,6 +72,7 @@ function buildHeader(activePage, roomLabel, roomId, visiblePages) {
           links +
         '</nav>' +
         '<div class="topnav-options">' +
+          '<a class="topnav-link topnav-link-icon assist-open-button" href="#" onclick="openAnnounceModal(); return false;" aria-label="Durchsage" title="Durchsage">' + announceIcon() + '</a>' +
           '<a class="topnav-link topnav-link-icon assist-open-button" href="#" onclick="openAssistModal(); return false;" aria-label="Assist" title="Assist">' + assistMicIcon() + '</a>' +
           '<a class="' + (activePage === 'optionen' ? 'topnav-link topnav-link-icon active' : 'topnav-link topnav-link-icon') + '" href="optionen.html" aria-label="Optionen" title="Optionen">⚙</a>' +
         '</div>' +
@@ -160,6 +161,145 @@ var assistConversationId = null;
 var assistBusy = false;
 var assistAudio = null;
 var ASSIST_SILENCE = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAIA+AAACABAAZGF0YQAAAAA=';
+
+// ── Durchsage ──────────────────────────────────────────────────────
+// Von jedem Tablet aus alle (oder ein bestimmtes) Tablet anbimmeln, wahlweise vorgelesen.
+function announceIcon() {
+  return '<svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true">' +
+    '<path fill="currentColor" d="M3 10v4a1 1 0 0 0 1 1h2l1.4 4.2a1 1 0 0 0 .95.68H10a1 1 0 0 0 .95-1.32L9.8 15H11l6 4V5l-6 4H4a1 1 0 0 0-1 1zm16-1.5v7a3.5 3.5 0 0 0 0-7z"/>' +
+    '</svg>';
+}
+
+function ensureAnnounceModal() {
+  var existing = document.getElementById('announceModal');
+  if (existing) { return existing; }
+
+  var backdrop = document.createElement('div');
+  backdrop.id = 'announceModalBackdrop';
+  backdrop.className = 'rooms-modal-backdrop';
+  backdrop.onclick = closeAnnounceModal;
+  document.body.appendChild(backdrop);
+
+  var modal = document.createElement('div');
+  modal.id = 'announceModal';
+  modal.className = 'assist-modal';
+  modal.innerHTML = '' +
+    '<div class="rooms-modal-card assist-card">' +
+      '<div class="rooms-modal-header">' +
+        '<div><div class="panel-kicker">Durchsage</div><div class="rooms-modal-title">Wen anbimmeln?</div></div>' +
+        '<button class="modal-close" type="button" onclick="closeAnnounceModal()">×</button>' +
+      '</div>' +
+      '<div class="announce-options">' +
+        '<select id="announceTarget" class="room-select"><option value="all">Alle Tablets</option></select>' +
+        '<label class="settings-check announce-speak"><input id="announceSpeak" type="checkbox" onchange="rememberAnnounceSpeak()"><span>Vorlesen</span></label>' +
+      '</div>' +
+      '<div id="announcePresets" class="announce-presets"></div>' +
+      '<form class="assist-form" onsubmit="submitAnnounce(); return false;">' +
+        '<input id="announceInput" class="assist-input" type="text" maxlength="300" autocomplete="off" placeholder="Eigene Durchsage …">' +
+        '<button class="pill-button pill-button-large active assist-send" type="submit">Senden</button>' +
+      '</form>' +
+      '<div id="announceState" class="announce-state"></div>' +
+    '</div>';
+  document.body.appendChild(modal);
+  return modal;
+}
+
+function rememberAnnounceSpeak() {
+  var speak = document.getElementById('announceSpeak');
+  writeStored('haWallpanel.announceSpeak', speak && speak.checked ? '1' : '0');
+}
+
+function loadAnnounceDirectory() {
+  var xhr = new XMLHttpRequest();
+  xhr.open('GET', 'api/tablets/directory', true);
+  xhr.onreadystatechange = function () {
+    if (xhr.readyState !== 4 || xhr.status !== 200) { return; }
+    var data = null;
+    try { data = JSON.parse(xhr.responseText); } catch (_e) { return; }
+    var ownId = shouldRegisterAsTablet() ? getTabletId() : '';
+    var select = document.getElementById('announceTarget');
+    if (select) {
+      var options = '<option value="all">Alle Tablets</option>';
+      var tablets = data.tablets || [];
+      for (var i = 0; i < tablets.length; i++) {
+        if (tablets[i].id === ownId) { continue; }
+        options += '<option value="' + escapeHtml(tablets[i].id) + '">' + escapeHtml(tablets[i].name || 'Tablet ohne Namen') + (tablets[i].online ? '' : ' (offline)') + '</option>';
+      }
+      select.innerHTML = options;
+    }
+    var presets = data.presets || [];
+    var html = '';
+    for (var p = 0; p < presets.length; p++) {
+      html += '<button class="announce-preset" type="button" data-text="' + escapeHtml(presets[p]) + '" onclick="sendAnnounce(this.getAttribute(\'data-text\'))">' + escapeHtml(presets[p]) + '</button>';
+    }
+    var mount = document.getElementById('announcePresets');
+    if (mount) { mount.innerHTML = html; }
+  };
+  xhr.send();
+}
+
+function openAnnounceModal() {
+  ensureAnnounceModal();
+  var speak = document.getElementById('announceSpeak');
+  if (speak) {
+    var stored = '1';
+    try { stored = window.localStorage.getItem('haWallpanel.announceSpeak') || '1'; } catch (_e) { stored = '1'; }
+    speak.checked = stored === '1';
+  }
+  document.getElementById('announceState').textContent = '';
+  document.getElementById('announceModalBackdrop').className = 'rooms-modal-backdrop open';
+  document.getElementById('announceModal').className = 'assist-modal open';
+  loadAnnounceDirectory();
+}
+
+function closeAnnounceModal() {
+  var input = document.getElementById('announceInput');
+  if (input) { input.blur(); }
+  var backdrop = document.getElementById('announceModalBackdrop');
+  var modal = document.getElementById('announceModal');
+  if (backdrop) { backdrop.className = 'rooms-modal-backdrop'; }
+  if (modal) { modal.className = 'assist-modal'; }
+}
+
+function sendAnnounce(text) {
+  text = String(text || '').replace(/^\s+|\s+$/g, '');
+  if (!text) { return; }
+  var state = document.getElementById('announceState');
+  var target = document.getElementById('announceTarget');
+  var speak = document.getElementById('announceSpeak');
+  var name = '';
+  try { name = window.localStorage.getItem('haWallpanel.tabletName') || ''; } catch (_e) { name = ''; }
+  if (state) { state.textContent = 'Wird gesendet …'; }
+  var xhr = new XMLHttpRequest();
+  xhr.open('POST', 'api/tablets/notify', true);
+  xhr.setRequestHeader('Content-Type', 'application/json');
+  xhr.onreadystatechange = function () {
+    if (xhr.readyState !== 4) { return; }
+    var result = null;
+    try { result = JSON.parse(xhr.responseText); } catch (_e) { result = null; }
+    if (!state) { return; }
+    if (xhr.status !== 200 || !result || !result.ok) {
+      state.textContent = 'Senden fehlgeschlagen.';
+      return;
+    }
+    state.textContent = result.delivered === 1 ? 'An 1 Tablet gesendet.' : 'An ' + result.delivered + ' Tablets gesendet.';
+    var input = document.getElementById('announceInput');
+    if (input) { input.value = ''; }
+  };
+  xhr.send(JSON.stringify({
+    tablet: target ? target.value : 'all',
+    from: shouldRegisterAsTablet() ? getTabletId() : '',
+    title: name ? 'Durchsage aus ' + name : 'Durchsage',
+    message: text,
+    duration: 60,
+    speak: !!(speak && speak.checked)
+  }));
+}
+
+function submitAnnounce() {
+  var input = document.getElementById('announceInput');
+  sendAnnounce(input ? input.value : '');
+}
 
 function assistMicIcon() {
   return '<svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">' +
@@ -694,6 +834,7 @@ function showScreensaver() {
   // Offene Fenster schließen – v. a. Kamera-Live, damit kein Stream im Hintergrund weiterläuft.
   if (typeof closeModal === 'function') { closeModal(); }
   if (typeof closeAssistModal === 'function') { closeAssistModal(); }
+  if (typeof closeAnnounceModal === 'function') { closeAnnounceModal(); }
   if (typeof closeRoomsModal === 'function') { closeRoomsModal(); }
   var el = ensureScreensaver();
   window.wallpanelScreensaverActive = true;
@@ -864,6 +1005,7 @@ function playLocalAudio(src) {
     wallpanelSoundAudio.setAttribute('preload', 'auto');
     document.body.appendChild(wallpanelSoundAudio);
   }
+  wallpanelSoundAudio.onended = null;
   try {
     wallpanelSoundAudio.src = src;
     var played = wallpanelSoundAudio.play();
@@ -877,14 +1019,23 @@ function unlockLocalSound() {
   playLocalAudio(ASSIST_SILENCE);
 }
 
-function playWallpanelSound(name) {
-  if (!name || name === 'none' || !/^[a-z]+$/.test(name)) { return; }
+/** Spielt einen Ton und danach optional die vorgelesene Mitteilung (speechUrl). */
+function playWallpanelSound(name, speechUrl) {
+  var hasSound = !!name && name !== 'none' && /^[a-z]+$/.test(name);
+  if (!hasSound && !speechUrl) { return; }
   var shell = getShellWindow();
   if (shell && typeof shell.wallpanelPlaySound === 'function') {
-    shell.wallpanelPlaySound(name);
+    shell.wallpanelPlaySound(hasSound ? name : 'none', speechUrl || '');
+    return;
+  }
+  if (!hasSound) {
+    playLocalAudio(speechUrl);
     return;
   }
   playLocalAudio('sounds/' + name + '.mp3');
+  if (speechUrl) {
+    wallpanelSoundAudio.onended = function () { playLocalAudio(speechUrl); };
+  }
 }
 
 document.addEventListener('touchend', unlockLocalSound, true);
@@ -897,7 +1048,7 @@ function runTabletCommand(command) {
   if (command.type === 'sound') { playWallpanelSound(command.sound); return; }
   if (command.type === 'notify') {
     showTabletNotice(command.title, command.message, command.duration, command.level);
-    playWallpanelSound(command.sound);
+    playWallpanelSound(command.sound, command.speechUrl);
     return;
   }
   if (command.type === 'doorbell') {

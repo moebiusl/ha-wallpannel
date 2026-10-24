@@ -489,3 +489,65 @@ export function subscribeToHaEvents(
     }
   };
 }
+
+/**
+ * Erzeugt Sprachausgabe für einen Text über die bevorzugte Assist-Pipeline (deren TTS-Stimme).
+ * Gibt den TTS-Link von HA zurück (relativ, z. B. /api/tts_proxy/abc.mp3) oder null.
+ */
+export function runTts(haUrl: string, token: string, text: string): Promise<string | null> {
+  const wsUrl = wsUrlFromHaUrl(haUrl);
+
+  return new Promise((resolve, reject) => {
+    const ws = new WebSocket(wsUrl);
+    const runId = 1;
+    let ttsUrl: string | null = null;
+    let finished = false;
+
+    function finish(error: Error | null): void {
+      if (finished) { return; }
+      finished = true;
+      clearTimeout(timeout);
+      try { ws.close(); } catch (_) { /* ignore */ }
+      if (error) { reject(error); } else { resolve(ttsUrl); }
+    }
+
+    const timeout = setTimeout(() => finish(new Error("Timeout bei der Sprachausgabe")), 20000);
+
+    ws.onmessage = (event: { data: unknown }) => {
+      try {
+        const raw = typeof event.data === "string" ? event.data : Buffer.from(event.data as ArrayBuffer).toString();
+        const msg = JSON.parse(raw);
+        if (msg.type === "auth_required") {
+          ws.send(JSON.stringify({ type: "auth", access_token: token }));
+          return;
+        }
+        if (msg.type === "auth_invalid") {
+          finish(new Error("Home-Assistant-WebSocket-Auth fehlgeschlagen"));
+          return;
+        }
+        if (msg.type === "auth_ok") {
+          ws.send(JSON.stringify({ id: runId, type: "assist_pipeline/run", start_stage: "tts", end_stage: "tts", input: { text } }));
+          return;
+        }
+        if (msg.id !== runId) { return; }
+        if (msg.type === "result" && !msg.success) {
+          finish(new Error(msg.error?.message || "Sprachausgabe fehlgeschlagen"));
+          return;
+        }
+        if (msg.type !== "event" || !msg.event) { return; }
+        const pipelineEvent = msg.event as { type: string; data?: any };
+        if (pipelineEvent.type === "tts-end") {
+          ttsUrl = pipelineEvent.data?.tts_output?.url || null;
+        } else if (pipelineEvent.type === "error") {
+          finish(new Error(pipelineEvent.data?.message || pipelineEvent.data?.code || "TTS-Fehler"));
+        } else if (pipelineEvent.type === "run-end") {
+          finish(null);
+        }
+      } catch (error) {
+        finish(error instanceof Error ? error : new Error(String(error)));
+      }
+    };
+
+    ws.onerror = (error: unknown) => finish(describeWsError(error, wsUrl));
+  });
+}

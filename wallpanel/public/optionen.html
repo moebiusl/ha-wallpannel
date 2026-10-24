@@ -344,6 +344,16 @@
                 </section>
 
                 <section class="settings-section settings-section-wide">
+                  <div class="settings-title">Schnell-Durchsagen</div>
+                  <div class="settings-hint">Erscheinen als Buttons im Durchsage-Fenster (Megafon oben rechts) auf jedem Tablet. Eine Durchsage pro Zeile, höchstens 12.</div>
+                  <textarea id="announcePresetsInput" class="assist-input tablets-presets-input" rows="5"></textarea>
+                  <div style="margin-top:10px">
+                    <button class="pill-button active" type="button" onclick="saveAnnouncePresets()">Durchsagen speichern</button>
+                    <span id="announcePresetsState" class="settings-save-state"></span>
+                  </div>
+                </section>
+
+                <section class="settings-section settings-section-wide">
                   <div class="settings-title">Mitteilungen aus Home Assistant</div>
                   <div class="settings-hint">In einer HA-Automation als Aktion ein Event auslösen. <code>tablet</code> ist der Tablet-Name oder <code>all</code>.</div>
                   <pre class="tablets-yaml">action: event
@@ -353,7 +363,8 @@ event_data:
   title: Hoftor
   message: Das Tor ist seit 10 Minuten offen.
   duration: 60
-  sound: hinweis   # gong, glocke, ping, hinweis, alarm oder none</pre>
+  sound: hinweis   # gong, glocke, ping, hinweis, alarm oder none
+  speak: true      # Mitteilung vorlesen</pre>
                 </section>
               </div>
             </div>

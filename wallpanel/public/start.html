@@ -33,6 +33,7 @@
     var shellUnlocked = false;
 
     function playShellAudio(src) {
+      shellAudio.onended = null;
       try {
         shellAudio.src = src;
         var played = shellAudio.play();
@@ -47,9 +48,15 @@
     }
 
     window.wallpanelShell = true;
-    window.wallpanelPlaySound = function (name) {
-      if (!/^[a-z]+$/.test(name || '') || name === 'none') { return; }
-      playShellAudio('sounds/' + name + '.mp3');
+    // Spielt den Ton und danach optional die vorgelesene Mitteilung.
+    window.wallpanelPlaySound = function (name, speechUrl) {
+      var hasSound = /^[a-z]+$/.test(name || '') && name !== 'none';
+      if (hasSound) {
+        playShellAudio('sounds/' + name + '.mp3');
+        if (speechUrl) { shellAudio.onended = function () { playShellAudio(speechUrl); }; }
+      } else if (speechUrl) {
+        playShellAudio(speechUrl);
+      }
     };
 
     document.addEventListener('touchend', unlockShellAudio, true);

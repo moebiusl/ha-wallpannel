@@ -53,6 +53,8 @@ export type TabletCommand = {
   sound?: string;
   /** Darstellung der Mitteilung: info, warning, urgent (aus dem Ton abgeleitet, bleibt auch bei Stumm). */
   level?: string;
+  /** Vorgelesene Mitteilung (über den Audio-Proxy des Add-ons). */
+  speechUrl?: string;
 };
 
 function levelForSound(sound: string | undefined): string {
@@ -68,6 +70,8 @@ export type TabletsSettings = {
   doorbellLights: string[];
   doorbellSound: string;
   noticeSound: string;
+  /** Schnell-Durchsagen im Durchsage-Fenster der Tablets. */
+  announcementPresets: string[];
 };
 
 type TabletsFile = {
@@ -218,7 +222,13 @@ export function createTabletRegistry(filePath: string, defaults: TabletsSettings
       // Tablets mit ausgeschalteten Tönen bekommen den Befehl ohne Ton (Test-Ton ausgenommen).
       const muted = tablets.get(id)?.config.sounds === false && command.type !== "sound";
       const level = command.type === "notify" ? command.level || levelForSound(command.sound) : undefined;
-      queue.push({ ...command, level, sound: muted ? "none" : command.sound, createdAt: Date.now() });
+      queue.push({
+        ...command,
+        level,
+        sound: muted ? "none" : command.sound,
+        speechUrl: muted ? undefined : command.speechUrl,
+        createdAt: Date.now()
+      });
       queues.set(id, queue.slice(-COMMAND_QUEUE_LIMIT));
     }
     return ids.length;
@@ -235,6 +245,12 @@ export function createTabletRegistry(filePath: string, defaults: TabletsSettings
   function updateSettings(input: Partial<TabletsSettings>): TabletsSettings {
     if (typeof input.doorbellEntity === "string") { settings.doorbellEntity = input.doorbellEntity.trim(); }
     if (typeof input.doorbellCamera === "string") { settings.doorbellCamera = input.doorbellCamera.trim(); }
+    if (Array.isArray(input.announcementPresets)) {
+      settings.announcementPresets = input.announcementPresets
+        .map((text) => String(text).trim().slice(0, 120))
+        .filter((text) => text.length > 0)
+        .slice(0, 12);
+    }
     if (input.doorbellSound !== undefined) { settings.doorbellSound = normalizeSound(input.doorbellSound, "gong"); }
     if (input.noticeSound !== undefined) { settings.noticeSound = normalizeSound(input.noticeSound, "ping"); }
     if (Array.isArray(input.doorbellLights)) {
