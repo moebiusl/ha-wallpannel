@@ -129,7 +129,212 @@ function windAndUvSection(data) {
   return section;
 }
 
+// ── Regenradar mit Zeitleiste (DWD) ─────────────────────────────────
+// Bleibt über die minütliche Neuzeichnung der Seite erhalten (wird nur umgehängt),
+// damit die Animation nicht ständig neu startet.
+var RADAR_FRAME_MS = 700;
+var RADAR_END_PAUSE_MS = 1800;
+var radarWidget = null;
+
+function radarRelativeLabel(iso) {
+  var minutes = Math.round((new Date(iso).getTime() - Date.now()) / 60000);
+  if (Math.abs(minutes) < 5) { return "jetzt"; }
+  if (minutes < 0) { return "vor " + (-minutes) + " Min."; }
+  if (minutes >= 60) {
+    var h = Math.floor(minutes / 60);
+    var m = minutes % 60;
+    return "in " + h + " Std." + (m ? " " + m + " Min." : "");
+  }
+  return "in " + minutes + " Min.";
+}
+
+function radarClock(iso) {
+  var date = new Date(iso);
+  var h = date.getHours();
+  var m = date.getMinutes();
+  return (h < 10 ? "0" + h : h) + ":" + (m < 10 ? "0" + m : m);
+}
+
+function createRadarWidget() {
+  var section = document.createElement("section");
+  section.className = "energy-detail-section radar-section";
+  section.innerHTML = '' +
+    '<div class="room-section-title">Regenradar</div>' +
+    '<div class="radar-summary"></div>' +
+    '<div class="radar-stage">' +
+      '<img class="radar-base" alt="">' +
+      '<img class="radar-frame" alt="Regenradar">' +
+      '<span class="radar-home"></span>' +
+      '<span class="radar-time-badge"></span>' +
+      '<span class="radar-loading">Radar wird geladen …</span>' +
+    '</div>' +
+    '<div class="radar-controls">' +
+      '<button class="radar-play" type="button" aria-label="Abspielen">❚❚</button>' +
+      '<div class="radar-slider-wrap">' +
+        '<input class="radar-slider entity-range" type="range" min="0" max="0" value="0">' +
+        '<div class="radar-scale"><span>−1 Std.</span><span class="radar-scale-now">jetzt</span><span>+2 Std.</span></div>' +
+      '</div>' +
+    '</div>' +
+    '<div class="radar-legend"><span class="radar-legend-bar"></span><span>leicht</span><span>stark</span><span class="radar-credit">Quelle: Deutscher Wetterdienst</span></div>';
+
+  var widget = {
+    section: section,
+    summary: section.getElementsByClassName("radar-summary")[0],
+    base: section.getElementsByClassName("radar-base")[0],
+    frame: section.getElementsByClassName("radar-frame")[0],
+    home: section.getElementsByClassName("radar-home")[0],
+    badge: section.getElementsByClassName("radar-time-badge")[0],
+    loading: section.getElementsByClassName("radar-loading")[0],
+    play: section.getElementsByClassName("radar-play")[0],
+    slider: section.getElementsByClassName("radar-slider")[0],
+    nowMark: section.getElementsByClassName("radar-scale-now")[0],
+    info: null,
+    index: 0,
+    nowIndex: 0,
+    loaded: [],
+    playing: true,
+    timer: null,
+    failed: false
+  };
+
+  widget.play.onclick = function () {
+    widget.playing = !widget.playing;
+    updateRadarPlayButton(widget);
+    if (widget.playing) { scheduleRadarStep(widget, RADAR_FRAME_MS); }
+  };
+  var onSlide = function () {
+    widget.playing = false;
+    updateRadarPlayButton(widget);
+    showRadarFrame(widget, parseInt(widget.slider.value, 10) || 0);
+  };
+  widget.slider.addEventListener("input", onSlide, false);
+  widget.slider.addEventListener("change", onSlide, false);
+  return widget;
+}
+
+function updateRadarPlayButton(widget) {
+  widget.play.textContent = widget.playing ? "❚❚" : "▶";
+  widget.play.setAttribute("aria-label", widget.playing ? "Anhalten" : "Abspielen");
+}
+
+// Versionsnummer in der Adresse: Ändert sich die Darstellung, laden Tablets die Bilder neu.
+var RADAR_IMAGE_VERSION = "2";
+
+function radarFrameUrl(info, frame) {
+  return "api/radar/frame?time=" + encodeURIComponent(frame.time) + "&ref=" + encodeURIComponent(info.reference) + "&v=" + RADAR_IMAGE_VERSION;
+}
+
+function showRadarFrame(widget, index) {
+  var info = widget.info;
+  if (!info || !info.frames.length) { return; }
+  index = Math.max(0, Math.min(info.frames.length - 1, index));
+  widget.index = index;
+  var frame = info.frames[index];
+  // Nur bereits geladene Bilder zeigen, sonst flackert es auf alten iPads.
+  if (widget.loaded[index]) { widget.frame.src = radarFrameUrl(info, frame); }
+  if (String(widget.slider.value) !== String(index)) { widget.slider.value = index; }
+  widget.badge.textContent = radarClock(frame.time) + " · " + radarRelativeLabel(frame.time) + (frame.forecast ? " · Vorhersage" : "");
+  widget.badge.className = "radar-time-badge" + (frame.forecast ? " is-forecast" : "");
+}
+
+function isRadarVisible(widget) {
+  return !document.hidden && !window.wallpanelScreensaverActive && document.body.contains(widget.section);
+}
+
+function scheduleRadarStep(widget, delay) {
+  if (widget.timer) { clearTimeout(widget.timer); }
+  widget.timer = setTimeout(function () {
+    widget.timer = null;
+    if (!widget.playing || !widget.info) { return; }
+    if (!isRadarVisible(widget)) {
+      scheduleRadarStep(widget, 2000);
+      return;
+    }
+    var count = widget.info.frames.length;
+    var next = widget.index + 1 >= count ? 0 : widget.index + 1;
+    // Nur durch geladene Bilder laufen.
+    if (!widget.loaded[next]) { next = 0; }
+    showRadarFrame(widget, next);
+    scheduleRadarStep(widget, next === count - 1 ? RADAR_END_PAUSE_MS : RADAR_FRAME_MS);
+  }, delay);
+}
+
+function preloadRadarFrames(widget, info) {
+  // Nacheinander laden statt alle gleichzeitig – schont alte iPads und die Verbindung.
+  var position = 0;
+  var order = [];
+  for (var i = widget.nowIndex; i >= 0; i--) { order.push(i); }
+  for (var j = widget.nowIndex + 1; j < info.frames.length; j++) { order.push(j); }
+  var loadNext = function () {
+    if (widget.info !== info || position >= order.length) {
+      if (widget.info === info) { widget.loading.style.display = "none"; }
+      return;
+    }
+    var index = order[position];
+    var img = new Image();
+    img.onload = img.onerror = function () {
+      widget.loaded[index] = true;
+      position++;
+      widget.loading.textContent = "Radar wird geladen … " + position + "/" + order.length;
+      if (index === widget.nowIndex) { showRadarFrame(widget, widget.nowIndex); }
+      loadNext();
+    };
+    img.src = radarFrameUrl(info, info.frames[index]);
+  };
+  widget.loading.style.display = "block";
+  loadNext();
+}
+
+function applyRadarInfo(widget, info) {
+  widget.summary.textContent = info.summary || "";
+  widget.summary.className = "radar-summary is-" + (info.level || "dry");
+  if (widget.info && widget.info.reference === info.reference) {
+    widget.info.summary = info.summary;
+    return;
+  }
+  widget.info = info;
+  widget.loaded = [];
+  widget.nowIndex = 0;
+  for (var i = 0; i < info.frames.length; i++) {
+    if (!info.frames[i].forecast) { widget.nowIndex = i; }
+  }
+  widget.slider.max = String(info.frames.length - 1);
+  widget.nowMark.style.left = (info.frames.length > 1 ? widget.nowIndex / (info.frames.length - 1) * 100 : 0) + "%";
+  if (!widget.base.getAttribute("src")) { widget.base.src = "api/radar/base.png?v=" + RADAR_IMAGE_VERSION; }
+  widget.home.style.left = (info.home.x * 100) + "%";
+  widget.home.style.top = (info.home.y * 100) + "%";
+  widget.index = widget.nowIndex;
+  showRadarFrame(widget, widget.nowIndex);
+  preloadRadarFrames(widget, info);
+  if (widget.playing) { scheduleRadarStep(widget, 2500); }
+}
+
+function loadRadarInfo(widget) {
+  apiGet("api/radar", function (error, info) {
+    if (error || !info || !info.ok || !info.frames || !info.frames.length) {
+      widget.failed = true;
+      return;
+    }
+    widget.failed = false;
+    applyRadarInfo(widget, info);
+  });
+}
+
 function weatherRadarSection(data) {
+  if (!radarWidget) {
+    radarWidget = createRadarWidget();
+    loadRadarInfo(radarWidget);
+    // Neuer DWD-Lauf etwa alle 5 Minuten.
+    setInterval(function () {
+      if (!document.hidden) { loadRadarInfo(radarWidget); }
+    }, 5 * 60 * 1000);
+  }
+  // Fällt der DWD aus, bleibt das bisherige Radarbild aus Home Assistant als Ersatz.
+  if (radarWidget.failed && data.radarImageUrl) { return legacyRadarSection(data); }
+  return radarWidget.section;
+}
+
+function legacyRadarSection(data) {
   if (!data.radarImageUrl) { return null; }
 
   var section = document.createElement("section");

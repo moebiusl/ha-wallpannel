@@ -1,3 +1,16 @@
+## 1.10.0
+
+### Neu: Bewegtes Regenradar mit Zeitleiste
+- Regenradar des Deutschen Wetterdienstes auf der Wetterseite: letzte Stunde und Vorhersage für knapp 2 Stunden in 10-Minuten-Schritten
+- Play/Pause und Zeitregler, Uhrzeit mit „vor/in … Min.“ und Kennzeichnung der Vorhersage; Standort als Punkt (aus der HA-Konfiguration)
+- Aussage am Standort, z. B. „Aktuell leichter Regen – hört gegen 09:50 auf“ oder „Leichter Regen ab etwa 14:20“
+- Ruhige Farbskala (hellblau → blau → gelb → orange → rot), schwache Echos ausgeblendet, damit Orte und Flüsse sichtbar bleiben
+- Effizient: Das Add-on holt und färbt die Bilder einmal, speichert sie zwischen und lädt sie vor; Tablets laden nacheinander und pausieren die Animation im Hintergrund und im Bildschirmschoner
+- Fällt der DWD aus, bleibt das bisherige Radarbild aus Home Assistant
+
+### Fix
+- Design „Home“: Event/Live-Umschalter der Kamera war noch blau hinterlegt
+
 ## 1.9.2
 
 ### Fix

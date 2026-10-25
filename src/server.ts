@@ -7,6 +7,7 @@ import path from "path";
 import { getHaRegistries, HaRegistries, runAssist, runTts, subscribeToHaEvents, subscribeToStateChanges } from "./ha-websocket";
 import { computeAssetVersion, createTabletRegistry, normalizeSound } from "./tablets";
 import { createCameraLive, LiveSource } from "./camera-live";
+import { createRadar } from "./radar";
 import { readPanelConfig, writePanelConfig, getConfigPath } from "./panel-config";
 import { getDomain, getFriendlyEntityName, isProbablyUsefulEntity } from "./entity-filter";
 
@@ -1655,6 +1656,74 @@ app.get("/api/assist/audio", async (req: Request, res: Response) => {
   } catch (error) {
     console.error(`Assist-Audio nicht verfügbar: ${describeError(error)}`);
     res.status(404).end();
+  }
+});
+
+// ── Regenradar mit Zeitleiste (DWD) ─────────────────────────────────
+let haLocationCache: { at: number; value: { lat: number; lon: number } | null } | null = null;
+
+async function getHaLocation(): Promise<{ lat: number; lon: number } | null> {
+  if (haLocationCache && Date.now() - haLocationCache.at < 60 * 60 * 1000) { return haLocationCache.value; }
+  const envLat = Number(process.env.RADAR_LAT);
+  const envLon = Number(process.env.RADAR_LON);
+  if (Number.isFinite(envLat) && Number.isFinite(envLon) && process.env.RADAR_LAT && process.env.RADAR_LON) {
+    haLocationCache = { at: Date.now(), value: { lat: envLat, lon: envLon } };
+    return haLocationCache.value;
+  }
+  try {
+    const response = await ha.get("/api/config");
+    const lat = Number(response.data?.latitude);
+    const lon = Number(response.data?.longitude);
+    const value = Number.isFinite(lat) && Number.isFinite(lon) ? { lat, lon } : null;
+    haLocationCache = { at: Date.now(), value };
+    return value;
+  } catch (error) {
+    console.warn(`Standort aus HA nicht lesbar: ${describeError(error)}`);
+    return null;
+  }
+}
+
+const radar = createRadar({ http: axios.create(), getLocation: getHaLocation, describeError });
+
+app.get("/api/radar", async (_req: Request, res: Response) => {
+  const info = await radar.getInfo();
+  res.setHeader("Cache-Control", "no-store");
+  if (!info) {
+    res.status(503).json({ ok: false, message: "Regenradar nicht verfügbar" });
+    return;
+  }
+  res.json({ ok: true, ...info });
+});
+
+app.get("/api/radar/base.png", async (_req: Request, res: Response) => {
+  try {
+    const data = await radar.getBaseImage();
+    if (!data) { res.status(503).end(); return; }
+    res.setHeader("Content-Type", "image/png");
+    res.setHeader("Cache-Control", "private, max-age=86400");
+    res.send(data);
+  } catch (error) {
+    console.warn(`Radar-Karte nicht verfügbar: ${describeError(error)}`);
+    res.status(502).end();
+  }
+});
+
+app.get("/api/radar/frame", async (req: Request, res: Response) => {
+  const time = typeof req.query.time === "string" ? req.query.time : "";
+  if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:00)?Z$/.test(time)) {
+    res.status(400).end();
+    return;
+  }
+  try {
+    const data = await radar.getFrameImage(time);
+    if (!data) { res.status(404).end(); return; }
+    res.setHeader("Content-Type", "image/png");
+    // Die URL enthält die Referenzzeit des DWD-Laufs – ein neuer Lauf ergibt neue URLs.
+    res.setHeader("Cache-Control", "private, max-age=3600");
+    res.send(data);
+  } catch (error) {
+    console.warn(`Radarbild nicht verfügbar (${time}): ${describeError(error)}`);
+    res.status(502).end();
   }
 });
 

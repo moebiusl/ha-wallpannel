@@ -42,6 +42,10 @@ Nach einem Add-on-Update laden sich die Tablets automatisch neu, sobald sie kurz
 
 Neben dem klassischen Design gibt es das Test-Design **„Home“** im Stil von Apple Home: graue Flächen, eingeschaltete Geräte hell mit gelbem Symbol, Navigation als Segment-Schalter. Umschalten pro Tablet unter Optionen → Dieses Tablet → Design oder aus der Ferne unter Optionen → Tablets. Zum Anschauen ohne Umstellen: `?theme=home` an die Adresse hängen.
 
+### Regenradar
+
+Die Wetterseite zeigt ein bewegtes Regenradar des Deutschen Wetterdienstes: die letzte Stunde und eine Vorhersage für knapp 2 Stunden, mit Zeitleiste, Play/Pause und deinem Standort (aus der HA-Konfiguration). Darüber steht, wann der Regen bei dir anfängt oder aufhört. Das Add-on holt die Bilder beim DWD und speichert sie zwischen; die Tablets laden nur die fertigen Bilder. Ist der DWD nicht erreichbar, erscheint wie bisher das Radarbild aus Home Assistant.
+
 ### Klingel
 
 Klingelt es, zeigen die Tablets ein großes Popup mit dem Live-Bild der Klingelkamera und Buttons für „Hoftor auto öffnen“ und Licht. Klingel-Signal, Kamera und Licht-Buttons werden automatisch erkannt und lassen sich unter **Optionen → Tablets → Klingel** anpassen. Mit „Klingel testen“ lässt sich das Popup ausprobieren.
