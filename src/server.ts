@@ -1760,7 +1760,12 @@ app.get("/api/dashboard", async (_req: Request, res: Response) => {
     getHourlyForecast(ENTITIES.weather.summary)
   ]);
   const weather = extractWeatherSummary(weatherSummary, weatherForecast);
-  const precipitationOutlook = buildPrecipitationOutlook(rainRateEntity, homeHourlyForecast);
+  // Wetterkachel: minutengenauer Satz aus dem Regenradar, sonst die Tagesvorhersage.
+  const radarInfo = radar.getCachedInfo();
+  const forecastOutlook = buildPrecipitationOutlook(rainRateEntity, homeHourlyForecast);
+  const precipitationOutlook = radarInfo && radarInfo.shortSummary
+    ? { ...forecastOutlook, text: radarInfo.shortSummary, source: "radar" }
+    : forecastOutlook;
   const lights = [
     mapLight(mainLight, "Hof"),
     mapLight(stehlampe, "Stehlampe"),

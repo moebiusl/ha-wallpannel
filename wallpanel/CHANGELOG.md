@@ -1,3 +1,9 @@
+## 1.10.1
+
+### Wetterkachel auf der Startseite
+- Zeigt jetzt den minutengenauen Satz aus dem Regenradar: „Regen hört gegen 09:50 auf“, „Regen ab etwa 14:20“, „Regen hält noch an“ oder „Kein Regen in Sicht“
+- Die Startseite wartet dafür nie auf den DWD (zwischengespeicherte Werte); ohne Radardaten bleibt die bisherige Angabe aus der Tagesvorhersage
+
 ## 1.10.0
 
 ### Neu: Bewegtes Regenradar mit Zeitleiste

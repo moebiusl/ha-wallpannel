@@ -82,6 +82,8 @@ export type RadarInfo = {
   home: { x: number; y: number };
   series: { time: string; dbz: number | null }[];
   summary: string;
+  /** Kurzform für die Wetterkachel der Startseite, z. B. „Regen hört gegen 09:50 auf“. */
+  shortSummary: string;
   level: "dry" | "rain" | "soon";
 };
 
@@ -169,28 +171,36 @@ export function createRadar(deps: RadarDeps) {
     return { dbz, reference: typeof properties.REFERENCE_TIME === "string" ? properties.REFERENCE_TIME : null };
   }
 
-  function buildSummary(series: { time: string; dbz: number | null }[], referenceIso: string): { summary: string; level: RadarInfo["level"] } {
+  function buildSummary(series: { time: string; dbz: number | null }[], referenceIso: string): { summary: string; shortSummary: string; level: RadarInfo["level"] } {
     const reference = new Date(referenceIso).getTime();
     const upcoming = series.filter((entry) => new Date(entry.time).getTime() >= reference);
     const isRain = (entry: { dbz: number | null }) => entry.dbz !== null && entry.dbz >= RAIN_DBZ;
     const now = upcoming[0];
-    if (!now) { return { summary: "Keine Radardaten verfügbar", level: "dry" }; }
+    if (!now) { return { summary: "Keine Radardaten verfügbar", shortSummary: "", level: "dry" }; }
     const minutesUntil = (entry: { time: string }) => Math.max(0, Math.round((new Date(entry.time).getTime() - Date.now()) / 60000));
 
     if (isRain(now)) {
       const end = upcoming.find((entry) => !isRain(entry));
       const peak = upcoming.reduce((max, entry) => Math.max(max, entry.dbz || 0), 0);
       if (!end) {
-        return { summary: `Aktuell ${intensityLabel(peak)} – hält mindestens 2 Stunden an`, level: "rain" };
+        return { summary: `Aktuell ${intensityLabel(peak)} – hält mindestens 2 Stunden an`, shortSummary: "Regen hält noch an", level: "rain" };
       }
-      return { summary: `Aktuell ${intensityLabel(now.dbz || 0)} – hört gegen ${formatClock(end.time)} auf (in ca. ${minutesUntil(end)} Min.)`, level: "rain" };
+      return {
+        summary: `Aktuell ${intensityLabel(now.dbz || 0)} – hört gegen ${formatClock(end.time)} auf (in ca. ${minutesUntil(end)} Min.)`,
+        shortSummary: `Regen hört gegen ${formatClock(end.time)} auf`,
+        level: "rain"
+      };
     }
 
     const start = upcoming.find(isRain);
     if (start) {
-      return { summary: `${intensityLabel(start.dbz || 0)[0].toUpperCase()}${intensityLabel(start.dbz || 0).slice(1)} ab etwa ${formatClock(start.time)} (in ca. ${minutesUntil(start)} Min.)`, level: "soon" };
+      return {
+        summary: `${intensityLabel(start.dbz || 0)[0].toUpperCase()}${intensityLabel(start.dbz || 0).slice(1)} ab etwa ${formatClock(start.time)} (in ca. ${minutesUntil(start)} Min.)`,
+        shortSummary: `Regen ab etwa ${formatClock(start.time)}`,
+        level: "soon"
+      };
     }
-    return { summary: "Kein Regen in den nächsten 2 Stunden", level: "dry" };
+    return { summary: "Kein Regen in den nächsten 2 Stunden", shortSummary: "Kein Regen in Sicht", level: "dry" };
   }
 
   async function buildInfo(): Promise<RadarInfo | null> {
@@ -225,7 +235,7 @@ export function createRadar(deps: RadarDeps) {
     }));
 
     const bbox = computeBbox(location);
-    const { summary, level } = buildSummary(series, isoMinute(anchor));
+    const { summary, shortSummary, level } = buildSummary(series, isoMinute(anchor));
     return {
       reference: referenceIso,
       frames,
@@ -236,6 +246,7 @@ export function createRadar(deps: RadarDeps) {
       },
       series,
       summary,
+      shortSummary,
       level
     };
   }
@@ -302,5 +313,15 @@ export function createRadar(deps: RadarDeps) {
     return data;
   }
 
-  return { getInfo, getBaseImage, getFrameImage };
+  /**
+   * Zwischengespeicherte Radar-Infos sofort zurückgeben (ohne Warten) und bei Bedarf im
+   * Hintergrund auffrischen – für die Startseite, die nie auf den DWD warten soll.
+   */
+  function getCachedInfo(): RadarInfo | null {
+    if (!infoCache || Date.now() - infoCache.at >= INFO_CACHE_MS) { void getInfo(); }
+    // Ältere Daten nur bis 15 Minuten verwenden, danach lieber die Tagesvorhersage zeigen.
+    return infoCache && Date.now() - infoCache.at < 15 * 60 * 1000 ? infoCache.value : null;
+  }
+
+  return { getInfo, getCachedInfo, getBaseImage, getFrameImage };
 }
