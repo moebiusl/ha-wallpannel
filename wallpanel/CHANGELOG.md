@@ -1,3 +1,11 @@
+## 1.9.1
+
+### Design „Home“: Optionen und PIN-Seite
+- PIN-Seite im Stil des iPhone-Sperrbildschirms: runde Zifferntasten, weiße Punkte
+- Optionen im Stil der iOS-Einstellungen: gruppierte graue Karten, Tabs als Segment-Schalter, höhere Auswahlfelder
+- Tablets-Verwaltung, Häkchen-Zeilen, Listen (Automationen, Log, Add-ons) und Server-Werte angepasst
+- Zahnrad-Symbol in der Kopfleiste ohne türkisen Kasten
+
 ## 1.9.0
 
 ### Neu: Test-Design „Home“ (Apple-Home-Stil)
