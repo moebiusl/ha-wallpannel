@@ -640,7 +640,8 @@ html.theme-home .settings-pin-pad button {
   width: 82px;
   height: 82px;
   min-height: 0;
-  margin: 8px 13px;
+  margin: 8px 12px;
+  -webkit-appearance: none;
   padding: 0;
   border: 0;
   border-radius: 50%;
@@ -654,17 +655,6 @@ html.theme-home .settings-pin-pad button:active {
   background: rgba(235, 235, 245, 0.45);
 }
 
-@supports (display: grid) {
-  html.theme-home .settings-pin-pad {
-    grid-template-columns: repeat(3, 82px);
-    gap: 16px 26px;
-    width: auto;
-  }
-
-  html.theme-home .settings-pin-pad button {
-    margin: 0;
-  }
-}
 
 /* Feinschliff Optionen: höhere Auswahlfelder, neutrale Nebentexte */
 html.theme-home .room-select {

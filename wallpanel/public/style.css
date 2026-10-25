@@ -2868,6 +2868,13 @@ a:active {
   font-size: 0;
 }
 
+.settings-pin-row {
+  display: block;
+  font-size: 0;
+  white-space: nowrap;
+  text-align: center;
+}
+
 .settings-pin-pad button {
   display: inline-block;
   vertical-align: top;
@@ -2895,20 +2902,6 @@ a:active {
     margin: 0;
   }
 
-  .settings-pin-pad {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(68px, 104px));
-    justify-content: center;
-    gap: 10px;
-    width: auto;
-    font-size: inherit;
-  }
-
-  .settings-pin-pad button {
-    display: block;
-    width: auto;
-    margin: 0;
-  }
 }
 
 .settings-pin-pad button:active {

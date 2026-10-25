@@ -1,3 +1,8 @@
+## 1.9.2
+
+### Fix
+- PIN-Zahlenfeld zeigte auf alten iPads (iOS 9) nur zwei Tasten pro Reihe – die Tasten stehen jetzt in festen Dreierreihen, unabhängig davon, wie breit iOS die Tasten berechnet
+
 ## 1.9.1
 
 ### Design „Home“: Optionen und PIN-Seite

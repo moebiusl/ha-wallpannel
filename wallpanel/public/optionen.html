@@ -43,19 +43,12 @@
               <div class="settings-title">Admin-PIN</div>
               <input id="settingsPin" class="settings-pin-hidden" type="password" inputmode="numeric" maxlength="4" autocomplete="off">
               <div id="settingsPinDots" class="settings-pin-dots" aria-label="PIN Eingabe"></div>
+              <!-- Feste Reihen: immer genau drei Tasten nebeneinander, auch auf iOS 9 (kein Grid). -->
               <div class="settings-pin-pad" aria-label="Zahlenfeld">
-                <button type="button" onclick="pressSettingsPin('1')">1</button>
-                <button type="button" onclick="pressSettingsPin('2')">2</button>
-                <button type="button" onclick="pressSettingsPin('3')">3</button>
-                <button type="button" onclick="pressSettingsPin('4')">4</button>
-                <button type="button" onclick="pressSettingsPin('5')">5</button>
-                <button type="button" onclick="pressSettingsPin('6')">6</button>
-                <button type="button" onclick="pressSettingsPin('7')">7</button>
-                <button type="button" onclick="pressSettingsPin('8')">8</button>
-                <button type="button" onclick="pressSettingsPin('9')">9</button>
-                <button type="button" onclick="clearSettingsPin()">C</button>
-                <button type="button" onclick="pressSettingsPin('0')">0</button>
-                <button type="button" onclick="backspaceSettingsPin()">←</button>
+                <div class="settings-pin-row"><button type="button" onclick="pressSettingsPin('1')">1</button><button type="button" onclick="pressSettingsPin('2')">2</button><button type="button" onclick="pressSettingsPin('3')">3</button></div>
+                <div class="settings-pin-row"><button type="button" onclick="pressSettingsPin('4')">4</button><button type="button" onclick="pressSettingsPin('5')">5</button><button type="button" onclick="pressSettingsPin('6')">6</button></div>
+                <div class="settings-pin-row"><button type="button" onclick="pressSettingsPin('7')">7</button><button type="button" onclick="pressSettingsPin('8')">8</button><button type="button" onclick="pressSettingsPin('9')">9</button></div>
+                <div class="settings-pin-row"><button type="button" onclick="clearSettingsPin()">C</button><button type="button" onclick="pressSettingsPin('0')">0</button><button type="button" onclick="backspaceSettingsPin()">←</button></div>
               </div>
               <span id="settingsPinState" class="settings-save-state"></span>
             </div>
