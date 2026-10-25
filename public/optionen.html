@@ -12,7 +12,18 @@
   <meta name="theme-color" content="#09111f">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <script>
+    // Design vor dem ersten Zeichnen setzen (kein Aufblitzen). ?theme=home zum Ausprobieren.
+    (function () {
+      var theme = '';
+      try { theme = window.localStorage.getItem('haWallpanel.theme') || ''; } catch (e) { theme = ''; }
+      var preview = /[?&]theme=([a-z]+)/.exec(window.location.search);
+      if (preview) { theme = preview[1]; }
+      if (theme && theme !== 'classic') { document.documentElement.className += ' theme-' + theme; }
+    })();
+  </script>
   <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="theme-home.css">
 </head>
 <body data-page="optionen" data-room="hof">
   <div class="app-shell">
@@ -72,6 +83,15 @@
             <!-- ── Tab: Dieses Tablet ─────────────────────────────── -->
             <div id="settingsTab-tablet" class="settings-tab-panel">
               <div class="settings-layout-grid">
+
+                <section class="settings-section settings-section-wide">
+                  <div class="settings-title">Design</div>
+                  <select id="themeSelect" class="room-select" onchange="saveThemeSetting()">
+                    <option value="classic">Klassisch</option>
+                    <option value="home">Home (Apple-Stil, Test)</option>
+                  </select>
+                  <div class="settings-hint">Gilt nur für dieses Gerät und wird sofort übernommen.</div>
+                </section>
 
                 <section class="settings-section settings-section-wide">
                   <div class="settings-title">Name dieses Tablets</div>

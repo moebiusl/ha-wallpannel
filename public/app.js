@@ -273,8 +273,10 @@ function renderCameraStrip() {
     if (buttons[j].className !== className) { buttons[j].className = className; }
 
     var img = buttons[j].getElementsByTagName("img")[0];
+    // Vorschaubilder sind je nach Design ausgeblendet – dann gar nicht erst laden (spart große Downloads).
+    var thumbVisible = img && window.getComputedStyle(img).display !== "none";
     var thumbUrl = withImageVersion(camera.imageUrl || camera.eventUrl || camera.eventImageUrl || "", getCameraImageVersion(camera));
-    if (img && img.getAttribute("src") !== thumbUrl) { img.src = thumbUrl; }
+    if (thumbVisible && img.getAttribute("src") !== thumbUrl) { img.src = thumbUrl; }
 
     var timeText = formatCameraEventTime(camera).replace("Event: ", "");
     var timeEl = buttons[j].getElementsByClassName("camera-thumb-time")[0];

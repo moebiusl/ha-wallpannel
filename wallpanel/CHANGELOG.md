@@ -1,3 +1,19 @@
+## 1.9.0
+
+### Neu: Test-Design „Home“ (Apple-Home-Stil)
+- Ruhige graue Flächen, große Kacheln, Systemschrift (San Francisco)
+- Eingeschaltete Lichter, Geräte und aktive Heizungen werden hell mit gelbem Symbol – wie in Apple Home
+- Navigation als Segment-Schalter, Orange als Akzentfarbe, Zustände in Grün/Orange/Rot
+- Pro Tablet umschaltbar (Optionen → Dieses Tablet → Design) oder aus der Ferne (Optionen → Tablets); das klassische Design bleibt unverändert
+- Sparsam für alte iPads: eine kleine, zwischengespeicherte CSS-Datei (~3 KB komprimiert), keine Weichzeichner oder Animationen
+- Vorschau ohne Umstellen: `?theme=home` an die Adresse hängen
+
+### Fixes
+- Kamera-Vorschaubilder sind ausgeblendet, wurden aber trotzdem geladen – jetzt nicht mehr (spart fünf große Bild-Downloads pro Event)
+- Energie- und Wetter-Kacheln wurden in neueren Browsern zu schmalen Streifen gestaucht
+- Live-Kamera fällt sauber auf das Event-Bild zurück, wenn go2rtc nicht erreichbar ist (vorher Fehler)
+- Klingel-Popup: Überschrift sauber angeordnet; Mitteilungen erscheinen ohne Einblend-Animation (bleiben so nie unsichtbar)
+
 ## 1.8.0
 
 ### Neu: Durchsagen von jedem Tablet

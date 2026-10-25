@@ -1,0 +1,507 @@
+/*
+ * Design „Home“ – angelehnt an Apple Home.
+ * Greift nur, wenn <html> die Klasse theme-home trägt (pro Tablet einstellbar).
+ * Bewusst sparsam für alte iPads: keine Weichzeichner, keine Dauer-Animationen,
+ * keine großen Schatten – nur flache Flächen, Verläufe ohne Bewegung und Systemschrift.
+ */
+
+html.theme-home body {
+  background: #0b0c10;
+  background-image: -webkit-linear-gradient(top, #1b1e27 0%, #0d0e13 55%, #08090c 100%);
+  background-image: linear-gradient(180deg, #1b1e27 0%, #0d0e13 55%, #08090c 100%);
+  color: #ffffff;
+  font-family: -apple-system, "SF Pro Text", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+html.theme-home button,
+html.theme-home input,
+html.theme-home select,
+html.theme-home textarea {
+  font-family: inherit;
+}
+
+/* ── Kopfleiste: Segment-Schalter statt einzelner Pillen ─────────── */
+html.theme-home .topbar {
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+}
+
+html.theme-home .topnav-main {
+  padding: 4px;
+  border-radius: 16px;
+  background: rgba(118, 118, 128, 0.24);
+}
+
+html.theme-home .topnav-main .topnav-link {
+  margin-right: 2px;
+  padding: 0 8px;
+  min-height: 46px;
+  line-height: 46px;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  color: rgba(235, 235, 245, 0.72);
+  font-size: 16px;
+  font-weight: 600;
+}
+
+html.theme-home .topnav-main .topnav-link.active {
+  background: #f2f2f7;
+  color: #000000;
+  font-weight: 700;
+}
+
+html.theme-home .topnav-link-icon {
+  color: rgba(235, 235, 245, 0.82);
+}
+
+html.theme-home .topnav-link-icon.active {
+  color: #ff9f0a;
+}
+
+/* ── Karten ──────────────────────────────────────────────────────── */
+html.theme-home .panel,
+html.theme-home .large-page-panel,
+html.theme-home .settings-panel {
+  border: 0;
+  border-radius: 24px;
+  background: #1c1c1e;
+  box-shadow: none;
+}
+
+html.theme-home .panel-kicker,
+html.theme-home .room-section-title,
+html.theme-home .settings-title {
+  color: rgba(235, 235, 245, 0.6);
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+html.theme-home .panel-meta,
+html.theme-home .metric-caption,
+html.theme-home .compact-caption,
+html.theme-home .settings-hint {
+  color: rgba(235, 235, 245, 0.6);
+}
+
+html.theme-home .metric-value,
+html.theme-home .compact-metric-value {
+  color: #ffffff;
+  font-weight: 700;
+  letter-spacing: -0.5px;
+}
+
+html.theme-home .rooms-modal-title,
+html.theme-home .modal-title {
+  color: #ffffff;
+  font-weight: 700;
+  letter-spacing: -0.3px;
+}
+
+/* ── Kacheln: aus = grau, an = hell mit gelbem Symbol (wie Apple Home) ── */
+html.theme-home .light-card,
+html.theme-home .light-toggle-card,
+html.theme-home .dynamic-entity-card,
+html.theme-home .gate-switch-card,
+html.theme-home .energy-summary-card,
+html.theme-home .security-summary-card,
+html.theme-home .modal-info-box,
+html.theme-home .waste-item,
+html.theme-home .camera-strip-thumb {
+  border: 0;
+  border-radius: 20px;
+  background: #2c2c2e;
+  box-shadow: none;
+  color: #ffffff;
+}
+
+html.theme-home .light-card-title,
+html.theme-home .dynamic-entity-title,
+html.theme-home .gate-switch-title {
+  color: #ffffff;
+  font-weight: 600;
+}
+
+html.theme-home .light-card-state,
+html.theme-home .dynamic-entity-value,
+html.theme-home .gate-switch-state {
+  color: rgba(235, 235, 245, 0.6);
+  font-weight: 600;
+}
+
+html.theme-home .dynamic-entity-meta {
+  color: rgba(235, 235, 245, 0.45);
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+html.theme-home .light-card-icon,
+html.theme-home .entity-card-icon {
+  border: 0;
+  background: rgba(118, 118, 128, 0.32);
+  color: rgba(235, 235, 245, 0.85);
+}
+
+html.theme-home .light-card.is-on,
+html.theme-home .light-toggle-card.is-on,
+html.theme-home .dynamic-entity-card.is-on {
+  background: #f2f2f7;
+  color: #1c1c1e;
+}
+
+html.theme-home .light-card.is-on .light-card-title,
+html.theme-home .light-toggle-card.is-on .light-card-title,
+html.theme-home .dynamic-entity-card.is-on .dynamic-entity-title {
+  color: #000000;
+}
+
+html.theme-home .light-card.is-on .light-card-state,
+html.theme-home .light-toggle-card.is-on .light-card-state,
+html.theme-home .dynamic-entity-card.is-on .dynamic-entity-value {
+  color: #3a3a3c;
+}
+
+html.theme-home .dynamic-entity-card.is-on .dynamic-entity-meta {
+  color: #6e6e73;
+}
+
+html.theme-home .light-card.is-on .light-card-icon,
+html.theme-home .light-toggle-card.is-on .light-card-icon,
+html.theme-home .dynamic-entity-card.is-on .entity-card-icon {
+  background: #ffd60a;
+  color: #1c1c1e;
+}
+
+html.theme-home .dynamic-entity-card.is-unavailable {
+  opacity: 0.45;
+}
+
+/* ── Regler und Schaltflächen ────────────────────────────────────── */
+html.theme-home .pill-button,
+html.theme-home .camera-source-button,
+html.theme-home .entity-step-button,
+html.theme-home .media-control-button {
+  border: 0;
+  border-radius: 14px;
+  background: rgba(118, 118, 128, 0.24);
+  color: #ffffff;
+  font-weight: 600;
+}
+
+html.theme-home .pill-button.active,
+html.theme-home .camera-source-button.active {
+  background: #ff9f0a;
+  color: #000000;
+}
+
+html.theme-home .room-select,
+html.theme-home .assist-input,
+html.theme-home .settings-time-input {
+  border: 0;
+  border-radius: 12px;
+  background: rgba(118, 118, 128, 0.24);
+  color: #ffffff;
+}
+
+/* ── Kamera ──────────────────────────────────────────────────────── */
+html.theme-home .camera-placeholder,
+html.theme-home .camera-modal-stage {
+  border: 0;
+  border-radius: 20px;
+  background: #000000;
+}
+
+html.theme-home .camera-overlay {
+  border: 0;
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.55);
+  color: #ffffff;
+  font-weight: 600;
+}
+
+html.theme-home .camera-time-badge,
+html.theme-home .camera-thumb-time {
+  border: 0;
+  background: rgba(0, 0, 0, 0.55);
+  color: #ffffff;
+}
+
+html.theme-home .camera-strip-thumb.active {
+  background: #f2f2f7;
+  color: #000000;
+}
+
+html.theme-home .camera-strip-preview {
+  border: 0;
+  background: #1c1c1e;
+}
+
+/* ── Fenster (Modals) ────────────────────────────────────────────── */
+html.theme-home .modal-backdrop,
+html.theme-home .rooms-modal-backdrop {
+  background: rgba(0, 0, 0, 0.6);
+}
+
+html.theme-home .modal-card,
+html.theme-home .rooms-modal-card,
+html.theme-home .doorbell-card,
+html.theme-home .tablet-notice-card {
+  border: 0;
+  border-radius: 26px;
+  background: #1c1c1e;
+}
+
+html.theme-home .tablet-notice-card {
+  border-left: 6px solid #ff9f0a;
+}
+
+html.theme-home .modal-close {
+  border: 0;
+  background: rgba(118, 118, 128, 0.24);
+  color: rgba(235, 235, 245, 0.85);
+}
+
+html.theme-home .rooms-modal-tile {
+  border: 0;
+  border-radius: 16px;
+  background: #2c2c2e;
+}
+
+/* ── Mitteilungen auf der Startseite ─────────────────────────────── */
+html.theme-home .notification-item,
+html.theme-home .home-notification {
+  border: 0;
+  border-radius: 16px;
+  background: #2c2c2e;
+}
+
+/* ── Klingel-Popup ───────────────────────────────────────────────── */
+html.theme-home .doorbell-action {
+  border: 0;
+  border-radius: 18px;
+  background: #2c2c2e;
+}
+
+html.theme-home .doorbell-action.is-on {
+  background: #f2f2f7;
+  color: #000000;
+}
+
+html.theme-home .doorbell-action.is-on small {
+  color: #6e6e73;
+}
+
+html.theme-home .doorbell-action-gate {
+  background: #ff9f0a;
+  color: #000000;
+}
+
+html.theme-home .doorbell-action-gate.is-on {
+  background: #30d158;
+  color: #000000;
+}
+
+/* ── Weitere Bausteine (Raum, Startseite) ─────────────────────────── */
+html.theme-home .compact-entity-row,
+html.theme-home .dynamic-special-card,
+html.theme-home .waste-next-card,
+html.theme-home .room-status-pill,
+html.theme-home .home-notification-item {
+  border: 0;
+  border-radius: 18px;
+  background: #2c2c2e;
+  color: #ffffff;
+}
+
+html.theme-home .compact-entity-name { color: #ffffff; font-weight: 600; }
+html.theme-home .compact-entity-value { color: rgba(235, 235, 245, 0.6); }
+
+html.theme-home .compact-entity-row.is-on,
+html.theme-home .room-status-pill.is-on {
+  background: #f2f2f7;
+  color: #000000;
+}
+
+html.theme-home .compact-entity-row.is-on .compact-entity-name { color: #000000; }
+html.theme-home .compact-entity-row.is-on .compact-entity-value { color: #3a3a3c; }
+
+html.theme-home .dynamic-special-card .dynamic-entity-value,
+html.theme-home .dynamic-entity-card .dynamic-entity-value {
+  color: #ffffff;
+}
+
+html.theme-home .dynamic-entity-card.is-on .dynamic-entity-value {
+  color: #000000;
+}
+
+html.theme-home .camera-strip-wrap,
+html.theme-home .camera-strip-panel {
+  border: 0;
+  background: transparent;
+}
+
+html.theme-home .waste-next-days,
+html.theme-home .waste-dashboard-days {
+  color: #ff9f0a;
+}
+
+html.theme-home .weather-card-footer {
+  border-color: rgba(84, 84, 88, 0.6);
+}
+
+html.theme-home .weather-card-footer,
+html.theme-home .weather-card-footer-item {
+  color: rgba(235, 235, 245, 0.6);
+}
+
+html.theme-home .page-update-stamp {
+  border: 0;
+  background: rgba(118, 118, 128, 0.24);
+  color: rgba(235, 235, 245, 0.6);
+}
+
+/* Status-Karten: dezente Tönung statt Rahmen */
+html.theme-home .security-home-panel,
+html.theme-home .security-home-panel.ok {
+  border: 0;
+  background: #1c1c1e;
+}
+
+html.theme-home .security-home-panel.ok .panel-kicker { color: #30d158; }
+
+html.theme-home .home-notification-item.warn { background: rgba(255, 159, 10, 0.16); }
+html.theme-home .home-notification-item.danger { background: rgba(255, 69, 58, 0.18); }
+html.theme-home .home-notification-item.info,
+html.theme-home .home-notification-item.ok { background: rgba(48, 209, 88, 0.14); }
+
+/* ── Seiten: Energie, Klima, Sicherheit, Wetter ───────────────────── */
+html.theme-home .energy-metric-tile,
+html.theme-home .metric-tile,
+html.theme-home .climate-overview-card,
+html.theme-home .climate-bulk-bar,
+html.theme-home .security-entity-card,
+html.theme-home .security-camera-thumb,
+html.theme-home .ring-gauge-row,
+html.theme-home .weather-forecast-item,
+html.theme-home .weather-radar-block,
+html.theme-home .battery-overview-row {
+  border: 0;
+  border-radius: 20px;
+  background: #2c2c2e;
+  box-shadow: none;
+}
+
+html.theme-home .energy-summary-label,
+html.theme-home .security-summary-label,
+html.theme-home .energy-metric-label,
+html.theme-home .metric-tile-label {
+  color: rgba(235, 235, 245, 0.6);
+  letter-spacing: 0;
+  text-transform: none;
+  font-weight: 600;
+}
+
+html.theme-home .energy-summary-value,
+html.theme-home .security-summary-value,
+html.theme-home .energy-metric-value,
+html.theme-home .metric-tile-value,
+html.theme-home .ring-gauge-value,
+html.theme-home .climate-card-values b {
+  color: #ffffff;
+  letter-spacing: -0.3px;
+}
+
+/* Hervorgehobene Werte (z. B. Außentemperatur) in Orange wie Apple Home */
+html.theme-home .metric-tile.emphasis .metric-tile-value,
+html.theme-home .energy-metric-tile.emphasis .energy-metric-value {
+  color: #ff9f0a;
+}
+
+/* Heizungen: aktiv = hell wie eingeschaltete Geräte */
+html.theme-home .climate-overview-card.is-active {
+  background: #f2f2f7;
+  color: #000000;
+}
+
+html.theme-home .climate-overview-card.is-active .climate-card-title,
+html.theme-home .climate-overview-card.is-active .climate-card-values b {
+  color: #000000;
+}
+
+html.theme-home .climate-overview-card.is-active .climate-card-area,
+html.theme-home .climate-overview-card.is-active .climate-card-values em {
+  color: #6e6e73;
+}
+
+html.theme-home .climate-card-values span {
+  border: 0;
+  border-radius: 14px;
+  background: rgba(118, 118, 128, 0.24);
+}
+
+html.theme-home .climate-overview-card.is-active .climate-card-values span {
+  background: rgba(118, 118, 128, 0.14);
+}
+
+html.theme-home .climate-card-state {
+  border: 0;
+  background: rgba(118, 118, 128, 0.24);
+  color: rgba(235, 235, 245, 0.8);
+}
+
+html.theme-home .climate-overview-card.is-active .climate-card-state {
+  background: #ff9f0a;
+  color: #000000;
+}
+
+html.theme-home .climate-overview-card.is-active .entity-step-button,
+html.theme-home .climate-overview-card.is-active .pill-button {
+  background: rgba(118, 118, 128, 0.16);
+  color: #000000;
+}
+
+/* Sicherheit: Zustand über Farbe des Textes und eine leichte Tönung */
+html.theme-home .security-entity-card.ok { background: #2c2c2e; }
+html.theme-home .security-entity-card.ok .security-entity-state { color: #30d158; }
+html.theme-home .security-entity-card.warn,
+html.theme-home .security-entity-card.alert { background: rgba(255, 159, 10, 0.16); }
+html.theme-home .security-entity-card.warn .security-entity-state,
+html.theme-home .security-entity-card.alert .security-entity-state { color: #ff9f0a; }
+html.theme-home .security-entity-card.danger { background: rgba(255, 69, 58, 0.18); }
+html.theme-home .security-entity-card.danger .security-entity-state { color: #ff453a; }
+html.theme-home .security-entity-icon { color: rgba(235, 235, 245, 0.85); }
+
+html.theme-home .security-camera-thumb.active {
+  background: #f2f2f7;
+  color: #000000;
+}
+
+html.theme-home .security-camera-main,
+html.theme-home .security-camera-image {
+  border: 0;
+  border-radius: 20px;
+}
+
+/* Nebentexte neutral grau statt bläulich */
+html.theme-home .climate-card-area,
+html.theme-home .climate-bulk-subtitle,
+html.theme-home .climate-card-values em,
+html.theme-home .ring-gauge-subtitle,
+html.theme-home .ring-gauge-value small,
+html.theme-home .gate-switch-label-wrap small,
+html.theme-home .waste-dashboard-name,
+html.theme-home .modal-info-label {
+  color: rgba(235, 235, 245, 0.6);
+}
+
+html.theme-home .climate-bulk-target input,
+html.theme-home .climate-bulk-target select {
+  border: 0;
+  border-radius: 12px;
+  background: rgba(118, 118, 128, 0.24);
+  color: #ffffff;
+}

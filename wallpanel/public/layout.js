@@ -929,8 +929,24 @@ function getTabletId() {
   return id;
 }
 
+/** Design wechseln: auf dem Tablet merken und sofort anwenden (ohne Neuladen). */
+function applyWallpanelTheme(theme) {
+  theme = theme === 'home' ? 'home' : 'classic';
+  writeStored('haWallpanel.theme', theme);
+  var root = document.documentElement;
+  root.className = root.className.replace(/\btheme-[a-z]+\b/g, '').replace(/\s+/g, ' ').replace(/^ | $/g, '');
+  if (theme !== 'classic') { root.className += (root.className ? ' ' : '') + 'theme-' + theme; }
+}
+
+function getWallpanelTheme() {
+  var theme = '';
+  try { theme = window.localStorage.getItem('haWallpanel.theme') || ''; } catch (_e) { theme = ''; }
+  return theme === 'home' ? 'home' : 'classic';
+}
+
 function getLocalTabletConfig() {
   return {
+    theme: getWallpanelTheme(),
     room: typeof getTabletRoom === 'function' ? getTabletRoom() : '',
     panelId: typeof getPanelId === 'function' ? getPanelId() : 'default',
     screensaver: getScreensaverSettings(),
@@ -951,6 +967,7 @@ function reportTabletConfig(partial) {
 function applyTabletConfig(config) {
   if (!config || new Date().getTime() < tabletConfigLockUntil) { return; }
   if (typeof config.name === 'string') { writeStored('haWallpanel.tabletName', config.name); }
+  if (config.theme && config.theme !== getWallpanelTheme()) { applyWallpanelTheme(config.theme); }
 
   if (config.screensaver && JSON.stringify(config.screensaver) !== JSON.stringify(readStoredJson('haWallpanel.screensaver'))) {
     writeStored('haWallpanel.screensaver', JSON.stringify(config.screensaver));

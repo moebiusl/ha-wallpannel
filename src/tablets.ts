@@ -22,6 +22,8 @@ export type TabletConfig = {
   doorbellWake?: boolean;
   /** Töne bei Klingel und Mitteilungen abspielen (Standard: an). */
   sounds?: boolean;
+  /** Design: classic (bisher) oder home (Apple-Home-Stil). */
+  theme?: string;
 };
 
 export const SOUNDS = ["gong", "glocke", "ping", "hinweis", "alarm"] as const;
@@ -112,6 +114,7 @@ function sanitizeConfig(input: unknown): TabletConfig {
   }
   if (typeof source.doorbellWake === "boolean") { config.doorbellWake = source.doorbellWake; }
   if (typeof source.sounds === "boolean") { config.sounds = source.sounds; }
+  if (source.theme === "classic" || source.theme === "home") { config.theme = source.theme; }
   return config;
 }
 

@@ -123,6 +123,7 @@ function startOptionsPage() {
   loadNightModeSettings();
   loadScreensaverSettings();
   loadTabletIdentity();
+  loadThemeSetting();
   initOptionsPage();
 }
 
@@ -1734,6 +1735,18 @@ function loadTabletIdentity() {
   }
 }
 
+function loadThemeSetting() {
+  var select = document.getElementById("themeSelect");
+  if (select && typeof getWallpanelTheme === "function") { select.value = getWallpanelTheme(); }
+}
+
+function saveThemeSetting() {
+  var select = document.getElementById("themeSelect");
+  if (!select || typeof applyWallpanelTheme !== "function") { return; }
+  applyWallpanelTheme(select.value);
+  if (typeof reportTabletConfig === "function") { reportTabletConfig({ theme: select.value }); }
+}
+
 function saveTabletName() {
   var input = document.getElementById("tabletNameInput");
   if (!input) { return; }
@@ -1831,6 +1844,10 @@ function renderTabletsAdmin() {
         '<label>Name<input id="' + p + 'name" class="assist-input" type="text" maxlength="40" value="' + escapeHtml(c.name || "") + '"></label>' +
         '<label>Raum<select id="' + p + 'room" class="room-select">' + tabletRoomOptions(c.room || "") + "</select></label>" +
         '<label>Panel<select id="' + p + 'panel" class="room-select">' + tabletPanelOptions(c.panelId) + "</select></label>" +
+        '<label>Design<select id="' + p + 'theme" class="room-select">' +
+          '<option value="classic"' + (c.theme !== "home" ? " selected" : "") + '>Klassisch</option>' +
+          '<option value="home"' + (c.theme === "home" ? " selected" : "") + '>Home (Apple-Stil, Test)</option>' +
+        "</select></label>" +
         '<label class="settings-check"><input id="' + p + 'doorbell" type="checkbox"' + (c.doorbellWake !== false ? " checked" : "") + "><span>Klingel-Popup anzeigen</span></label>" +
         '<label class="settings-check"><input id="' + p + 'sounds" type="checkbox"' + (c.sounds !== false ? " checked" : "") + "><span>Töne abspielen</span></label>" +
         '<label class="settings-check"><input id="' + p + 'ss" type="checkbox"' + (ss.enabled ? " checked" : "") + '><span>Bildschirmschoner nach</span></label>' +
@@ -1880,6 +1897,7 @@ function saveTabletAdmin(id) {
     name: tabletAdminValue(p + "name") || "",
     room: tabletAdminValue(p + "room") || "",
     panelId: tabletAdminValue(p + "panel") || "default",
+    theme: tabletAdminValue(p + "theme") || "classic",
     doorbellWake: !!tabletAdminValue(p + "doorbell"),
     sounds: !!tabletAdminValue(p + "sounds"),
     screensaver: { enabled: !!tabletAdminValue(p + "ss"), minutes: num("ssmin", 5) },

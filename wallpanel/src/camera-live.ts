@@ -196,7 +196,13 @@ export function createCameraLive(deps: LiveDeps) {
   ): Promise<{ stream: Readable; contentType: string; release: () => void } | null> {
     const base = await deps.getGo2RtcBase();
     if (!base) { return null; }
-    const source = await resolveSource(cameraEntityId, streamOverride);
+    let source: LiveSource | null = null;
+    try {
+      source = await resolveSource(cameraEntityId, streamOverride);
+    } catch (error) {
+      console.warn(`go2rtc nicht erreichbar (${base}): ${deps.describeError(error)}`);
+      return null;
+    }
     if (!source) {
       console.warn(`Kein passender go2rtc-Stream für ${cameraEntityId} gefunden (go2rtc: ${base})`);
       return null;

@@ -5207,15 +5207,22 @@ html {
   margin-bottom: 12px;
 }
 
+.doorbell-header .panel-kicker {
+  display: block;
+  float: none;
+}
+
 .doorbell-title {
   margin-top: 4px;
   color: #eef4ff;
   font-size: 26px;
   font-weight: bold;
+  white-space: nowrap;
 }
 
 .doorbell-title span {
   color: #94a7c6;
+  font-size: 20px;
   font-weight: normal;
 }
 
@@ -5310,13 +5317,6 @@ html {
   left: 0;
   z-index: 10003;
   background: rgba(5, 10, 18, 0.6);
-  opacity: 0;
-  -webkit-transition: opacity 0.25s ease;
-  transition: opacity 0.25s ease;
-}
-
-.tablet-notice.is-visible {
-  opacity: 1;
 }
 
 .tablet-notice-card {
@@ -5657,4 +5657,14 @@ html {
   width: 100%;
   max-width: 520px;
   font-family: inherit;
+}
+
+/* Im Grid-Layout (neuere Browser) übernimmt das Grid die Breite – die Prozent-Breiten
+   der Ersatzdarstellung (iOS 9) aus den Media-Queries darunter sonst die Kacheln zusammen. */
+@supports (display: grid) {
+  .energy-metric-grid .energy-metric-tile,
+  .metric-tile-grid .metric-tile,
+  .energy-summary-grid .energy-summary-card {
+    width: auto;
+  }
 }
