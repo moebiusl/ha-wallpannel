@@ -104,9 +104,24 @@ function isoMinute(date: Date): string {
   return date.toISOString().replace(/\.\d{3}Z$/, "Z");
 }
 
+/** Letzter Sonntag eines Monats um 01:00 UTC (Beginn/Ende der EU-Sommerzeit). */
+function lastSundayUtc(year: number, month: number): number {
+  const lastDay = new Date(Date.UTC(year, month + 1, 0, 1, 0, 0));
+  return lastDay.getTime() - lastDay.getUTCDay() * 24 * 60 * 60 * 1000;
+}
+
+/**
+ * Uhrzeit in deutscher Zeit als „09:50“ – bewusst ohne toLocaleTimeString, weil Node im
+ * Add-on-Container nur englische Sprachdaten hat und sonst „9:50 AM“ liefert.
+ */
 function formatClock(iso: string): string {
-  const date = new Date(iso);
-  return date.toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit", timeZone: "Europe/Berlin" });
+  const time = new Date(iso).getTime();
+  const year = new Date(time).getUTCFullYear();
+  const summer = time >= lastSundayUtc(year, 2) && time < lastSundayUtc(year, 9);
+  const local = new Date(time + (summer ? 2 : 1) * 60 * 60 * 1000);
+  const hours = local.getUTCHours();
+  const minutes = local.getUTCMinutes();
+  return `${hours < 10 ? "0" : ""}${hours}:${minutes < 10 ? "0" : ""}${minutes}`;
 }
 
 function intensityLabel(dbz: number): string {

@@ -1,3 +1,8 @@
+## 1.10.2
+
+### Fix
+- Regenradar: Uhrzeiten erschienen im Add-on als „9:50 AM“ – jetzt immer im 24-Stunden-Format („09:50“), mit korrekter deutscher Sommer-/Winterzeit
+
 ## 1.10.1
 
 ### Wetterkachel auf der Startseite
