@@ -1,0 +1,52 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python3 -m py_compile build_litellm_config.py status_push.py)",
+      "Bash(bash -n run.sh)",
+      "Bash(python3 -c \"import yaml\")",
+      "Bash(python3 -m pip --version)",
+      "Bash(docker build *)",
+      "Bash(python3 -m pip install --quiet --break-system-packages pyyaml requests)",
+      "Bash(python3 -m pip install --quiet --user pyyaml requests)",
+      "Bash(python3 -c ' *)",
+      "Bash(docker info *)",
+      "Read(//Users/lucasmobius/Entwicklung/**)",
+      "Bash(docker run *)",
+      "Bash(docker rm *)",
+      "WebSearch",
+      "Bash(curl -s -m 20 -H \"Authorization: Bearer test-master-key\" \"http://localhost:4000/health\")",
+      "Bash(python3 -m json.tool)",
+      "Bash(docker image *)",
+      "Bash(cd /Users/lucasmobius/Entwicklung && ls ai-gateway 2>/dev/null && echo \"ALREADY EXISTS - ABORT\" || echo \"target free, proceeding\")",
+      "Bash(mv ha-wallpannel/ai-gateway ./ai-gateway)",
+      "Bash(git checkout *)",
+      "Bash(git status *)",
+      "Read(//Users/lucasmobius/Entwicklung/ai-gateway/**)",
+      "Bash(ls -la /Users/lucasmobius/Entwicklung/monitoring-service 2>/dev/null | head -20)",
+      "Read(//Users/lucasmobius/Entwicklung/monitoring-service/**)",
+      "Bash(grep -n -i \"grafana\\\\|prometheus\\\\|postgres\\\\|influx\" /Users/lucasmobius/Entwicklung/monitoring-service/docker-compose.yml /Users/lucasmobius/Entwicklung/monitoring-service/README.md 2>/dev/null | head -40)",
+      "Bash(cat /Users/lucasmobius/Entwicklung/monitoring-service/docker-compose.yml)",
+      "Bash(python3 -m py_compile providers.py build_litellm_config.py status_push.py router.py)",
+      "Bash(mkdir -p /Users/lucasmobius/Entwicklung/ai-gateway/metrics/postgres /Users/lucasmobius/Entwicklung/ai-gateway/metrics/receiver /Users/lucasmobius/Entwicklung/ai-gateway/metrics/grafana/provisioning/datasources /Users/lucasmobius/Entwicklung/ai-gateway/metrics/grafana/provisioning/dashboards /Users/lucasmobius/Entwicklung/ai-gateway/metrics/grafana/dashboards && echo done)",
+      "Bash(curl -s -m 10 http://localhost:8090/health)",
+      "Bash(curl -s -m 10 http://localhost:3001/api/health)",
+      "Bash(curl -s -m 10 -X POST http://localhost:8090/log -H 'Content-Type: application/json' -d '{ *)",
+      "Bash(curl -s -m 10 -u admin:change-me http://localhost:3001/api/datasources)",
+      "Bash(curl -s -m 10 -u admin:change-me http://localhost:3001/api/search?query=AI)",
+      "Bash(curl -s -m 10 -u admin:change-me \"http://localhost:3001/api/search\")",
+      "Bash(curl -s -m 15 -u admin:change-me -X POST http://localhost:3001/api/ds/query -H 'Content-Type: application/json' -d '{ *)",
+      "Bash(docker run --rm -v /tmp/ai-gateway-run:/data ai-gateway-test sh -c 'cat /data/options.json && python3 -c \" *)",
+      "Bash(curl -s -m 15 -H \"Authorization: Bearer test-master-key\" http://localhost:4000/health)",
+      "Bash(curl -s -m 30 -X POST http://localhost:4000/v1/chat/completions -H 'Authorization: Bearer test-master-key' -H 'Content-Type: application/json' -d '{\"model\":\"assistant\",\"messages\":[{\"role\":\"user\",\"content\":\"Mach das Licht an\"}]}')",
+      "WebFetch(domain:docs.litellm.ai)",
+      "Bash(python3 -m py_compile custom_callback.py build_litellm_config.py router.py status_push.py providers.py)",
+      "Bash(curl -s -m 30 -X POST http://localhost:4000/v1/chat/completions -H 'Authorization: Bearer test-master-key' -H 'Content-Type: application/json' -d '{\"model\":\"assistant\",\"messages\":[{\"role\":\"user\",\"content\":\"Testfrage fuer den Callback\"}]}')",
+      "Bash(git commit -m ' *)",
+      "Read(//Users/lucasmobius/Entwicklung/ai-gateway/metrics/receiver/**)"
+    ],
+    "additionalDirectories": [
+      "/Users/lucasmobius/Entwicklung/ai-gateway",
+      "/Users/lucasmobius/Entwicklung/ai-gateway/metrics"
+    ]
+  }
+}
