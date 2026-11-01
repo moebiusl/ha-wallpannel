@@ -37,6 +37,7 @@ export type DeviceRegistryEntry = {
 export type EntityRegistryEntry = {
   entity_id: string;
   unique_id?: string;
+  config_entry_id?: string;
   name?: string | null;
   original_name?: string | null;
   device_id?: string | null;

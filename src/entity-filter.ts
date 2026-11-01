@@ -22,10 +22,12 @@ const ALLOWED_DOMAINS = [
   "switch",
   "cover",
   "climate",
+  "weather",
   "sensor",
   "binary_sensor",
   "camera",
   "lock",
+  "alarm_control_panel",
   "fan",
   "button",
   "scene",
@@ -64,27 +66,13 @@ const ALLOWED_BINARY_SENSOR_DEVICE_CLASSES = [
   "moisture",
   "smoke",
   "gas",
+  "carbon_monoxide",
+  "carbon_dioxide",
   "safety",
   "problem",
   "battery"
 ];
 
-const HIDDEN_ENTITY_ID_PARTS = [
-  "rssi",
-  "wifi_signal",
-  "wi_fi_signal",
-  "signal_strength",
-  "uptime",
-  "ip_address",
-  "ip_adresse",
-  "firmware",
-  "linkquality",
-  "last_seen",
-  "last_restart",
-  "restart_count",
-  "update_available",
-  "cloud_status"
-];
 
 export function getDomain(entityId: string): string {
   return entityId.split(".")[0] || "unknown";
@@ -121,13 +109,6 @@ export function isProbablyUsefulEntity(entity: HaState | undefined, registry?: E
 
   if (registry?.entity_category === "diagnostic" || registry?.entity_category === "config") {
     return false;
-  }
-
-  const lowerEntityId = entityId.toLowerCase();
-  for (const hiddenPart of HIDDEN_ENTITY_ID_PARTS) {
-    if (lowerEntityId.indexOf(hiddenPart) !== -1) {
-      return false;
-    }
   }
 
   const deviceClass = entity?.attributes?.device_class;

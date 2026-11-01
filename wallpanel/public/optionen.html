@@ -12,16 +12,8 @@
   <meta name="theme-color" content="#09111f">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="apple-touch-icon" href="apple-touch-icon.png">
-  <script>
-    // Design vor dem ersten Zeichnen setzen (kein Aufblitzen). ?theme=home zum Ausprobieren.
-    (function () {
-      var theme = '';
-      try { theme = window.localStorage.getItem('haWallpanel.theme') || ''; } catch (e) { theme = ''; }
-      var preview = /[?&]theme=([a-z]+)/.exec(window.location.search);
-      if (preview) { theme = preview[1]; }
-      if (theme && theme !== 'classic') { document.documentElement.className += ' theme-' + theme; }
-    })();
-  </script>
+  <script src="design.js"></script>
+  <script src="theme.js"></script>
   <link rel="stylesheet" href="style.css">
   <link rel="stylesheet" href="theme-home.css">
 </head>
@@ -81,7 +73,8 @@
                   <div class="settings-title">Design</div>
                   <select id="themeSelect" class="room-select" onchange="saveThemeSetting()">
                     <option value="classic">Klassisch</option>
-                    <option value="home">Home (Apple-Stil, Test)</option>
+                    <option value="home">Apple</option>
+                    <option value="panel">Neues Wallpanel</option>
                   </select>
                   <div class="settings-hint">Gilt nur für dieses Gerät und wird sofort übernommen.</div>
                 </section>
@@ -325,6 +318,9 @@
                   <div class="settings-title">Wandtablets</div>
                   <div class="settings-hint">Alle Tablets, die das Wallpanel als Web-App geöffnet haben. Änderungen werden innerhalb weniger Sekunden auf dem Tablet übernommen.</div>
                   <button class="pill-button" type="button" onclick="loadTabletsAdmin()" style="margin:10px 0">Aktualisieren</button>
+                  <button class="pill-button" type="button" onclick="reloadAllTablets()">Alle iPads neu laden</button>
+                  <div id="tabletsMaintenanceState" class="settings-save-state" role="status"></div>
+                  <div id="tabletsMaintenanceMount"></div>
                   <div id="tabletsAdminMount" class="tablets-admin-list"><div class="settings-empty">Lade…</div></div>
                 </section>
 

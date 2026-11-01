@@ -1,6 +1,6 @@
 name: "HA Wallpanel"
 description: "Touch-optimiertes Home-Assistant-Wallpanel fuer iPad und Tablet."
-version: "1.10.2"
+version: "1.11.0"
 slug: "wallpanel"
 init: false
 
@@ -30,7 +30,8 @@ options:
   ha_token: ""
   go2rtc_public_url: ""
   go2rtc_port: "1984"
-  settings_pin: "1310"
+  settings_pin: "1111"
+  allowed_hosts: ""
 
   entity_light_main: "light.hof"
   entity_light_secondary: "light.stehlampe"
@@ -71,6 +72,7 @@ schema:
   go2rtc_public_url: str?
   go2rtc_port: str?
   settings_pin: str?
+  allowed_hosts: str?
 
   entity_light_main: str?
   entity_light_secondary: str?

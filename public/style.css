@@ -5834,3 +5834,31 @@ html {
 .radar-credit {
   float: right;
 }
+
+/* Shared room controls retain a vertical layout in Classic and Home. */
+.room-primary-controls > .room-entity-section + .room-entity-section { margin-top: 20px; }
+.theme-preview-exit { position: fixed; bottom: 14px; right: 14px; z-index: 9000; min-height: 44px; padding: 10px 16px; border: 1px solid #e8bc83; border-radius: 14px; background: #29262e; color: #f3dfc4; font-size: 13px; box-shadow: 0 4px 20px rgba(0,0,0,.3); }
+.media-volume-control { display: block; width: 100%; margin-top: 12px; }
+.media-source-select { margin-top: 10px; }
+.dynamic-entity-card.is-unavailable button, .dynamic-entity-card.is-unavailable input { cursor: default; }
+.music-library-backdrop { position: fixed; top: 0; right: 0; bottom: 0; left: 0; z-index: 8000; background: rgba(0,0,0,.7); padding: 24px; overflow: auto; -webkit-overflow-scrolling: touch; }
+.music-library-card { position: relative; width: 100%; max-width: 650px; margin: 5vh auto; padding: 24px; max-height: 85vh; overflow: auto; }
+.music-library-card h2 { margin: 0; font-size: 24px; }
+.music-library-card .modal-close { position: static; }
+#musicLibrarySearch { display: -webkit-flex; display: flex; margin: 18px 0; }
+#musicLibraryQuery { -webkit-flex: 1; flex: 1; min-width: 0; margin-right: 8px; }
+#musicLibraryItems { min-height: 70px; }
+.music-library-item { display: block; width: 100%; text-align: left; margin-bottom: 8px; white-space: normal; }
+.music-library-pages { display: -webkit-flex; display: flex; -webkit-justify-content: space-between; justify-content: space-between; margin-top: 18px; }
+
+/* Mac tablet administration: full-width controls and a shared maintenance list. */
+.tablet-admin-grid label .assist-input, .tablet-admin-grid label .room-select { max-width: none; }
+.tablet-assigned-rooms { margin: 12px 0; padding: 12px; border: 1px solid #40516d; border-radius: 14px; }
+.tablet-assigned-rooms legend { padding: 0 6px; font-size: 14px; }
+.tablet-assigned-rooms .settings-check { display: inline-flex; display: -webkit-inline-flex; margin: 5px 20px 5px 0; }
+.tablet-maintenance { margin: 12px 0 20px; padding: 16px; border: 1px solid #40516d; border-radius: 16px; }
+.tablet-maintenance > h3 { margin: 12px 0 8px; }
+.tablet-maintenance p { margin: 8px 0; line-height: 1.5; font-size: 13px; }
+.tablet-maintenance-notice { padding: 12px; margin-top: 12px; border: 1px solid #40516d; border-radius: 12px; word-wrap: break-word; }
+.tablet-maintenance-notice small { display: block; margin-bottom: 8px; }
+.tablet-maintenance-notice .pill-button { margin: 4px 8px 0 0; }

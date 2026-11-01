@@ -55,23 +55,7 @@ function getInitialRoomId() {
   return document.body.getAttribute("data-room") || "hof";
 }
 
-function apiGetQuiet(url, callback) {
-  var xhr = new XMLHttpRequest();
-  xhr.open("GET", url, true);
-  xhr.onreadystatechange = function () {
-    if (xhr.readyState !== 4) { return; }
-    if (xhr.status >= 200 && xhr.status < 300) {
-      try {
-        callback(null, JSON.parse(xhr.responseText));
-      } catch (error) {
-        callback(error);
-      }
-    } else {
-      callback(new Error("HTTP " + xhr.status));
-    }
-  };
-  xhr.send();
-}
+function apiGetQuiet(url, callback) { apiGet(url, callback); }
 
 function setRetryStatus(el, active) {
   if (!el) { return; }
@@ -99,6 +83,8 @@ function formatValue(value, suffix) {
 
 function formatEntityState(entity) {
   if (!entity) { return "unavailable"; }
+  if (entity.state === "unavailable" || entity.state === "unknown") { return "Nicht erreichbar"; }
+  if (entity.domain === "light" || entity.domain === "switch") { return entity.state === "on" ? "An" : "Aus"; }
   if (entity.domain === "climate") {
     var current = getNumberAttribute(entity, "current_temperature", null);
     var target = getNumberAttribute(entity, "temperature", null);
@@ -258,7 +244,7 @@ function makeDetailsSection(title, className, open) {
 }
 
 function appendEntityClick(card, entity) {
-  if (!entityCanToggle(entity)) { return; }
+  if (!entityCanToggle(entity) || isUnavailableState(entity.state)) { return; }
   card.className += " is-clickable";
   card.onclick = function () {
     if (card.className.indexOf("is-loading") !== -1) { return; }
@@ -266,7 +252,9 @@ function appendEntityClick(card, entity) {
     card.className = (hasOn
       ? card.className.replace(/\s*\bis-on\b/g, "")
       : card.className + " is-on") + " is-loading";
-    apiPost("api/entity/" + encodeURIComponent(entity.entityId) + "/toggle", {}, function () {
+    apiPost("api/entity/" + encodeURIComponent(entity.entityId) + "/toggle", {}, function (error) {
+      card.className = card.className.replace(/\s*is-loading/g, "");
+      if (error) { window.alert("Gerät konnte nicht geschaltet werden. Bitte erneut versuchen."); }
       setTimeout(loadRoomPage, 1000);
     });
   };
@@ -283,7 +271,8 @@ function callEntityService(entityId, service, data) {
   apiPost("api/entity/" + encodeURIComponent(entityId) + "/service", {
     service: service,
     data: data || {}
-  }, function () {
+  }, function (error) {
+    if (error) { window.alert("Der Gerätebefehl ist fehlgeschlagen. Bitte erneut versuchen."); }
     setTimeout(loadRoomPage, 1000);
   });
 }
@@ -318,16 +307,49 @@ function appendMediaPlayerControls(card, entity) {
   var volume = getNumberAttribute(entity, "volume_level", null);
 
   controls.className = "entity-inline-controls media-inline-controls";
-  controls.onclick = stopEntityControlEvent;
+  controls.onclick = function (event) { event.stopPropagation(); };
 
   detail.className = "media-player-detail";
-  detail.textContent = "HomePod · " + mediaPlayerStateLabel(entity) + (volume !== null ? " · " + Math.round(volume * 100) + " %" : "");
+  detail.textContent = "Musik · " + mediaPlayerStateLabel(entity) + (volume !== null ? " · " + Math.round(volume * 100) + " %" : "");
   controls.appendChild(detail);
 
   actions.className = "media-player-actions";
-  appendMediaPlayerButton(actions, entity, entity.state === "playing" ? "media_pause" : "media_play", entity.state === "playing" ? "Pause" : "Play", entity.state === "playing" ? "pause" : "play");
-  appendMediaPlayerButton(actions, entity, "media_stop", "Stop", "stop");
+  var features = getNumberAttribute(entity, "supported_features", 0);
+  if (features & 16) { appendMediaPlayerButton(actions, entity, "media_previous_track", "Vorheriger Titel", "previous"); }
+  if (entity.state === "playing" && (features & 1)) { appendMediaPlayerButton(actions, entity, "media_pause", "Pause", "pause"); }
+  else if (features & 16384) { appendMediaPlayerButton(actions, entity, "media_play", "Play", "play"); }
+  if (features & 32) { appendMediaPlayerButton(actions, entity, "media_next_track", "Nächster Titel", "next"); }
+  if (entity.musicAssistant) {
+    var choose = document.createElement("button");
+    choose.className = "pill-button";
+    choose.type = "button";
+    choose.textContent = "Musik wählen";
+    choose.onclick = function (event) { stopEntityControlEvent(event); openMusicLibrary(entity); };
+    actions.appendChild(choose);
+  }
   controls.appendChild(actions);
+  if (volume !== null && (features & 4)) {
+    var volumeSlider = document.createElement("input");
+    volumeSlider.className = "entity-range media-volume-control";
+    volumeSlider.type = "range";
+    volumeSlider.min = "0"; volumeSlider.max = "100"; volumeSlider.step = "1";
+    volumeSlider.value = String(Math.round(volume * 100));
+    volumeSlider.setAttribute("aria-label", "Lautstärke " + (entity.name || ""));
+    volumeSlider.onchange = function () { callEntityService(entity.entityId, "volume_set", { volume_level: Number(volumeSlider.value) / 100 }); };
+    controls.appendChild(volumeSlider);
+  }
+  var sources = getArrayAttribute(entity, "source_list");
+  if (sources.length && (features & 2048)) {
+    var sourceSelect = document.createElement("select");
+    sourceSelect.className = "room-select media-source-select";
+    sourceSelect.setAttribute("aria-label", "Musikquelle " + (entity.name || ""));
+    for (var i = 0; i < sources.length; i++) {
+      var option = document.createElement("option"); option.value = sources[i]; option.textContent = sources[i];
+      option.selected = sources[i] === getAttribute(entity, "source", ""); sourceSelect.appendChild(option);
+    }
+    sourceSelect.onchange = function () { callEntityService(entity.entityId, "select_source", { source: sourceSelect.value }); };
+    controls.appendChild(sourceSelect);
+  }
   card.appendChild(controls);
 }
 
@@ -336,6 +358,7 @@ function appendMediaPlayerButton(mount, entity, service, label, iconName) {
   button.className = "media-control-button";
   button.type = "button";
   button.title = label;
+  button.setAttribute("aria-label", label);
   button.innerHTML = typeof haIcon === "function" ? haIcon(iconName) : label;
   button.onclick = function (event) {
     stopEntityControlEvent(event);
@@ -348,8 +371,8 @@ function appendLightControls(card, entity) {
   var supportedModes = getArrayAttribute(entity, "supported_color_modes");
   var brightness = getNumberAttribute(entity, "brightness", null);
   var colorMode = String(getAttribute(entity, "color_mode", ""));
-  var canDim = brightness !== null || supportedModes.indexOf("brightness") !== -1 || supportedModes.indexOf("color_temp") !== -1 || supportedModes.indexOf("hs") !== -1 || supportedModes.indexOf("rgb") !== -1 || supportedModes.indexOf("xy") !== -1;
-  var canColor = supportedModes.indexOf("hs") !== -1 || supportedModes.indexOf("rgb") !== -1 || supportedModes.indexOf("xy") !== -1 || colorMode === "hs" || colorMode === "rgb" || colorMode === "xy";
+  var canDim = brightness !== null || supportedModes.indexOf("brightness") !== -1 || supportedModes.indexOf("color_temp") !== -1 || supportedModes.indexOf("hs") !== -1 || supportedModes.indexOf("rgb") !== -1 || supportedModes.indexOf("xy") !== -1 || supportedModes.indexOf("rgbw") !== -1 || supportedModes.indexOf("rgbww") !== -1 || supportedModes.indexOf("white") !== -1;
+  var canColor = supportedModes.indexOf("hs") !== -1 || supportedModes.indexOf("rgb") !== -1 || supportedModes.indexOf("xy") !== -1 || colorMode === "hs" || colorMode === "rgb" || colorMode === "xy" || supportedModes.indexOf("rgbw") !== -1 || supportedModes.indexOf("rgbww") !== -1;
   var brightnessPct = brightness === null ? 100 : Math.max(1, Math.round(brightness / 255 * 100));
   var controls;
   var slider;
@@ -361,7 +384,7 @@ function appendLightControls(card, entity) {
 
   controls = document.createElement("div");
   controls.className = "entity-inline-controls light-inline-controls";
-  controls.onclick = stopEntityControlEvent;
+  controls.onclick = function (event) { event.stopPropagation(); };
 
   if (canDim) {
     slider = document.createElement("input");
@@ -422,7 +445,7 @@ function appendClimateControls(card, entity) {
   var slider = document.createElement("input");
 
   controls.className = "entity-inline-controls climate-inline-controls";
-  controls.onclick = stopEntityControlEvent;
+  controls.onclick = function (event) { event.stopPropagation(); };
 
   temp.className = "entity-temp-readout";
   temp.textContent = "Soll " + target + " °C" + (current !== null ? " · Ist " + current + " °C" : "");
@@ -491,10 +514,11 @@ function renderEntityCard(entity, variant) {
 
   var meta = document.createElement("div");
   meta.className = "dynamic-entity-meta";
-  meta.textContent = entity.domain === "media_player" ? "HomePod" : entity.domain;
+  meta.textContent = entity.domain === "media_player" ? "Musik" : entity.domain === "climate" ? "Heizung" : entity.domain === "light" ? "Licht" : entity.domain;
   card.appendChild(meta);
 
   if (entity.domain === "light") {
+    card.className += " light-device-card";
     appendLightControls(card, entity);
   }
 
@@ -507,7 +531,11 @@ function renderEntityCard(entity, variant) {
   }
 
   appendEntityClick(card, entity);
-
+  if (unavailable) {
+    var inputs = card.querySelectorAll("button, input, select");
+    for (var i = 0; i < inputs.length; i++) { inputs[i].disabled = true; }
+    card.setAttribute("aria-disabled", "true");
+  }
   return card;
 }
 
@@ -517,7 +545,7 @@ function renderCompactEntity(entity) {
 
   var name = document.createElement("div");
   name.className = "compact-entity-name";
-  name.innerHTML = getEntityIcon(entity) + '<span>' + (entity.name || entity.entityId) + '</span>';
+  name.innerHTML = getEntityIcon(entity) + '<span>' + escapeHtml(entity.name || entity.entityId) + '</span>';
   row.appendChild(name);
 
   var value = document.createElement("div");
@@ -817,7 +845,6 @@ function renderPinnedStatus(entities) {
 }
 
 function renderEntityLayout(cards, entities, mount) {
-  entities = entities.filter(function(e) { return !isUnavailableState(e.state); });
   var controls = [];
   var lights = [];
   var switches = [];
@@ -863,16 +890,22 @@ function renderEntityLayout(cards, entities, mount) {
     renderControlCollection("Aktionen", actionEntities, mount, false);
   }
 
-  if (lights.length > 0) {
-    renderControlCollection("Lampen", lights, mount, false);
-  }
-
-  if (switches.length > 0 || climateEntities.length > 0) {
-    renderControlCollection("Schalter & Geräte", switches.concat(climateEntities), mount, false);
-  }
-
+  var primary = document.createElement("div");
+  primary.className = "room-primary-controls";
   if (mediaEntities.length > 0) {
-    renderControlCollection("Medien", mediaEntities, mount, false);
+    renderControlCollection("Musik", mediaEntities, primary, false);
+    primary.lastChild.className += " room-music-section";
+  }
+  if (lights.length > 0) {
+    renderControlCollection("Lampen", lights, primary, false);
+    primary.lastChild.className += " room-lights-section";
+  }
+  if (primary.children.length) { mount.appendChild(primary); }
+  if (climateEntities.length > 0) {
+    renderControlCollection("Raumklima · Heizung", climateEntities, mount, false);
+  }
+  if (switches.length > 0) {
+    renderControlCollection("Schalter & Geräte", switches, mount, false);
   }
 
   if (binaryEntities.length > 0) {
@@ -909,18 +942,28 @@ function renderEntityLayout(cards, entities, mount) {
 function renderRoomPayload(payload, preserveScroll) {
   setRoomLoading(false);
   var title = document.getElementById("roomTitle");
-  if (title && payload.page) { title.innerHTML = payload.page.title || payload.pageId; }
+  if (title && payload.page) { title.textContent = payload.page.title || payload.pageId; }
 
   var mount = document.getElementById("roomCardsMount");
   if (!mount) { return; }
+  var scrollPanel = document.querySelector(".room-page-panel");
+  var panelScrollTop = scrollPanel ? scrollPanel.scrollTop : 0;
   var scrollY = window.pageYOffset || document.documentElement.scrollTop || document.body.scrollTop || 0;
   mount.innerHTML = "";
 
   var cards = payload.cards || [];
   var entities = payload.entities || [];
   renderPinnedStatus(entities);
-  renderEntityLayout(cards, entities, mount);
+  if (payload.roomAvailable === false) {
+    var message = document.createElement("p");
+    message.className = "settings-hint";
+    message.textContent = "Dieser Raum ist ausgeblendet oder nicht mehr in Home Assistant vorhanden. Bitte über Räume einen sichtbaren Raum wählen oder die Tablet-Zuordnung ändern.";
+    mount.appendChild(message);
+  } else {
+    renderEntityLayout(cards, entities, mount);
+  }
   roomPageState.lastRenderedPageId = payload.pageId;
+  if (preserveScroll && scrollPanel) { scrollPanel.scrollTop = panelScrollTop; }
 
   if (preserveScroll && scrollY > 0 && window.requestAnimationFrame) {
     window.requestAnimationFrame(function () {
@@ -937,6 +980,8 @@ function renderRoomPayload(payload, preserveScroll) {
 }
 
 function loadRoomPage() {
+  if (document.querySelector(".dynamic-entity-card.is-loading")) { return; }
+  if (window.wallpanelControlDragUntil > Date.now()) { return; }
   var select = document.getElementById("roomSelect");
   if (select && select.value && select.value !== roomPageState.pageId) {
     roomPageState.pageId = select.value;
@@ -996,7 +1041,7 @@ function fillRoomSelect() {
       if (!floorAreas[a].areaId) { continue; }
       var option = document.createElement("option");
       option.value = floorAreas[a].areaId;
-      option.innerHTML = floorAreas[a].name;
+      option.textContent = floorAreas[a].name;
       if (floorAreas[a].areaId === selectedRoom) {
         option.selected = true;
         foundSelectedRoom = true;
@@ -1063,3 +1108,80 @@ function initRoomPage() {
 }
 
 initRoomPage();
+
+// Background refresh must not replace a range control during a touch gesture.
+window.wallpanelControlDragUntil = 0;
+function trackRoomRangeGesture(event) {
+  if (event.target && event.target.type === "range") { window.wallpanelControlDragUntil = Date.now() + 30000; }
+}
+document.addEventListener("touchstart", trackRoomRangeGesture, true);
+document.addEventListener("mousedown", trackRoomRangeGesture, true);
+function finishRoomRangeGesture() { window.wallpanelControlDragUntil = Date.now() + 1200; }
+document.addEventListener("touchend", finishRoomRangeGesture, true);
+document.addEventListener("touchcancel", finishRoomRangeGesture, true);
+document.addEventListener("mouseup", finishRoomRangeGesture, true);
+
+var musicLibraryState = null;
+function closeMusicLibrary() {
+  var modal = document.getElementById("musicLibraryModal");
+  if (modal) { modal.parentNode.removeChild(modal); }
+  musicLibraryState = null;
+}
+function openMusicLibrary(entity) {
+  closeMusicLibrary();
+  musicLibraryState = { entityId: entity.entityId, offset: 0, query: "", serial: 0 };
+  var modal = document.createElement("div");
+  modal.id = "musicLibraryModal";
+  modal.className = "music-library-backdrop";
+  modal.setAttribute("role", "dialog"); modal.setAttribute("aria-modal", "true"); modal.setAttribute("aria-label", "Musik wählen");
+  modal.innerHTML = '<section class="modal-card music-library-card"><div class="panel-header"><h2>Musik wählen</h2><button type="button" class="modal-close" aria-label="Schließen" onclick="closeMusicLibrary()">×</button></div><p id="musicLibraryTarget"></p><form id="musicLibrarySearch"><input id="musicLibraryQuery" class="assist-input" maxlength="200" placeholder="Playlist suchen" aria-label="Playlist suchen"><button type="submit" class="pill-button">Suchen</button></form><div id="musicLibraryItems"></div><div class="music-library-pages"><button id="musicLibraryPrevious" class="pill-button" type="button">Zurück</button><button id="musicLibraryNext" class="pill-button" type="button">Weiter</button></div></section>';
+  modal.onclick = function (event) { if (event.target === modal) { closeMusicLibrary(); } };
+  document.body.appendChild(modal);
+  document.getElementById("musicLibraryTarget").textContent = "Wiedergabe auf " + (entity.name || entity.entityId);
+  document.getElementById("musicLibrarySearch").onsubmit = function (event) {
+    event.preventDefault(); musicLibraryState.offset = 0;
+    musicLibraryState.query = document.getElementById("musicLibraryQuery").value; loadMusicLibrary();
+  };
+  document.getElementById("musicLibraryPrevious").onclick = function () { musicLibraryState.offset = Math.max(0, musicLibraryState.offset - 20); loadMusicLibrary(); };
+  document.getElementById("musicLibraryNext").onclick = function () { musicLibraryState.offset += 20; loadMusicLibrary(); };
+  loadMusicLibrary();
+}
+function loadMusicLibrary() {
+  var state = musicLibraryState;
+  if (!state) { return; }
+  var serial = ++state.serial;
+  var mount = document.getElementById("musicLibraryItems");
+  mount.textContent = "Playlists werden geladen …";
+  document.getElementById("musicLibraryNext").disabled = true;
+  document.getElementById("musicLibraryPrevious").disabled = state.offset === 0 || !!state.query;
+  apiGet("api/music/" + encodeURIComponent(state.entityId) + "/playlists?q=" + encodeURIComponent(state.query) + "&offset=" + state.offset, function (error, payload) {
+    if (musicLibraryState !== state || serial !== state.serial) { return; }
+    mount.innerHTML = "";
+    if (error) { mount.textContent = "Die Musikbibliothek konnte nicht geladen werden. Music Assistant und Verbindung prüfen."; return; }
+    var items = payload.items || [];
+    if (!items.length) { mount.textContent = "Keine Playlists gefunden."; }
+    for (var i = 0; i < items.length; i++) {
+      (function (item) {
+        var button = document.createElement("button"); button.type = "button"; button.className = "pill-button music-library-item";
+        button.textContent = item.name;
+        button.onclick = function () {
+          button.disabled = true;
+          apiPost("api/music/" + encodeURIComponent(state.entityId) + "/play", { uri: item.uri }, function (playError) {
+            if (musicLibraryState !== state) { return; }
+            if (playError) { button.disabled = false; window.alert("Playlist konnte nicht gestartet werden."); return; }
+            closeMusicLibrary(); setTimeout(loadRoomPage, 1000);
+          });
+        };
+        mount.appendChild(button);
+      })(items[i]);
+    }
+    document.getElementById("musicLibraryNext").disabled = !payload.more;
+  });
+}
+document.addEventListener("keydown", function (event) { if (event.key === "Escape") { closeMusicLibrary(); } });
+
+// HA metadata changes also refresh room names and device/area assignments without a reload.
+document.addEventListener("wallpanelstructurechanged", function () {
+  roomPageState.structure = window.wallpanelStructure;
+  if (roomPageState.lastRenderedPageId !== null) { loadRoomPage(); }
+});

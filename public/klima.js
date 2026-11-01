@@ -154,7 +154,7 @@ function renderClimateCard(entity) {
 
   var actions = document.createElement("div");
   actions.className = "climate-card-actions";
-  if (hvacModes.indexOf("heat") !== -1 || entity.state === "off") {
+  if (hvacModes.indexOf("heat") !== -1) {
     var heat = document.createElement("button");
     heat.className = "pill-button";
     heat.type = "button";
@@ -175,6 +175,10 @@ function renderClimateCard(entity) {
 
   card.appendChild(controls);
   card.appendChild(actions);
+  if (climateUnavailable) {
+    var inputs = card.querySelectorAll("button, input");
+    for (var i = 0; i < inputs.length; i++) { inputs[i].disabled = true; }
+  }
   return card;
 }
 
@@ -214,7 +218,7 @@ function loadClimatePage() {
     }
     var entities = structure && structure.entities ? structure.entities : [];
     climateEntities = entities.filter(function (entity) {
-      return entity.domain === "climate" && isClimateEntityVisible(entity);
+      return entity.domain === "climate" && entity.visibleByDefault && isClimateEntityVisible(entity);
     }).sort(function (a, b) {
       var areaCompare = String(a.areaName || "").localeCompare(String(b.areaName || ""), "de");
       if (areaCompare !== 0) { return areaCompare; }

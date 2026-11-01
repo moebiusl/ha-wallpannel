@@ -32,9 +32,10 @@ const MAX_FPS = 4;
 const MAX_BUFFERED_BYTES = 256 * 1024;
 
 /** Liest einen multipart-MJPEG-Strom und gibt höchstens MAX_FPS Bilder pro Sekunde weiter. */
-class MjpegThrottle extends Transform {
+export class MjpegThrottle extends Transform {
   private buffer: Buffer = Buffer.alloc(0);
   private lastEmit = 0;
+  private boundarySent = false;
 
   _transform(chunk: Buffer, _encoding: BufferEncoding, callback: TransformCallback): void {
     this.buffer = this.buffer.length ? Buffer.concat([this.buffer, chunk]) : chunk;
@@ -70,10 +71,12 @@ class MjpegThrottle extends Transform {
     if (this.readableLength > MAX_BUFFERED_BYTES) { return; }
     this.lastEmit = now;
     this.push(Buffer.concat([
-      Buffer.from(`--frame\r\nContent-Type: image/jpeg\r\nContent-Length: ${frame.length}\r\n\r\n`, "latin1"),
+      Buffer.from(`${this.boundarySent ? "" : "--frame\r\n"}Content-Type: image/jpeg\r\nContent-Length: ${frame.length}\r\n\r\n`, "latin1"),
       frame,
-      Buffer.from("\r\n", "latin1")
+      // Safari needs the following boundary to display a still first frame immediately.
+      Buffer.from("\r\n--frame\r\n", "latin1")
     ]));
+    this.boundarySent = true;
   }
 }
 
@@ -192,10 +195,12 @@ export function createCameraLive(deps: LiveDeps) {
    */
   async function openMjpeg(
     cameraEntityId: string,
-    streamOverride: string
+    streamOverride: string,
+    signal?: AbortSignal
   ): Promise<{ stream: Readable; contentType: string; release: () => void } | null> {
+    if (signal?.aborted) { return null; }
     const base = await deps.getGo2RtcBase();
-    if (!base) { return null; }
+    if (!base || signal?.aborted) { return null; }
     let source: LiveSource | null = null;
     try {
       source = await resolveSource(cameraEntityId, streamOverride);
@@ -208,14 +213,17 @@ export function createCameraLive(deps: LiveDeps) {
       return null;
     }
 
+    if (signal?.aborted) { return null; }
     addViewer(cameraEntityId);
     let released = false;
     const release = () => {
       if (released) { return; }
       released = true;
+      signal?.removeEventListener("abort", release);
       removeViewer(cameraEntityId, source);
     };
 
+    signal?.addEventListener("abort", release, { once: true });
     try {
       // Gleichzeitige Zuschauer (mehrere iPads) teilen sich einen Startvorgang.
       let starting = startPromises.get(cameraEntityId);
@@ -223,20 +231,23 @@ export function createCameraLive(deps: LiveDeps) {
         starting = startAndWait(cameraEntityId, source, base).finally(() => startPromises.delete(cameraEntityId));
         startPromises.set(cameraEntityId, starting);
       }
-      if (!(await starting)) {
+      if (!(await starting) || signal?.aborted) {
         release();
         return null;
       }
 
       const transcodeName = await ensureTranscodeStream(base, source.streamName);
+      if (signal?.aborted) { release(); return null; }
       const response = await deps.http.get(`${base}/api/stream.mjpeg?src=${encodeURIComponent(transcodeName)}`, {
         responseType: "stream",
         timeout: 15000
       });
       const upstream = response.data as Readable;
+      if (signal?.aborted || !String(response.headers?.["content-type"]).toLowerCase().startsWith("multipart/x-mixed-replace")) { upstream.destroy(); release(); return null; }
       const throttled = new MjpegThrottle();
       upstream.on("error", (error) => throttled.destroy(error));
-      throttled.on("close", () => upstream.destroy());
+      throttled.on("close", () => { upstream.destroy(); release(); });
+      throttled.on("end", release);
       upstream.pipe(throttled);
       return {
         stream: throttled,

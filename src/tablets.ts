@@ -10,6 +10,9 @@ export type TabletConfig = {
   name?: string;
   room?: string;
   panelId?: string;
+  rooms?: string[];
+  quickLights?: string[];
+  large?: boolean;
   screensaver?: { enabled: boolean; minutes: number };
   nightMode?: {
     enabled: boolean;
@@ -22,8 +25,9 @@ export type TabletConfig = {
   doorbellWake?: boolean;
   /** Töne bei Klingel und Mitteilungen abspielen (Standard: an). */
   sounds?: boolean;
-  /** Design: classic (bisher) oder home (Apple-Home-Stil). */
+  /** Design: classic, home (Apple), panel; frühere apartment-Werte werden als home gelesen. */
   theme?: string;
+  themeRevision?: number;
 };
 
 export const SOUNDS = ["gong", "glocke", "ping", "hinweis", "alarm"] as const;
@@ -89,7 +93,11 @@ function sanitizeConfig(input: unknown): TabletConfig {
   const source = (input && typeof input === "object" ? input : {}) as Record<string, any>;
   const config: TabletConfig = {};
   if (typeof source.name === "string") { config.name = source.name.trim().slice(0, 40); }
-  if (typeof source.room === "string" && source.room) { config.room = source.room.slice(0, 80); }
+  if (typeof source.room === "string") { config.room = source.room.slice(0, 80); }
+  for (const field of ["rooms", "quickLights"] as const) {
+    if (Array.isArray(source[field])) { config[field] = Array.from(new Set(source[field].filter((value: unknown): value is string => typeof value === "string" && value.length > 0 && value.length <= 100))).slice(0, field === "rooms" ? 12 : 2); }
+  }
+  if (typeof source.large === "boolean") { config.large = source.large; }
   if (typeof source.panelId === "string" && source.panelId) { config.panelId = source.panelId.slice(0, 80); }
   if (source.screensaver && typeof source.screensaver === "object") {
     const minutes = Number(source.screensaver.minutes);
@@ -114,7 +122,8 @@ function sanitizeConfig(input: unknown): TabletConfig {
   }
   if (typeof source.doorbellWake === "boolean") { config.doorbellWake = source.doorbellWake; }
   if (typeof source.sounds === "boolean") { config.sounds = source.sounds; }
-  if (source.theme === "classic" || source.theme === "home") { config.theme = source.theme; }
+  if (source.theme === "classic" || source.theme === "home" || source.theme === "apartment" || source.theme === "panel") { config.theme = source.theme === "apartment" ? "home" : source.theme; }
+  if(typeof source.themeRevision === "number" && Number.isFinite(source.themeRevision)){config.themeRevision=source.themeRevision;}
   return config;
 }
 
@@ -156,19 +165,26 @@ export function createTabletRegistry(filePath: string, defaults: TabletsSettings
     // Noch keine Datei – startet leer.
   }
 
+  let lastSavedAt = 0;
   let saveTimer: NodeJS.Timeout | null = null;
-  function save(): void {
-    // Gebündelt speichern: lastSeen ändert sich bei jedem Sync.
+  function persist(): void {
+    const data: TabletsFile = { tablets: Object.fromEntries(tablets), settings };
+    fs.mkdirSync(path.dirname(filePath), { recursive: true });
+    fs.writeFileSync(filePath + ".tmp", JSON.stringify(data, null, 2), { mode: 0o600 });
+    fs.renameSync(filePath + ".tmp", filePath);
+    lastSavedAt = Date.now();
+  }
+  function save(immediate = false): void {
+    // Profile changes are durable before acknowledging; heartbeat writes stay batched.
+    if (immediate) {
+      if (saveTimer) { clearTimeout(saveTimer); saveTimer = null; }
+      persist(); return;
+    }
     if (saveTimer) { return; }
     saveTimer = setTimeout(() => {
       saveTimer = null;
-      const data: TabletsFile = { tablets: Object.fromEntries(tablets), settings };
-      try {
-        fs.mkdirSync(path.dirname(filePath), { recursive: true });
-        fs.writeFileSync(filePath, JSON.stringify(data, null, 2));
-      } catch (error) {
-        console.error(`Tablet-Daten konnten nicht gespeichert werden: ${String(error)}`);
-      }
+      try { persist(); }
+      catch (error) { console.error(`Tablet-Daten konnten nicht gespeichert werden: ${String(error)}`); }
     }, 2000);
   }
 
@@ -182,12 +198,11 @@ export function createTabletRegistry(filePath: string, defaults: TabletsSettings
       console.log(`Neues Tablet registriert: ${id} (${info.userAgent.slice(0, 60)})`);
     }
     const changedInfo = isNew || record.page !== info.page || record.ip !== info.ip;
-    const previousSeen = record.lastSeen;
     record.lastSeen = Date.now();
     record.page = info.page;
     record.userAgent = info.userAgent;
     record.ip = info.ip;
-    if (changedInfo || record.lastSeen - previousSeen > 60000) { save(); }
+    if (changedInfo || record.lastSeen - lastSavedAt > 60000) { save(); }
 
     const now = Date.now();
     const commands = (queues.get(id) || []).filter((command) => now - command.createdAt < COMMAND_MAX_AGE_MS);
@@ -198,8 +213,11 @@ export function createTabletRegistry(filePath: string, defaults: TabletsSettings
   function updateConfig(id: string, config: unknown): TabletRecord | null {
     const record = tablets.get(id);
     if (!record) { return null; }
-    record.config = { ...record.config, ...sanitizeConfig(config) };
-    save();
+    const previous = record.config;
+    const patch=sanitizeConfig(config);delete patch.themeRevision;
+    if(patch.theme!==undefined){patch.themeRevision=Math.max(Date.now(),(record.config.themeRevision || 0)+1);}
+    record.config = { ...record.config, ...patch };
+    try { save(true); } catch (error) { record.config = previous; throw error; }
     return record;
   }
 

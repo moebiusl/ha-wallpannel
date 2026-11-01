@@ -22,23 +22,7 @@ function setSecurityRetryStatus(active) {
   } : null;
 }
 
-function isExcludedSecurityEntity(entity) {
-  var id = entity.entityId || "";
-  var name = (entity.name || "").toLowerCase();
-  return id.indexOf("3d_drucker") !== -1 ||
-    id.indexOf("skoda") !== -1 ||
-    id.indexOf("f3de43e3e8b1") !== -1 ||
-    id.indexOf("jura") !== -1 ||
-    id.indexOf("kuhlschrank") !== -1 ||
-    name.indexOf("3d drucker") !== -1 ||
-    name.indexOf("skoda") !== -1 ||
-    name.indexOf("škoda") !== -1 ||
-    name.indexOf("jura") !== -1 ||
-    name.indexOf("milk system") !== -1 ||
-    name.indexOf("cleaning needed") !== -1 ||
-    name.indexOf("kühlschrank") !== -1 ||
-    name.indexOf("kuhlschrank") !== -1;
-}
+function isExcludedSecurityEntity(entity) { return !!entity.haHidden || entity.visibleByDefault === false; }
 
 function isSecurityEntity(entity) {
   if (!entity || isExcludedSecurityEntity(entity)) {

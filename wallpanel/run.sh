@@ -52,6 +52,7 @@ const optionMap = {
   go2rtc_public_url: "GO2RTC_PUBLIC_URL",
   go2rtc_port: "GO2RTC_PORT",
   settings_pin: "SETTINGS_PIN",
+  allowed_hosts: "ALLOWED_HOSTS",
   entity_light_main: "ENTITY_LIGHT_MAIN",
   entity_light_secondary: "ENTITY_LIGHT_SECONDARY",
   entity_light_third: "ENTITY_LIGHT_THIRD",

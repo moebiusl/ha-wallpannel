@@ -11,6 +11,8 @@
   <meta name="theme-color" content="#09111f">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <script src="design.js"></script>
+  <script>if(WallpanelDesign.read()==='panel'){WallpanelDesign.go('panel');}</script>
   <style>
     html, body { margin: 0; height: 100%; overflow: hidden; background: #09111f; }
     /* Hülle mit eigenem Scrollen: iOS passt iframes sonst an ihre Inhaltshöhe an. */
@@ -31,6 +33,8 @@
     var shellAudio = document.getElementById('wallpanelShellAudio');
     var shellFrame = document.getElementById('wallpanelFrame');
     var shellUnlocked = false;
+    var previewTheme = /[?&]theme=(classic|home)(?:&|$)/.exec(window.location.search);
+    if (previewTheme) { shellFrame.src = 'index.html?theme=' + previewTheme[1]; }
 
     function playShellAudio(src) {
       shellAudio.onended = null;

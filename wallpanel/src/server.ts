@@ -1,15 +1,24 @@
+import { projectPanelEntities, selectDashboardWeather } from "./panel-state";
+import { createPanelFeatures, planClimateSync, roomReadings } from "./panel-features";
+import { isEntityId, validateEntityService } from "./entity-service";
+import { createHostGuard } from "./host-guard";
+import { discoverHaEntities, discoverHaCameras, resolveHaRoom, selectHaRoomEntities, isWallpanelAreaVisible } from "./ha-discovery";
+import { createLightPresets, validateLightColor } from "./light-presets";
+import { RADIO_STATIONS, validPlaylistUri } from "./media";
+import { createSettingsAuth } from "./settings-auth";
 import express, { Request, Response } from "express";
 import compression from "compression";
 import axios from "axios";
 import dotenv from "dotenv";
 import fs from "fs";
+import crypto from "crypto";
 import path from "path";
 import { getHaRegistries, HaRegistries, runAssist, runTts, subscribeToHaEvents, subscribeToStateChanges } from "./ha-websocket";
 import { computeAssetVersion, createTabletRegistry, normalizeSound } from "./tablets";
-import { createCameraLive, LiveSource } from "./camera-live";
+import { createCameraLive, LiveSource, MjpegThrottle } from "./camera-live";
 import { createRadar } from "./radar";
 import { readPanelConfig, writePanelConfig, getConfigPath } from "./panel-config";
-import { getDomain, getFriendlyEntityName, isProbablyUsefulEntity } from "./entity-filter";
+import { getDomain } from "./entity-filter";
 
 dotenv.config();
 
@@ -49,7 +58,7 @@ const HA_TOKEN = process.env.HA_TOKEN || SUPERVISOR_TOKEN || readFirstExistingFi
   "/var/run/s6/container_environment/HA_TOKEN",
   "/run/s6/container_environment/HA_TOKEN"
 ]);
-const SETTINGS_PIN = process.env.SETTINGS_PIN || "1310";
+const SETTINGS_PIN = process.env.SETTINGS_PIN || "1111";
 const GO2RTC_PUBLIC_URL = process.env.GO2RTC_PUBLIC_URL || "";
 const HA_TIMEOUT_MS = Number(process.env.HA_TIMEOUT_MS || 15000);
 const HA_STATES_CACHE_MS = Number(process.env.HA_STATES_CACHE_MS || 2000);
@@ -119,6 +128,7 @@ function readLocalVersion(): string {
 }
 
 type HaStructure = {
+  structureRevision: string;
   floors: unknown[];
   areas: Array<Record<string, unknown> & { area_id?: string; name?: string }>;
   devices: unknown[];
@@ -128,6 +138,7 @@ type HaStructure = {
   tree: Array<Record<string, unknown>>;
 };
 
+let haCacheGeneration = 0;
 let statesCache: { at: number; data: HaState[] } | null = null;
 let statesRequest: Promise<HaState[]> | null = null;
 let structureCache: { at: number; data: HaStructure } | null = null;
@@ -405,6 +416,7 @@ const ENERGY_ENTITIES = {
 } as const;
 
 async function getEntity(entityId: string, silent = false): Promise<HaState | null> {
+  if (!isEntityId(entityId)) { return null; }
   try {
     const response = await ha.get(`/api/states/${entityId}`);
     return response.data;
@@ -483,7 +495,7 @@ function mapCamera(entity: HaState | null, config: CameraConfig): CameraSummary 
   const fallbackName = config.name;
   const liveCameraEntityId = config.liveCameraEntityId;
   const entityId = entity?.entity_id ?? fallbackName;
-  const eventDate = entity?.state && !["unknown", "unavailable"].includes(entity.state)
+  const eventDate = entity?.state && Number.isFinite(Date.parse(entity.state))
     ? entity.state
     : entity?.last_updated || entity?.last_changed;
   // Live läuft über den eigenen Proxy (/api/camera-stream), der go2rtc nutzt und Eufy-Streams startet.
@@ -500,7 +512,7 @@ function mapCamera(entity: HaState | null, config: CameraConfig): CameraSummary 
     liveCameraEntityId,
     name: fallbackName,
     state: entity?.state ?? "unavailable",
-    imageUrl: `/api/camera-image/${encodeURIComponent(entityId)}`,
+    imageUrl: entityId.startsWith("camera.") ? `/api/camera-snapshot/${encodeURIComponent(entityId)}` : `/api/camera-image/${encodeURIComponent(entityId)}`,
     liveUrl: streamPath,
     streamUrl: streamPath,
     webrtcUrl,
@@ -540,12 +552,28 @@ async function getServerGo2RtcBase(): Promise<string> {
 }
 
 let registriesCache: { at: number; value: HaRegistries } | null = null;
+let registriesRequest: Promise<HaRegistries> | null = null;
+let registryGeneration = 0;
+const HA_REGISTRY_CACHE_MS = Math.max(15000, Number(process.env.HA_REGISTRY_CACHE_MS) || 60000);
 
 async function getCachedRegistries(): Promise<HaRegistries> {
-  if (registriesCache && Date.now() - registriesCache.at < 5 * 60 * 1000) { return registriesCache.value; }
-  const value = await getHaRegistries(HA_URL, HA_TOKEN);
-  registriesCache = { at: Date.now(), value };
-  return value;
+  if (registriesCache && Date.now() - registriesCache.at < HA_REGISTRY_CACHE_MS) { return registriesCache.value; }
+  if (registriesRequest) { return registriesRequest; }
+  const generation = registryGeneration;
+  registriesRequest = getHaRegistries(HA_URL, HA_TOKEN).then((value) => {
+    if (generation === registryGeneration) { registriesCache = { at: Date.now(), value }; }
+    return value;
+  }).finally(() => { registriesRequest = null; });
+  return registriesRequest;
+}
+
+async function getDiscoveredCameraConfigs(structure?: HaStructure): Promise<CameraConfig[]> {
+  const current = structure || await buildHaStructure();
+  const registries = await getCachedRegistries();
+  return discoverHaCameras(current.states, registries).map((camera) => {
+    const override = CAMERA_CONFIGS.find((entry) => entry.haCameraEntityId === camera.haCameraEntityId);
+    return { ...camera, streamOverride: override?.streamOverride || "" };
+  });
 }
 
 const cameraLive = createCameraLive({
@@ -559,10 +587,10 @@ const cameraLive = createCameraLive({
 const liveSourceCache = new Map<string, LiveSource>();
 let liveSourceRefreshAt = 0;
 
-function refreshLiveSourceCache(): void {
+function refreshLiveSourceCache(configs: CameraConfig[]): void {
   if (Date.now() - liveSourceRefreshAt < 60000) { return; }
   liveSourceRefreshAt = Date.now();
-  for (const config of CAMERA_CONFIGS) {
+  for (const config of configs) {
     cameraLive.getSourceInfo(config.haCameraEntityId, config.streamOverride).then((source) => {
       if (source) { liveSourceCache.set(config.haCameraEntityId, source); }
       else { liveSourceCache.delete(config.haCameraEntityId); }
@@ -956,16 +984,11 @@ async function getStateMap(options: { force?: boolean } = {}): Promise<Map<strin
 }
 
 function invalidateHaCaches(): void {
+  haCacheGeneration++;
   statesCache = null;
   structureCache = null;
 }
 
-function getDeviceName(device: { name?: string | null; name_by_user?: string | null; manufacturer?: string | null; model?: string | null } | undefined): string {
-  if (!device) {
-    return "Ohne Gerät";
-  }
-  return device.name_by_user || device.name || [device.manufacturer, device.model].filter(Boolean).join(" ") || "Unbenanntes Gerät";
-}
 
 function sortByName<T extends { name?: string | null }>(items: T[]): T[] {
   return [...items].sort((a, b) => String(a.name || "").localeCompare(String(b.name || ""), "de"));
@@ -985,45 +1008,15 @@ function sortFloors<T extends { name?: string | null; level?: number | null }>(i
 async function buildHaStructureFresh(): Promise<HaStructure> {
   const [states, registries] = await Promise.all([
     getAllStates(),
-    getHaRegistries(HA_URL!, HA_TOKEN!)
+    getCachedRegistries()
   ]);
 
-  const stateByEntityId = new Map(states.map((state) => [state.entity_id, state]));
-  const entityRegistryById = new Map(registries.entities.map((entry) => [entry.entity_id, entry]));
-  const deviceById = new Map(registries.devices.map((device) => [device.id, device]));
-  const areaById = new Map(registries.areas.map((area) => [area.area_id, area]));
   const floorById = new Map(registries.floors.map((floor) => [floor.floor_id, floor]));
   const entityCountByArea = new Map<string, number>();
-
-  const mergedEntities = states.map((state) => {
-    const registry = entityRegistryById.get(state.entity_id);
-    const deviceId = registry?.device_id || null;
-    const device = deviceId ? deviceById.get(deviceId) : undefined;
-    const areaId = registry?.area_id || device?.area_id || null;
-    const area = areaId ? areaById.get(areaId) : undefined;
-    const floorId = area?.floor_id || null;
-    const floor = floorId ? floorById.get(floorId) : undefined;
-
-    return {
-      entityId: state.entity_id,
-      name: getFriendlyEntityName(state, registry),
-      domain: getDomain(state.entity_id),
-      state: state.state,
-      attributes: state.attributes || {},
-      deviceClass: state.attributes?.device_class || null,
-      areaId,
-      areaName: area?.name || "Ohne Raum",
-      floorId,
-      floorName: floor?.name || "Ohne Etage",
-      deviceId,
-      deviceName: getDeviceName(device),
-      platform: registry?.platform || null,
-      entityCategory: registry?.entity_category || null,
-      visibleByDefault: isProbablyUsefulEntity(state, registry)
-    };
-  });
+  const mergedEntities = discoverHaEntities(states, registries);
 
   for (const entity of mergedEntities) {
+    if (entity.haHidden) { continue; }
     if (entity.areaId) {
       entityCountByArea.set(entity.areaId, (entityCountByArea.get(entity.areaId) || 0) + 1);
     }
@@ -1031,10 +1024,10 @@ async function buildHaStructureFresh(): Promise<HaStructure> {
 
   const floors = sortFloors(registries.floors).map((floor) => ({
     ...floor,
-    areaCount: registries.areas.filter((area) => area.floor_id === floor.floor_id).length
+    areaCount: registries.areas.filter((area) => area.floor_id === floor.floor_id && isWallpanelAreaVisible(area)).length
   }));
 
-  const areas = sortByName(registries.areas.map((area) => {
+  const areas = sortByName(registries.areas.filter(isWallpanelAreaVisible).map((area) => {
     const floor = area.floor_id ? floorById.get(area.floor_id) : undefined;
     return {
       ...area,
@@ -1087,6 +1080,7 @@ async function buildHaStructureFresh(): Promise<HaStructure> {
   }
 
   for (const entity of mergedEntities) {
+    if (entity.haHidden) { continue; }
     const floorKey = entity.floorId || "__no_floor";
     const areaKey = entity.areaId || "__no_area";
     const deviceKey = entity.deviceId || "__no_device_" + entity.domain;
@@ -1140,6 +1134,7 @@ async function buildHaStructureFresh(): Promise<HaStructure> {
   }));
 
   return {
+    structureRevision: crypto.createHash("sha256").update(JSON.stringify([registries, mergedEntities.map((entity) => [entity.entityId, entity.name, entity.areaId, entity.visibleByDefault])])).digest("hex").slice(0, 16),
     floors,
     areas,
     devices: registries.devices,
@@ -1159,9 +1154,10 @@ async function buildHaStructure(): Promise<HaStructure> {
     return structureRequest;
   }
 
+  const generation = haCacheGeneration;
   structureRequest = buildHaStructureFresh()
     .then((data) => {
-      structureCache = { at: Date.now(), data };
+      if (generation === haCacheGeneration) { structureCache = { at: Date.now(), data }; }
       return data;
     })
     .finally(() => {
@@ -1200,57 +1196,23 @@ function buildPagePayload(panelId: string, pageId: string, structure: Awaited<Re
     return { panelId, pageId, page: null, cards: [], entities: [] };
   }
 
-  const area = structure.areas.find((entry: any) => entry.area_id === pageId);
+  const requestedArea = structure.areas.find((entry) => entry.area_id === pageId);
+  if (!page && requestedArea) {
+    page = { id: pageId, title: requestedArea.name || pageId, areaId: pageId, enabledCards: [], enabledDevices: [], enabledEntities: [], hiddenEntities: [] };
+  }
+  // An obsolete room must never silently show the devices of a different room.
   if (!page) {
-    if (area) {
-      page = {
-        id: pageId,
-        title: area.name || pageId,
-        areaId: pageId,
-        enabledCards: [],
-        enabledDevices: [],
-        enabledEntities: [],
-        hiddenEntities: []
-      };
-    } else {
-      page = panel.pages[panel.defaultPage] || panel.pages.hof;
+    return { panelId, pageId, panelName: panel.name, page: { id: pageId, title: "Raum nicht mehr verfügbar" }, cards: [], entities: [], roomAvailable: false };
+  }
+  const room = resolveHaRoom(structure.areas, pageId, page);
+  if (page.areaId || requestedArea || (pageId === panel.defaultPage && !page.enabledEntities.length && !page.enabledDevices.length)) {
+    if (!room.available) {
+      return { panelId, pageId, panelName: panel.name, page: { ...page, title: room.title }, cards: [], entities: [], roomAvailable: false };
     }
+    page = { ...page, title: room.title, areaId: room.areaId };
   }
 
-  if (!page) {
-    return { panelId, pageId, panelName: panel.name, page: null, cards: [], entities: [] };
-  }
-
-  if (area && !page.areaId) {
-    page = {
-      ...page,
-      title: page.title || area.name || pageId,
-      areaId: area.area_id
-    };
-  }
-
-  const enabledDeviceSet = new Set(page.enabledDevices || []);
-  const enabledEntitySet = new Set(page.enabledEntities || []);
-  const hiddenEntitySet = new Set(page.hiddenEntities || []);
-
-  const entities = structure.entities.filter((entity: any) => {
-    if (page.areaId && entity.areaId !== page.areaId) {
-      return false;
-    }
-    if (hiddenEntitySet.has(entity.entityId)) {
-      return false;
-    }
-    if (enabledEntitySet.has(entity.entityId)) {
-      return true;
-    }
-    if (entity.deviceId && enabledDeviceSet.has(entity.deviceId)) {
-      return entity.visibleByDefault;
-    }
-    if (page.areaId && entity.areaId === page.areaId) {
-      return entity.visibleByDefault;
-    }
-    return false;
-  });
+  const entities = selectHaRoomEntities(structure.entities as Array<Record<string, any> & { entityId: string }>, page);
 
   return {
     panelId,
@@ -1258,7 +1220,8 @@ function buildPagePayload(panelId: string, pageId: string, structure: Awaited<Re
     panelName: panel.name,
     page,
     cards: page.enabledCards || [],
-    entities
+    entities,
+    roomAvailable: true
   };
 }
 
@@ -1273,6 +1236,7 @@ async function setSwitch(entityId: string, enabled: boolean): Promise<void> {
 }
 
 async function getImageEntityBytes(entityId: string): Promise<{ contentType: string; data: Buffer } | null> {
+  if (!isEntityId(entityId)) { return null; }
   try {
     const response = await ha.get(`/api/image_proxy/${entityId}`, {
       responseType: "arraybuffer",
@@ -1297,6 +1261,7 @@ async function getImageEntityBytes(entityId: string): Promise<{ contentType: str
 async function getCameraProxyBytes(
   cameraEntityId: string
 ): Promise<{ contentType: string; data: Buffer } | null> {
+  if (!isEntityId(cameraEntityId)) { return null; }
   try {
     const response = await ha.get(`/api/camera_proxy/${cameraEntityId}`, {
       responseType: "arraybuffer",
@@ -1368,8 +1333,19 @@ function getTorVisual(rawState: string | undefined): { mode: string; text: strin
 }
 
 
+app.use(createHostGuard((process.env.ALLOWED_HOSTS || "").split(",")));
 app.use(compression());
 app.use(express.json());
+const settingsAuth = createSettingsAuth(SETTINGS_PIN);
+const panelFeatures = createPanelFeatures(path.join(path.dirname(getConfigPath()), "panel-features.json"));
+const climateSyncBusy = new Set<string>();
+const lightPresets=createLightPresets(path.join(path.dirname(getConfigPath()),"light-presets.json"));
+app.use(settingsAuth.guard);
+app.get(["/panel/", "/panel/index.html"], (_req, res) => {
+  res.setHeader("Cache-Control", "no-store");
+  res.type("html").send(fs.readFileSync(path.join(__dirname, "../public/panel/index.html"), "utf8").replace("<head>", `<head><script>window.WallpanelBuild=${JSON.stringify(ASSET_VERSION)};</script>`));
+});
+app.get("/verwaltung", (_req, res) => { res.redirect("optionen.html#tablets"); });
 app.use(express.static(path.join(__dirname, "../public"), {
   setHeaders: (res) => {
     // no-cache statt no-store: Der Browser behält die Datei und fragt nur per ETag nach (304),
@@ -1397,6 +1373,55 @@ app.get("/api/ha/structure", async (_req: Request, res: Response) => {
   }
 });
 
+app.get("/api/panel/state", async (req, res) => {
+  try {
+    const [structure, states] = await Promise.all([buildHaStructure(), getAllStates()]);
+    res.setHeader("Cache-Control", "no-store");
+    panelFeatures.observe(structure.entities);
+    res.json({ revision: structure.structureRevision, areas: structure.areas, floors: structure.floors,
+      entities: projectPanelEntities(structure.entities, states).filter(entity => req.query.compact !== "1" || ["light","climate","media_player","switch","input_boolean","scene"].includes(entity.domain) || entity.deviceClass === "battery" || req.query.view === "security" && entity.domain === "binary_sensor" && ["motion","occupancy","presence","door","window","opening","garage_door","smoke","gas","carbon_monoxide","moisture","safety"].includes(entity.deviceClass)), roomReadings: roomReadings(structure.entities), inbox: panelFeatures.list() });
+  } catch { res.status(502).json({ ok: false, message: "Home Assistant nicht erreichbar" }); }
+});
+
+app.get("/api/panel/energy", async (_req,res) => {
+  try {
+    const [structure,states]=await Promise.all([buildHaStructure(),getAllStates()]);
+    const devices=projectPanelEntities(structure.entities,states).filter(entity => ["sensor","binary_sensor"].includes(entity.domain) && ["battery","power","energy","voltage","current"].includes(entity.deviceClass));
+    const energy=await buildEnergySummary(new Map(states.map(state=>[state.entity_id,state])));
+    res.setHeader("Cache-Control","no-store");res.json({energy,devices});
+  } catch { res.status(502).json({ok:false,message:"Energiedaten aus Home Assistant nicht erreichbar."}); }
+});
+
+app.get("/api/panel/inbox", (_req, res) => { res.setHeader("Cache-Control","no-store"); res.json({ items:panelFeatures.list() }); });
+app.post("/api/panel/inbox/action", (req,res) => {
+  try { panelFeatures.action(String(req.body?.id),String(req.body?.action)); res.json({ok:true,items:panelFeatures.list()}); }
+  catch { res.status(400).json({ok:false,message:"Hinweis konnte nicht geändert werden."}); }
+});
+app.post("/api/panel/climate-sync", async (req,res) => {
+  const source=String(req.body?.source || "");
+  let locked:string[]=[];
+  try {
+    invalidateHaCaches();
+    const structure=await buildHaStructure();
+    const {plans,skipped}=planClimateSync(structure.entities,source);
+    const candidates=[source,...plans.map(p=>p.id)];
+    if(candidates.some(id=>climateSyncBusy.has(id))) { res.status(409).json({ok:false,message:"Heizungen werden bereits synchronisiert."});return; }
+    locked=candidates;
+    locked.forEach(id=>climateSyncBusy.add(id));
+    const results=[];
+    for(const plan of plans) {
+      try {
+        await callService("climate","set_hvac_mode",{entity_id:plan.id,hvac_mode:plan.mode});
+        if(plan.temperature !== undefined) { await callService("climate","set_temperature",{entity_id:plan.id,temperature:plan.temperature}); }
+        results.push({...plan,ok:true});
+      } catch { results.push({...plan,ok:false}); }
+    }
+    invalidateHaCaches();
+    res.json({ok:true,results,skipped});
+  } catch(error) { res.status(400).json({ok:false,message:error instanceof Error?error.message:"Synchronisieren fehlgeschlagen."}); }
+  finally { locked.forEach(id=>climateSyncBusy.delete(id)); }
+});
+
 app.get("/api/panel-config", (_req: Request, res: Response) => {
   res.json({ configPath: getConfigPath(), config: readPanelConfig() });
 });
@@ -1412,14 +1437,8 @@ app.post("/api/panel-config", (req: Request, res: Response) => {
   }
 });
 
-app.post("/api/settings/unlock", (req: Request, res: Response) => {
-  const pin = String(req.body?.pin || "");
-  if (pin !== SETTINGS_PIN) {
-    res.status(401).json({ ok: false });
-    return;
-  }
-  res.json({ ok: true });
-});
+app.post("/api/settings/unlock", settingsAuth.unlock);
+app.get("/api/settings/session", settingsAuth.status);
 
 app.get("/api/page/:panelId/:pageId", async (req: Request, res: Response) => {
   try {
@@ -1492,17 +1511,112 @@ app.post("/api/entity/:entityId/service", async (req: Request, res: Response) =>
     const entityId = decodeURIComponent(String(req.params.entityId || ""));
     const domain = getDomain(entityId);
     const service = String(req.body?.service || "");
+    if (climateSyncBusy.has(entityId)) { res.status(409).json({ok:false,message:"Heizung wird synchronisiert."}); return; }
     const data = req.body?.data && typeof req.body.data === "object" ? req.body.data : {};
     if (!service) {
       res.status(400).json({ ok: false, message: "service missing" });
       return;
     }
-    await callService(domain, service, { ...data, entity_id: entityId });
+    let validated: Record<string, unknown>;
+    try { validated = validateEntityService(entityId, service, data); }
+    catch (error) { res.status(400).json({ ok: false, message: String(error) }); return; }
+    if(domain === "light" && ["hs_color","rgb_color","color_temp_kelvin"].some(key=>validated[key]!==undefined)){
+      const structure=await buildHaStructure();const light=structure.entities.find(e=>e.entityId===entityId&&e.visibleByDefault&&!e.haHidden);if(!light){throw new Error("Lampe nicht verfügbar.");}validateLightColor(validated,(light.attributes || {}) as Record<string,any>);
+    }
+    if(domain === "climate") { climateSyncBusy.add(entityId); }
+    try { await callService(domain, service, { ...validated, entity_id: entityId }); }
+    finally { if(domain === "climate") { climateSyncBusy.delete(entityId); } }
     res.json({ ok: true });
   } catch (error) {
     console.error(`Fehler beim Service-Aufruf: ${describeError(error)}`);
     res.status(500).json({ ok: false });
   }
+});
+
+// Read Music Assistant playlists using the same integration instance as the player.
+app.get("/api/music/:entityId/playlists", async (req: Request, res: Response) => {
+  try {
+    const entityId = String(req.params.entityId);
+    const query = String(req.query.q || "").trim();
+    const offset = Number(req.query.offset || 0);
+    if (!/^media_player\.[a-z0-9_]+$/.test(entityId) || query.length > 200 || !Number.isInteger(offset) || offset < 0 || offset > 10000) {
+      res.status(400).json({ ok: false }); return;
+    }
+    const registry = await getCachedRegistries();
+    const player = registry.entities.find((entry) => entry.entity_id === entityId && entry.platform === "music_assistant" && !entry.disabled_by && !entry.hidden_by);
+    if (!player?.config_entry_id) { res.status(409).json({ ok: false, message: "Für dieses Gerät ist keine Music-Assistant-Bibliothek verfügbar." }); return; }
+    const response = await ha.post(`/api/services/music_assistant/${query ? "search" : "get_library"}?return_response`, query
+      ? { config_entry_id: player.config_entry_id, name: query, media_type: ["playlist"], limit: 20 }
+      : { config_entry_id: player.config_entry_id, media_type: "playlist", limit: 20, offset });
+    const result = response.data?.service_response;
+    const items = query ? result?.playlists : result?.items;
+    if (!Array.isArray(items)) { throw new Error("Keine Playlist-Antwort von Music Assistant"); }
+    res.json({ nextOffset:offset+items.length, items: items.filter((item: any) => validPlaylistUri(item.uri)).slice(0, 20).map((item: any) => ({ uri: item.uri, name: String(item.name || "Ohne Titel").slice(0, 240), source: /apple_music/i.test(String(item.uri)+String(item.provider)+JSON.stringify(item.provider_mappings || []))?"Apple Music":"Bibliothek" })), more: !query && items.length === 20 });
+  } catch (error) {
+    console.error(`Musikbibliothek nicht verfügbar: ${describeError(error)}`);
+    res.status(502).json({ ok: false, message: "Musikbibliothek nicht verfügbar." });
+  }
+});
+
+app.post("/api/music/:entityId/play", async (req: Request, res: Response) => {
+  try {
+    const entityId = String(req.params.entityId);
+    if (!/^media_player\.[a-z0-9_]+$/.test(entityId) || !validPlaylistUri(req.body?.uri)) { res.status(400).json({ ok: false }); return; }
+    const structure = await buildHaStructure();
+    const player = structure.entities.find((entry: any) => entry.entityId === entityId && entry.musicAssistant && entry.visibleByDefault);
+    if (!player) { res.status(404).json({ ok: false }); return; }
+    await callService("music_assistant", "play_media", { entity_id: entityId, media_id: req.body.uri, media_type: "playlist", enqueue: "replace" });
+    res.json({ ok: true });
+  } catch (error) {
+    console.error(`Musikwiedergabe fehlgeschlagen: ${describeError(error)}`);
+    res.status(502).json({ ok: false });
+  }
+});
+
+app.post("/api/music/:entityId/radio",async(req,res)=>{
+  try {
+    const id=String(req.params.entityId),station=RADIO_STATIONS.find(s=>s.id===req.body?.station);
+    if(!/^media_player\.[a-z0-9_]+$/.test(id)||!station){res.status(400).json({ok:false,message:"Ungültiger Sender."});return;}
+    const structure=await buildHaStructure(),player=structure.entities.find(e=>e.entityId===id&&e.musicAssistant&&e.visibleByDefault&&!e.haHidden);
+    if(!player||["unknown","unavailable"].includes(String(player.state))){res.status(409).json({ok:false,message:"Kein erreichbarer Music-Assistant-Lautsprecher."});return;}
+    await callService("music_assistant","play_media",{entity_id:id,media_id:station.url,media_type:"radio",enqueue:"replace"});res.json({ok:true});
+  }catch{res.status(502).json({ok:false,message:"Radio konnte nicht gestartet werden."});}
+});
+app.get("/api/light-presets/:entityId",async(req,res)=>{
+  try{const id=String(req.params.entityId),structure=await buildHaStructure(),light=structure.entities.find(e=>e.entityId===id&&e.domain==="light"&&e.visibleByDefault&&!e.haHidden);if(!light){res.status(404).json({ok:false});return;}res.setHeader("Cache-Control","no-store");res.json({presets:lightPresets.list(id,(light.attributes || {}) as Record<string,any>)});}catch{res.status(502).json({ok:false,message:"Vorauswahlen nicht verfügbar."});}
+});
+app.post("/api/light-presets/:entityId",async(req,res)=>{
+  try{const id=String(req.params.entityId),structure=await buildHaStructure(),light=structure.entities.find(e=>e.entityId===id&&e.domain==="light"&&e.visibleByDefault&&!e.haHidden);if(!light){res.status(404).json({ok:false});return;}res.json({ok:true,presets:lightPresets.change(id,req.body,(light.attributes || {}) as Record<string,any>)});}catch(e){res.status(400).json({ok:false,message:e instanceof Error?e.message:"Vorauswahl konnte nicht gespeichert werden."});}
+});
+
+const ARTWORK_CACHE_MAX_BYTES = 32 * 1024 * 1024;
+let artworkCacheBytes = 0;
+const artworkCache = new Map<string, { at: number; key: string; type: string; bytes: Buffer }>();
+app.get("/api/media-artwork/:entityId", async (req: Request, res: Response) => {
+  const id = String(req.params.entityId);
+  if (!/^media_player\.[a-z0-9_]+$/.test(id)) { res.status(400).end(); return; }
+  try {
+    const state = (await getStateMap()).get(id);
+    if (!state?.attributes?.entity_picture) { res.status(404).end(); return; }
+    const key = String(state.attributes.entity_picture) + String(state.attributes.media_title || "");
+    let cached = artworkCache.get(id);
+    if (!cached || cached.key !== key || Date.now() - cached.at > 60000) {
+      const response = await ha.get(`/api/media_player_proxy/${id}`, { responseType: "arraybuffer", timeout: 6000, maxContentLength: 8 * 1024 * 1024 });
+      const type = String(response.headers["content-type"] || "image/jpeg");
+      if (!type.startsWith("image/")) { res.status(502).end(); return; }
+      cached = { at: Date.now(), key, type, bytes: Buffer.from(response.data) };
+      const previous = artworkCache.get(id);
+      if (previous) { artworkCacheBytes -= previous.bytes.length; artworkCache.delete(id); }
+      while (artworkCache.size && (artworkCache.size >= 40 || artworkCacheBytes + cached.bytes.length > ARTWORK_CACHE_MAX_BYTES)) {
+        const oldest = artworkCache.keys().next().value!;
+        artworkCacheBytes -= artworkCache.get(oldest)!.bytes.length;
+        artworkCache.delete(oldest);
+      }
+      artworkCache.set(id, cached); artworkCacheBytes += cached.bytes.length;
+    }
+    artworkCache.delete(id); artworkCache.set(id, cached);
+    res.setHeader("Content-Type", cached.type); res.setHeader("Cache-Control", "private, max-age=60"); res.send(cached.bytes);
+  } catch { res.status(404).end(); }
 });
 
 app.get("/api/camera-image/:entityId", async (req: Request, res: Response) => {
@@ -1538,6 +1652,10 @@ app.get("/api/camera-live/:entityId", (req: Request, res: Response) => {
 });
 
 app.get("/api/camera-stream/:entityId", async (req: Request, res: Response) => {
+  let abandoned = false;
+  const streamAbort = new AbortController();
+  res.on("close", () => { abandoned = true; streamAbort.abort(); });
+  const strictLive = req.query.liveOnly === "1";
   const rawEntityId = req.params.entityId;
   const entityId = Array.isArray(rawEntityId)
     ? decodeURIComponent(rawEntityId[0])
@@ -1547,14 +1665,20 @@ app.get("/api/camera-stream/:entityId", async (req: Request, res: Response) => {
     typeof fallbackImageParam === "string" && fallbackImageParam.length > 0
       ? decodeURIComponent(fallbackImageParam)
       : "";
+  if (!isEntityId(entityId) || (fallbackImageEntityId && !isEntityId(fallbackImageEntityId))) {
+    res.status(400).json({ ok: false, message: "invalid entity" });
+    return;
+  }
 
   const cameraConfig = CAMERA_CONFIGS.find((config) =>
     config.haCameraEntityId === entityId || config.liveCameraEntityId === entityId
   );
   const live = await cameraLive.openMjpeg(
     cameraConfig?.haCameraEntityId || entityId,
-    cameraConfig?.streamOverride || ""
+    cameraConfig?.streamOverride || "",
+    streamAbort.signal
   );
+  if (abandoned || res.destroyed) { if (live) { live.stream.destroy(); live.release(); } return; }
   if (live) {
     res.setHeader("Content-Type", live.contentType);
     res.setHeader("Cache-Control", "no-store");
@@ -1562,7 +1686,8 @@ app.get("/api/camera-stream/:entityId", async (req: Request, res: Response) => {
       live.stream.destroy();
       live.release();
     });
-    live.stream.on("error", () => live.release());
+    live.stream.on("error", () => { live.release(); res.destroy(); });
+    live.stream.on("end", () => live.release());
     live.stream.pipe(res);
     return;
   }
@@ -1570,22 +1695,35 @@ app.get("/api/camera-stream/:entityId", async (req: Request, res: Response) => {
   try {
     const response = await ha.get(`/api/camera_proxy_stream/${entityId}`, {
       responseType: "stream",
+      signal: streamAbort.signal,
       headers: {
         Accept: "multipart/x-mixed-replace,image/*"
       },
       timeout: 30000
     });
+    if (abandoned || res.destroyed) { response.data.destroy(); return; }
     const contentTypeHeader = response.headers["content-type"];
-    res.setHeader("Content-Type", typeof contentTypeHeader === "string" ? contentTypeHeader : "multipart/x-mixed-replace");
+    if (strictLive && !String(contentTypeHeader).toLowerCase().startsWith("multipart/x-mixed-replace")) { response.data.destroy(); res.status(503).json({ ok: false, message: "Kein Livestream verfügbar" }); return; }
+    const isMjpeg = String(contentTypeHeader).toLowerCase().startsWith("multipart/x-mixed-replace");
+    res.setHeader("Content-Type", isMjpeg ? "multipart/x-mixed-replace; boundary=frame" : String(contentTypeHeader || "image/jpeg"));
     res.setHeader("Cache-Control", "no-store");
     // Schließt das Tablet den Stream (Event-Modus, Seitenwechsel), auch die Verbindung zu HA beenden.
     res.on("close", () => response.data.destroy());
-    response.data.pipe(res);
+    response.data.on("error", () => res.destroy());
+    if (isMjpeg) {
+      const throttled = new MjpegThrottle();
+      res.on("close", () => throttled.destroy());
+      throttled.on("error", () => res.destroy());
+      throttled.on("close", () => response.data.destroy());
+      response.data.pipe(throttled).pipe(res);
+    } else { response.data.pipe(res); }
     return;
   } catch (error) {
     console.warn(`Kamera-Stream nicht verfügbar (${entityId}), nutze Eventbild: ${describeError(error)}`);
   }
 
+  if (abandoned || res.destroyed) { return; }
+  if (strictLive) { res.status(503).json({ ok: false, message: "Kein Livestream verfügbar" }); return; }
   if (fallbackImageEntityId) {
     const fallbackImage = await getImageEntityBytes(fallbackImageEntityId);
     if (fallbackImage) {
@@ -1727,21 +1865,13 @@ app.get("/api/radar/frame", async (req: Request, res: Response) => {
   }
 });
 
-app.get("/api/dashboard", async (_req: Request, res: Response) => {
-  const stateMap = await getStateMap();
-  const weatherSummary = readStateFromMap(stateMap, ENTITIES.weather.summary);
+app.get("/api/dashboard", async (req: Request, res: Response) => {
+  const [stateMap, structure] = await Promise.all([getStateMap(), buildHaStructure()]);
+  const requestedRoom = typeof req.query.room === "string" ? req.query.room : "";
+  const weatherEntityId = selectDashboardWeather(structure.entities, stateMap);
+  const weatherSummary = weatherEntityId ? readStateFromMap(stateMap, weatherEntityId) : null;
   const livingTemp = readStateFromMap(stateMap, ENTITIES.sensors.livingTemp);
   const livingHumidity = readStateFromMap(stateMap, ENTITIES.sensors.livingHumidity);
-  const mainLight = readStateFromMap(stateMap, ENTITIES.lights.main);
-  const stehlampe = readStateFromMap(stateMap, ENTITIES.lights.stehlampe);
-  const bulb = ENTITIES.lights.bulb ? readStateFromMap(stateMap, ENTITIES.lights.bulb) : null;
-  const esstischKueche = readStateFromMap(stateMap, ENTITIES.lightGroups.esstischKueche);
-  const esstischWohnzimmer = readStateFromMap(stateMap, ENTITIES.lightGroups.esstischWohnzimmer);
-  const einfahrtEventImage = readStateFromMap(stateMap, ENTITIES.cameras.einfahrtEventImage);
-  const hofEventImage = readStateFromMap(stateMap, ENTITIES.cameras.hofEventImage);
-  const hofVonGarageEventImage = readStateFromMap(stateMap, ENTITIES.cameras.hofVonGarageEventImage);
-  const werkstattRichtungGartenEventImage = readStateFromMap(stateMap, ENTITIES.cameras.werkstattRichtungGartenEventImage);
-  const klingelEventImage = readStateFromMap(stateMap, ENTITIES.cameras.klingelEventImage);
   const torStatus = readStateFromMap(stateMap, ENTITIES.sensors.torStatus);
   const smartControl = readStateFromMap(stateMap, ENTITIES.switches.smartControl);
   const torAutomatik = readStateFromMap(stateMap, ENTITIES.switches.torAutomatik);
@@ -1756,8 +1886,8 @@ app.get("/api/dashboard", async (_req: Request, res: Response) => {
 
   const torVisual = getTorVisual(torStatus?.state);
   const [weatherForecast, homeHourlyForecast] = await Promise.all([
-    getWeatherForecast(ENTITIES.weather.summary),
-    getHourlyForecast(ENTITIES.weather.summary)
+    weatherEntityId ? getWeatherForecast(weatherEntityId) : Promise.resolve([]),
+    weatherEntityId ? getHourlyForecast(weatherEntityId) : Promise.resolve([])
   ]);
   const weather = extractWeatherSummary(weatherSummary, weatherForecast);
   // Wetterkachel: minutengenauer Satz aus dem Regenradar, sonst die Tagesvorhersage.
@@ -1766,21 +1896,12 @@ app.get("/api/dashboard", async (_req: Request, res: Response) => {
   const precipitationOutlook = radarInfo && radarInfo.shortSummary
     ? { ...forecastOutlook, text: radarInfo.shortSummary, source: "radar" }
     : forecastOutlook;
-  const lights = [
-    mapLight(mainLight, "Hof"),
-    mapLight(stehlampe, "Stehlampe"),
-    ...(ENTITIES.lights.bulb ? [mapLight(bulb, "Lampe")] : []),
-    mapLight(esstischKueche, "Esstisch Küche"),
-    mapLight(esstischWohnzimmer, "Esstisch Wohnzimmer")
-  ];
-  refreshLiveSourceCache();
-  const cameras = [
-    mapCamera(einfahrtEventImage, CAMERA_CONFIGS[0]),
-    mapCamera(hofEventImage, CAMERA_CONFIGS[1]),
-    mapCamera(hofVonGarageEventImage, CAMERA_CONFIGS[2]),
-    mapCamera(werkstattRichtungGartenEventImage, CAMERA_CONFIGS[3]),
-    mapCamera(klingelEventImage, CAMERA_CONFIGS[4])
-  ];
+  const lights = structure.entities.filter((entity: any) => entity.domain === "light" && entity.visibleByDefault && (!requestedRoom || entity.areaId === requestedRoom))
+    .sort((a: any, b: any) => String(a.name).localeCompare(String(b.name), "de"))
+    .map((entity: any) => mapLight(readStateFromMap(stateMap, entity.entityId), entity.name));
+  const cameraConfigs = await getDiscoveredCameraConfigs(structure);
+  refreshLiveSourceCache(cameraConfigs);
+  const cameras = cameraConfigs.map((config) => mapCamera(readStateFromMap(stateMap, config.eventImageEntityId), config));
   const energy = await buildEnergySummary(stateMap);
   const waterTank = buildWaterTankSummary(stateMap);
 
@@ -1791,12 +1912,12 @@ app.get("/api/dashboard", async (_req: Request, res: Response) => {
     precipitationOutlook,
     energy,
     waterTank,
-    kitchenLight: mainLight?.state ?? "unavailable",
+    kitchenLight: lights[0]?.state ?? "unavailable",
     lights,
-    light1Name: lights[0]?.name ?? "Hof",
+    light1Name: lights[0]?.name ?? "Licht",
     light1State: lights[0]?.state ?? "unavailable",
     light1On: isOn(lights[0]?.state),
-    light2Name: lights[1]?.name ?? "Stehlampe",
+    light2Name: lights[1]?.name ?? "Licht",
     light2State: lights[1]?.state ?? "unavailable",
     light2On: isOn(lights[1]?.state),
     light3Name: lights[2]?.name ?? "Lampe",
@@ -2309,8 +2430,16 @@ app.post("/api/tablet/sync", (req: Request, res: Response) => {
     ip: String(req.headers["x-forwarded-for"] || req.socket.remoteAddress || "").replace(/^::ffff:/, ""),
     localConfig: req.body?.local
   });
+  const reload = panelFeatures.sync(id,{ack:req.body?.reloadAck,version:req.body?.version,sound:req.body?.sound});
   res.setHeader("Cache-Control", "no-store");
-  res.json({ ok: true, assetVersion: ASSET_VERSION, config: result.config, commands: result.commands });
+  res.json({ ok: true, assetVersion: ASSET_VERSION, reload, config: result.config, commands: result.commands });
+});
+
+app.post("/api/panel/reload", (req,res) => {
+  const target=String(req.body?.target || "");
+  const ids=target === "all" ? tabletRegistry.resolveTargets("all") : tabletRegistry.resolveTargets(target);
+  if(!target || !ids.length) { res.status(404).json({ok:false,message:"Tablet nicht gefunden."});return; }
+  res.json({ok:true,delivered:panelFeatures.requestReload(ids)});
 });
 
 app.post("/api/tablet/report", (req: Request, res: Response) => {
@@ -2326,7 +2455,8 @@ app.post("/api/tablet/report", (req: Request, res: Response) => {
 app.get("/api/tablets", async (_req: Request, res: Response) => {
   await refreshDoorbellAutoDetect();
   const now = Date.now();
-  const states = await getAllStates().catch(() => [] as HaState[]);
+  let haConnected = true;
+  const states = await getAllStates().catch(() => { haConnected=false; return [] as HaState[]; });
   const pick = (pattern: RegExp) => states
     .filter((state) => pattern.test(state.entity_id))
     .map((state) => ({ entityId: state.entity_id, name: String(state.attributes?.friendly_name || state.entity_id) }))
@@ -2334,12 +2464,16 @@ app.get("/api/tablets", async (_req: Request, res: Response) => {
   res.setHeader("Cache-Control", "no-store");
   res.json({
     ok: true,
+    assetVersion: ASSET_VERSION,
+    health: { haConnected, uptimeSeconds: Math.floor(process.uptime()) },
+    inbox: panelFeatures.list(),
     tablets: tabletRegistry.list().map((record) => ({
       id: record.id,
       config: record.config,
       online: now - record.lastSeen < TABLET_ONLINE_MS,
       lastSeen: record.lastSeen,
       page: record.page,
+      panelStatus: panelFeatures.status(record.id),
       device: describeDevice(record.userAgent),
       ip: record.ip
     })),
@@ -2348,7 +2482,7 @@ app.get("/api/tablets", async (_req: Request, res: Response) => {
     candidates: {
       doorbell: pick(/^(binary_sensor|event)\./),
       lights: pick(/^(light|switch)\./),
-      cameras: CAMERA_CONFIGS.map((config) => ({ entityId: config.haCameraEntityId, name: config.name }))
+      cameras: (await getDiscoveredCameraConfigs()).map((config) => ({ entityId: config.haCameraEntityId, name: config.name }))
     }
   });
 });
@@ -2422,7 +2556,7 @@ app.post("/api/tablets/:id/command", (req: Request, res: Response) => {
     return;
   }
   const sound = type === "sound" ? normalizeSound(req.body?.sound, "ping") : undefined;
-  res.json({ ok: true, delivered: tabletRegistry.enqueue([id], { type, sound }) });
+  res.json({ ok: true, delivered: type === "reload" ? panelFeatures.requestReload(tabletRegistry.resolveTargets(id)) : tabletRegistry.enqueue([id], { type, sound }) });
 });
 
 app.delete("/api/tablets/:id", (req: Request, res: Response) => {
@@ -2433,7 +2567,7 @@ app.get("/api/doorbell", async (_req: Request, res: Response) => {
   await refreshDoorbellAutoDetect();
   const stateMap = await getStateMap();
   const camera = tabletRegistry.getSettings().doorbellCamera;
-  const cameraConfig = CAMERA_CONFIGS.find((config) => config.haCameraEntityId === camera);
+  const cameraConfig = (await getDiscoveredCameraConfigs()).find((config) => config.haCameraEntityId === camera);
   res.setHeader("Cache-Control", "no-store");
   res.json({
     ok: true,
@@ -2451,13 +2585,23 @@ app.get("/api/doorbell", async (_req: Request, res: Response) => {
   });
 });
 
+const HA_STRUCTURE_EVENTS = ["area_registry_updated", "device_registry_updated", "entity_registry_updated", "floor_registry_updated"];
 function handleHaEvent(eventType: string, data: any): void {
+  if (HA_STRUCTURE_EVENTS.includes(eventType) || (eventType === "state_changed" && (!data?.new_state || !data?.old_state))) {
+    invalidateHaCaches();
+    registriesCache = null;
+    registryGeneration++;
+    liveSourceRefreshAt = 0;
+    doorbellAutoDetectAt = 0;
+    if (eventType !== "state_changed") { return; }
+  }
   if (eventType === "wallpanel_notify") {
     // Aus HA-Automationen: event wallpanel_notify mit tablet, title, message, duration (oder command: doorbell/reload)
     const target = typeof data?.tablet === "string" ? data.tablet : "all";
     if (data?.command === "doorbell") { triggerDoorbell("HA-Event", target); return; }
     if (data?.command === "reload" || data?.command === "identify") {
-      tabletRegistry.enqueue(tabletRegistry.resolveTargets(target), { type: data.command });
+      if(data.command === "reload") { panelFeatures.requestReload(tabletRegistry.resolveTargets(target)); }
+      else { tabletRegistry.enqueue(tabletRegistry.resolveTargets(target), { type: "identify" }); }
       return;
     }
     if (data?.command === "sound" || (data?.sound && !data?.message)) {
@@ -2568,12 +2712,20 @@ function formatGateAction(entityId: string, newState: string, label: string): st
 
 
 app.listen(PORT, "0.0.0.0", () => {
+  let observing = false;
+  const observePanel = async () => {
+    if (observing) { return; } observing=true;
+    try { const structure=await buildHaStructure(); panelFeatures.observe(structure.entities); }
+    catch { /* A connection failure must never resolve existing device problems. */ }
+    finally { observing=false; }
+  };
+  void observePanel(); setInterval(observePanel,15000);
   console.log(`Wallpanel läuft auf Port ${PORT}`);
 
   refreshDoorbellAutoDetect().then(() => {
     console.log(`Klingel-Signal: ${getDoorbellEntity() || "nicht gefunden (in den Optionen unter Tablets einstellen)"}`);
   });
-  subscribeToHaEvents(HA_URL, HA_TOKEN, ["state_changed", "wallpanel_notify"], handleHaEvent);
+  subscribeToHaEvents(HA_URL, HA_TOKEN, ["state_changed", "wallpanel_notify", ...HA_STRUCTURE_EVENTS], handleHaEvent);
 
   subscribeToStateChanges(
     HA_URL,

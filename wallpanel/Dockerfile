@@ -9,6 +9,7 @@ RUN npm ci
 
 COPY src ./src
 COPY public ./public
+COPY config.yaml CHANGELOG.md ./wallpanel/
 
 RUN npm run build \
   && npm prune --omit=dev

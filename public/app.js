@@ -542,35 +542,9 @@ function toggleWastePanel(event) {
   if (hint) { hint.textContent = expanded ? "Details" : "Weniger"; }
 }
 
-function isIgnoredBatteryEntity(entity) {
-  var text = ((entity.name || "") + " " + (entity.entityId || "")).toLowerCase();
-  return text.indexOf("apple watch") !== -1 ||
-    text.indexOf("iphone") !== -1 ||
-    text.indexOf("ipad") !== -1 ||
-    text.indexOf("macbook") !== -1 ||
-    text.indexOf("mac book") !== -1 ||
-    text.indexOf("powerstream-8801") !== -1 ||
-    text.indexOf("powerstream_8801") !== -1 ||
-    text.indexOf("powerstream 8801") !== -1;
-}
+function isIgnoredBatteryEntity(entity) { return !!entity.haHidden || entity.visibleByDefault === false; }
 
-function isExcludedHomeSecurityEntity(entity) {
-  var id = entity.entityId || "";
-  var name = (entity.name || "").toLowerCase();
-  return id.indexOf("3d_drucker") !== -1 ||
-    id.indexOf("skoda") !== -1 ||
-    id.indexOf("f3de43e3e8b1") !== -1 ||
-    id.indexOf("jura") !== -1 ||
-    id.indexOf("kuhlschrank") !== -1 ||
-    name.indexOf("3d drucker") !== -1 ||
-    name.indexOf("skoda") !== -1 ||
-    name.indexOf("škoda") !== -1 ||
-    name.indexOf("jura") !== -1 ||
-    name.indexOf("milk system") !== -1 ||
-    name.indexOf("cleaning needed") !== -1 ||
-    name.indexOf("kühlschrank") !== -1 ||
-    name.indexOf("kuhlschrank") !== -1;
-}
+function isExcludedHomeSecurityEntity(entity) { return !!entity.haHidden || entity.visibleByDefault === false; }
 
 function isHomeSecurityEntity(entity) {
   if (!entity || isExcludedHomeSecurityEntity(entity)) { return false; }
@@ -705,53 +679,60 @@ function renderEnergy(energy) {
 }
 
 function renderLights(lights) {
-  if (!lights || !lights.length) {
-    return;
-  }
-
-  if (typeof iconForSpecialCard === "function") {
-    var lightIconIds = ["light1IconModal", "light2IconModal", "light3IconModal"];
-    for (var i = 0; i < lightIconIds.length; i++) {
-      var icon = document.getElementById(lightIconIds[i]);
-      if (icon) { icon.innerHTML = iconForSpecialCard("light"); }
-    }
-  }
-
-  if (lights[0]) {
-    var light1Name = lights[0].name || "Licht 1";
-    var light1State = lights[0].state || "unavailable";
-    setText("light1Name", light1Name);
-    setText("light1State", light1State);
-    setText("light1NameModal", light1Name);
-    setText("light1StateModal", light1State);
-  }
-
-  if (lights[1]) {
-    var light2Name = lights[1].name || "Licht 2";
-    var light2State = lights[1].state || "unavailable";
-    setText("light2Name", light2Name);
-    setText("light2State", light2State);
-    setText("light2NameModal", light2Name);
-    setText("light2StateModal", light2State);
-  }
-
-  if (lights[2]) {
-    var light3Name = lights[2].name || "Licht 3";
-    var light3State = lights[2].state || "unavailable";
-    setText("light3Name", light3Name);
-    setText("light3State", light3State);
-    setText("light3NameModal", light3Name);
-    setText("light3StateModal", light3State);
+  var mount = document.getElementById("homeLightsMount");
+  if (!mount) { return; }
+  lights = lights || [];
+  // Keep an active command intact while HA is processing it.
+  if (mount.querySelector(".is-loading")) { return; }
+  mount.innerHTML = "";
+  if (!lights.length) { mount.textContent = "Keine Lampen in diesem HA-Raum."; return; }
+  for (var i = 0; i < lights.length; i++) {
+    (function (light) {
+      var card = document.createElement("button"); card.type = "button";
+      var unavailable = light.state === "unavailable" || light.state === "unknown";
+      var base = "light-card light-toggle-card" + (light.state === "on" ? " is-on" : "");
+      card.className = base + (unavailable ? " is-unavailable" : "");
+      card.disabled = unavailable;
+      card.setAttribute("data-entity-id", light.entity_id);
+      var icon = document.createElement("div"); icon.className = "light-card-icon"; icon.innerHTML = haIcon("lightbulb"); card.appendChild(icon);
+      var title = document.createElement("div"); title.className = "light-card-title"; title.textContent = light.name; card.appendChild(title);
+      var status = document.createElement("div"); status.className = "light-card-state";
+      status.textContent = unavailable ? "Nicht erreichbar" : light.state === "on" ? "An" : "Aus"; card.appendChild(status);
+      card.onclick = function () {
+        if (card.disabled) { return; } card.disabled = true; card.className += " is-loading";
+        apiPost("api/entity/" + encodeURIComponent(light.entity_id) + "/toggle", {}, function (error) {
+          card.disabled = false; card.className = base;
+          if (error) { status.textContent = "Schalten fehlgeschlagen"; }
+          setTimeout(loadDashboard, 1000);
+        });
+      };
+      mount.appendChild(card);
+    })(lights[i]);
   }
 }
 
 function renderCameras(cameras) {
   if (!cameras || !cameras.length) {
+    currentCameras = []; currentCameraIndex = 0;
+    var strip = document.querySelector(".camera-strip");
+    if (strip) { strip.innerHTML = ""; strip.removeAttribute("data-signature"); }
+    var imageIds = ["cameraMainImage", "cameraModalImage"];
+    for (var i = 0; i < imageIds.length; i++) { var image = document.getElementById(imageIds[i]); if (image) { image.removeAttribute("src"); } }
+    setWebrtcFrame(null);
+    setText("cameraMainName", "Keine Kamera in Home Assistant");
     return;
   }
 
+  var previousCamera = currentCameras[currentCameraIndex];
+  var previousId = previousCamera && previousCamera.liveCameraEntityId;
+  var previousIndex = -1;
+  for (var index = 0; index < cameras.length; index++) {
+    if (cameras[index].liveCameraEntityId === previousId) { previousIndex = index; break; }
+  }
+  if (previousCamera && previousIndex === -1) { currentCameraSourceMode = "event"; setWebrtcFrame(null); }
   currentCameras = cameras;
-  if (new Date().getTime() >= cameraManualHoldUntil || currentCameraIndex < 0 || currentCameraIndex >= cameras.length) {
+  if (previousIndex !== -1 && new Date().getTime() < cameraManualHoldUntil) { currentCameraIndex = previousIndex; }
+  else if (new Date().getTime() >= cameraManualHoldUntil || currentCameraIndex < 0 || currentCameraIndex >= cameras.length) {
     currentCameraIndex = getLatestCameraIndex(cameras);
   }
 
@@ -838,7 +819,7 @@ function loadDashboard() {
   }
   dashboardRequestActive = true;
   var xhr = new XMLHttpRequest();
-  xhr.open("GET", "api/dashboard", true);
+  xhr.open("GET", "api/dashboard?room=" + encodeURIComponent(typeof getTabletRoom === "function" ? getTabletRoom() : ""), true);
 
   xhr.onreadystatechange = function () {
     if (xhr.readyState === 4) {
@@ -868,13 +849,6 @@ function loadDashboard() {
           renderCameras(data.cameras);
           notificationState.dashboard = data;
           renderNotifications();
-
-setLightCardState("light1Card", data.light1On, data.light1State);
-setLightCardState("light2Card", data.light2On, data.light2State);
-setLightCardState("light3Card", data.light3On, data.light3State);
-setLightCardState("light1CardModal", data.light1On, data.light1State);
-setLightCardState("light2CardModal", data.light2On, data.light2State);
-setLightCardState("light3CardModal", data.light3On, data.light3State);
 
           setText("torStatus", data.torStatus || "unavailable");
           setText("torStatusModal", data.torStatus || "unavailable");

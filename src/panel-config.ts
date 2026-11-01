@@ -150,7 +150,9 @@ export function readPanelConfig(): PanelConfig {
 
 export function writePanelConfig(config: PanelConfig): void {
   ensureConfigDir();
-  fs.writeFileSync(CONFIG_PATH, JSON.stringify(normalizePanelConfig(config), null, 2), "utf8");
+  const temporaryPath = CONFIG_PATH + ".tmp";
+  fs.writeFileSync(temporaryPath, JSON.stringify(normalizePanelConfig(config), null, 2), { encoding: "utf8", mode: 0o600 });
+  fs.renameSync(temporaryPath, CONFIG_PATH);
 }
 
 export function getConfigPath(): string {

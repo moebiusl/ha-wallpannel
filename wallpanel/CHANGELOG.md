@@ -1,3 +1,29 @@
+## 1.11.0
+
+### Neue Wallpanel-Oberfläche
+- Drei Hauptdesigns pro Tablet auswählbar: Klassisch, Apple (bisher „Home“) und Neues Wallpanel. Apartment wird nicht mehr angeboten; frühere Apartment-Auswahlen werden als Apple gelesen.
+- Kompakte Raumansicht mit Szenen, HomePod-/Music-Assistant-Steuerung, Lampendimmern und Farbwahl sowie Heizungs-Halbkreis und einmaliger Raumsynchronisierung.
+- Apps für Sicherheit und Energie; gemeinsamer Posteingang, Raumklimawerte und gebündelte Gerätehinweise.
+- Zentrale Tablet-Einstellungen und Wartung mit Update-/Tonstatus sowie dauerhaft vorgemerktem Einzel- und Sammel-Reload.
+- Klingel- und Durchsage-Popups an die bisherigen Funktionen angeglichen, inklusive Lichtsteuerung, Auto-Toröffnung, Ablauf und Tonfolge.
+
+### Sicherheit
+- Kamera-, Bild- und Schaltrouten akzeptieren nur noch gültige Entitätskennungen. Zuvor ließ sich über manipulierte Kennungen (`..%2F`) jede lesende HA-Schnittstelle mit dem Add-on-Token abfragen.
+- Schutz vor DNS-Rebinding: Anfragen unter fremden Domains werden abgewiesen. IP-Adressen, `.local`-/Heimnetznamen und Ingress bleiben erreichbar; eigene Domains über die neue Option `allowed_hosts`.
+
+### Bedienung und Korrekturen
+- Tasten reagieren auf alten iPads sofort beim Loslassen statt auf den verzögerten Safari-Klick; besonders spürbar bei der PIN-Eingabe.
+- Sparsame Darstellung ohne Unschärfeeffekte jetzt auch für iPads mit iOS 11 und 12.
+- Kein automatischer Rücksprung zur Startseite nach einer Minute mehr.
+- Neuladen behält Seite und ausgewählten Raum bei; das PIN-Fenster wird nicht automatisch wieder geöffnet. Eine gültige Verwaltungssitzung öffnet Einstellungen ohne erneute PIN-Eingabe.
+- Größere runde PIN-Tasten; direkt unter dem Zahlenfeld stehen eigener Cache-Reload und PIN-geschützter Sammel-Reload bereit.
+- Hintergrundscrollen bei Popups, Raumzuordnung, Iconausrichtung und enge Tablet-Layouts überarbeitet.
+- Nur ausdrückliches Schließen eines Klingel-Popups meldet die Erledigung an die anderen Tablets.
+
+### Leistung
+- Weniger DOM-Neuaufbau und HA-Registry-Abfragen; Hintergrundpausen und begrenzte Kamerastreams.
+- Titelbildcache auf 32 MiB begrenzt; Farbkreis-Pixeldaten werden wiederverwendet.
+
 ## 1.10.2
 
 ### Fix

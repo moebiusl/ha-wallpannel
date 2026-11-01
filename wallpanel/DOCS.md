@@ -8,6 +8,12 @@
 4. Add-on starten.
 5. Die Oberflaeche ueber "Web UI" oder Ingress oeffnen.
 
+## Geräte und Räume automatisch aus HA
+
+Geräte, Räume, Namen und Sichtbarkeit werden zentral in Home Assistant gepflegt. Die Raumansichten nehmen neue unterstützte Geräte automatisch auf und laden Änderungen während des Betriebs nach. Lampen, Musik und Heizung werden anhand ihrer HA-Typen und Fähigkeiten dargestellt. Pro Tablet genügt normalerweise die Zuordnung zu einem HA-Raum.
+
+Die Kameraauswahl und die Startseiten-Lichtdaten folgen ebenfalls HA. Die älteren `entity_light_*`-Werte und Kamera-Namens-/Eventbild-Zuordnungen sind Kompatibilitätsoptionen; die automatische Geräteauswahl benötigt sie nicht. go2rtc-Streamüberschreibungen bleiben optional. Die installationsbezogenen Sonderkarten für Tor, Energie, Müll und Wassertank enthalten noch feste Altzuordnungen und sind noch nicht vollständig auf das automatische Modell umgestellt.
+
 ## Konfiguration
 
 Es ist keine manuelle Token-Konfiguration noetig. Das Add-on setzt:
@@ -23,7 +29,8 @@ Diese Werte kannst du im Add-on unter **Konfiguration** setzen:
 - `ha_token` – normalerweise leer lassen. Nur als Fallback nutzen, falls dein HA-System dem Add-on keinen Supervisor-Token bereitstellt.
 - `go2rtc_public_url` – go2rtc-Adresse, z.B. `http://192.168.178.10:1984`. Normalerweise leer lassen: Das Add-on nutzt dann automatisch die IP des HA-Hosts mit `go2rtc_port`.
 - `go2rtc_port` – Port fuer automatische go2rtc-Ableitung, Standard `1984`
-- `settings_pin` – PIN fuer die Optionen im Wallpanel
+- `settings_pin` – PIN fuer die Optionen im Wallpanel. Standard `1111`; bitte eine eigene PIN setzen.
+- `allowed_hosts` – Normalerweise leer lassen. IP-Adressen, `homeassistant.local`, andere `.local`-/Heimnetznamen und Ingress funktionieren immer. Nur wenn das Wallpanel ueber eine eigene Domain geoeffnet wird, diese hier kommagetrennt eintragen, z.B. `wallpanel.example.de`. Andere Domains werden zum Schutz vor DNS-Rebinding abgewiesen.
 - `entity_light_main`, `entity_light_secondary`, `entity_light_third` – Licht-Entities fuer die Home-Kacheln. `entity_light_third` leer lassen, wenn es keine dritte Lampe gibt.
 - `camera_*_name` – Anzeigename der Kamera
 - `camera_*_event_image` – Event-Bild-Entity, z.B. `image.hof_event_image`

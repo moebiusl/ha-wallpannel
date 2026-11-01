@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <meta name="apple-mobile-web-app-title" content="Zuhause">
+  <meta name="theme-color" content="#171619">
+  <title>Zuhause · Wallpanel Vorschau</title>
+  <link rel="apple-touch-icon" href="../apple-touch-icon.png">
+  <link id="mockupStyle" rel="stylesheet" href="mockup.css">
+  <script>
+    (function () {
+      var reload = /[?&]_reload=([0-9]+)/.exec(window.location.search);
+      if (reload) { document.getElementById('mockupStyle').href = 'mockup.css?_reload=' + reload[1]; }
+    })();
+  </script>
+</head>
+<body>
+  <div id="app" class="app">
+    <header class="topbar">
+      <nav id="mainNav" class="nav" aria-label="Übersicht und zugeordnete Zimmer"></nav>
+      <div class="quick-tools">
+        <button class="quick-tool" type="button" data-action="announce" aria-label="Durchsage"><span id="announceIcon"></span><span class="tool-label">Durchsage</span></button>
+        <button class="quick-tool" type="button" data-action="assist" aria-label="Assist fragen"><span id="assistIcon"></span><span class="tool-label">Assist</span></button>
+      </div>
+      <div class="topbar-clock"><div id="clockTime">--:--</div><span id="clockDate"></span></div>
+      <button type="button" id="previewInfo" class="preview-control" aria-label="Informationen zur Vorschau">Demo</button>
+    </header>
+    <div class="main-shell">
+      <header class="header">
+        <div class="header-copy"><div id="pageEyebrow" class="eyebrow"></div><h1 id="pageTitle"></h1></div>
+        <div class="header-actions"><button type="button" id="roomPicker" class="room-picker" aria-haspopup="dialog"></button></div>
+      </header>
+
+      <main id="content" class="content" tabindex="-1"></main>
+    </div>
+  </div>
+  <div id="dialogRoot"></div>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <script>
+    (function () {
+      var reload = /[?&]_reload=([0-9]+)/.exec(window.location.search);
+      var files = ["power-fader.js", "thermostat.js", "mockup.js"], index = 0;
+      function next() { if(index >= files.length) { return; } var script=document.createElement('script');script.src=files[index++] + (reload ? '?_reload=' + reload[1] : '');script.onload=next;document.body.appendChild(script); }
+      next();
+    })();
+  </script>
+</body>
+</html>

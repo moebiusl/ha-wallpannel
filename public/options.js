@@ -87,7 +87,7 @@ function unlockSettings() {
   }
   apiPost("api/settings/unlock", { pin: input.value }, function (error) {
     if (error) {
-      if (status) { status.innerHTML = "Falscher PIN"; }
+      if (status) { status.textContent = error.message === "HTTP 429" ? "Bitte eine Minute warten" : "PIN oder Verbindung prüfen"; }
       clearSettingsPin();
       return;
     }
@@ -133,7 +133,7 @@ function showSettingsContent() {
   rememberSettingsAccess();
   if (lock) { lock.style.display = "none"; }
   if (content) { content.style.display = "block"; }
-  showSettingsTab("tablet");
+  showSettingsTab(window.location.hash === "#tablets" ? "tablets" : "tablet");
   startOptionsPage();
 }
 
@@ -253,7 +253,10 @@ function backspaceSettingsPin() {
 function initSettingsLock() {
   var input = document.getElementById("settingsPin");
   if (isSettingsUnlocked()) {
-    showSettingsContent();
+    apiGet("api/settings/session", function (error, session) {
+      if (!error && session && session.unlocked) { showSettingsContent(); }
+      else { try { window.sessionStorage.removeItem(SETTINGS_UNLOCK_KEY); } catch (_e) { /* ignore */ } }
+    });
   }
   if (input) {
     input.onkeydown = function (event) {
@@ -433,23 +436,7 @@ function getEnergyOptionEntities() {
   return list;
 }
 
-function isExcludedOptionsSecurityEntity(entity) {
-  var id = entity.entityId || "";
-  var name = (entity.name || "").toLowerCase();
-  return id.indexOf("3d_drucker") !== -1 ||
-    id.indexOf("skoda") !== -1 ||
-    id.indexOf("f3de43e3e8b1") !== -1 ||
-    id.indexOf("jura") !== -1 ||
-    id.indexOf("kuhlschrank") !== -1 ||
-    name.indexOf("3d drucker") !== -1 ||
-    name.indexOf("skoda") !== -1 ||
-    name.indexOf("škoda") !== -1 ||
-    name.indexOf("jura") !== -1 ||
-    name.indexOf("milk system") !== -1 ||
-    name.indexOf("cleaning needed") !== -1 ||
-    name.indexOf("kühlschrank") !== -1 ||
-    name.indexOf("kuhlschrank") !== -1;
-}
+function isExcludedOptionsSecurityEntity(entity) { return !!entity.haHidden || entity.visibleByDefault === false; }
 
 function isOptionsSecurityEntity(entity) {
   if (!entity || isExcludedOptionsSecurityEntity(entity)) { return false; }
@@ -1209,16 +1196,19 @@ function initOptionsPage() {
         optionState.panelId = "default";
         setPanelId(optionState.panelId);
       }
+      // Administration is ready immediately; unrelated weather data must not block it.
+      renderOptions();
       apiGet("api/energy", function (_energyError, energyData) {
         optionState.energyData = energyData || null;
-        apiGet("api/wetterstation", function (_weatherError, weatherStationData) {
-          optionState.weatherStationData = weatherStationData || null;
-          apiGet("api/wassertank", function (_waterTankError, waterTankData) {
-            optionState.waterTankData = waterTankData || null;
-            loadWaterTankCalibration();
-            renderOptions();
-          });
-        });
+        if (optionState.pageId === "energie") { renderDeviceAndEntityLists(); }
+      });
+      apiGet("api/wetterstation", function (_weatherError, weatherStationData) {
+        optionState.weatherStationData = weatherStationData || null;
+        if (optionState.pageId === "wetter") { renderDeviceAndEntityLists(); }
+      });
+      apiGet("api/wassertank", function (_waterTankError, waterTankData) {
+        optionState.waterTankData = waterTankData || null;
+        loadWaterTankCalibration();
       });
     });
   });
@@ -1267,9 +1257,6 @@ function toggleChangelog() {
   }
   mount.style.display = "";
   mount.innerHTML = '<div class="settings-empty">Lade Changelog…</div>';
-  apiGet("api/changelog", function (error, _ignored) {
-    // apiGet parses JSON — use raw XHR for plain text
-  });
   var xhr = new XMLHttpRequest();
   xhr.open("GET", "api/changelog", true);
   xhr.onreadystatechange = function () {
@@ -1737,12 +1724,21 @@ function loadTabletIdentity() {
 
 function loadThemeSetting() {
   var select = document.getElementById("themeSelect");
-  if (select && typeof getWallpanelTheme === "function") { select.value = getWallpanelTheme(); }
+  if (select && typeof getWallpanelTheme === "function") {select.innerHTML=WallpanelDesign.options(getWallpanelTheme());select.value=getWallpanelTheme();}
 }
 
 function saveThemeSetting() {
   var select = document.getElementById("themeSelect");
   if (!select || typeof applyWallpanelTheme !== "function") { return; }
+  try { window.sessionStorage.removeItem('haWallpanel.themePreview'); } catch (_e) { /* ignore */ }
+  var previewButton = document.querySelector('.theme-preview-exit');
+  if (previewButton) { previewButton.parentNode.removeChild(previewButton); }
+  if (window.history && window.history.replaceState) { window.history.replaceState(null, "", wallpanelUrlWithoutTheme()); }
+  if(select.value==='panel'){
+    var chosen=select.value;if(typeof shouldRegisterAsTablet==='function'&&shouldRegisterAsTablet()){
+      apiPost('api/tablet/report',{id:getTabletId(),config:{theme:chosen}},function(error){if(error){var state=document.getElementById('settingsSaveState');if(state){state.textContent='Design konnte nicht gespeichert werden.';}return;}WallpanelDesign.go(chosen);});
+    }else{WallpanelDesign.go(chosen);}return;
+  }
   applyWallpanelTheme(select.value);
   if (typeof reportTabletConfig === "function") { reportTabletConfig({ theme: select.value }); }
 }
@@ -1758,7 +1754,7 @@ function saveTabletName() {
 /* ── Tablets: Verwaltung ──────────────────────────────────────────── */
 var tabletsAdminState = null;
 
-function loadTabletsAdmin() {
+function loadTabletsAdmin(quiet) {
   apiGet("api/tablets", function (error, payload) {
     var mount = document.getElementById("tabletsAdminMount");
     if (error || !payload) {
@@ -1767,7 +1763,8 @@ function loadTabletsAdmin() {
     }
     tabletsAdminState = payload;
     renderTabletsAdmin();
-    renderDoorbellSettings();
+    if (!quiet) { renderDoorbellSettings(); }
+    renderTabletMaintenance();
   });
 }
 
@@ -1781,7 +1778,7 @@ function formatLastSeen(timestamp) {
 }
 
 function tabletRoomOptions(selected) {
-  var html = "";
+  var html = '<option value="">Kein Hauptraum</option>';
   var tree = optionState.structure && optionState.structure.tree ? optionState.structure.tree : [];
   var found = false;
   for (var f = 0; f < tree.length; f++) {
@@ -1789,7 +1786,7 @@ function tabletRoomOptions(selected) {
     if (!areas.length) { continue; }
     html += '<optgroup label="' + escapeHtml(tree[f].floorName || "Ohne Etage") + '">';
     for (var a = 0; a < areas.length; a++) {
-      if (!areas[a].areaId) { continue; }
+      if (!areas[a].areaId || /^\s*#/.test(areas[a].name || "")) { continue; }
       if (areas[a].areaId === selected) { found = true; }
       html += '<option value="' + escapeHtml(areas[a].areaId) + '"' + (areas[a].areaId === selected ? " selected" : "") + ">" + escapeHtml(areas[a].name) + "</option>";
     }
@@ -1818,6 +1815,7 @@ function renderTabletsAdmin() {
   var mount = document.getElementById("tabletsAdminMount");
   if (!mount || !tabletsAdminState) { return; }
   var tablets = tabletsAdminState.tablets || [];
+  if (mount.querySelector('[data-dirty="true"]') || mount.contains(document.activeElement)) { updateTabletAdminStatuses(); return; }
   if (!tablets.length) {
     mount.innerHTML = '<div class="settings-empty">Noch kein Tablet registriert. Öffne das Wallpanel auf einem iPad als Web-App vom Homescreen.</div>';
     return;
@@ -1834,20 +1832,19 @@ function renderTabletsAdmin() {
     for (var m = 0; m < allowed.length; m++) {
       minutesOptions += '<option value="' + allowed[m] + '"' + (ss.minutes === allowed[m] ? " selected" : "") + ">" + allowed[m] + (allowed[m] === 1 ? " Minute" : " Minuten") + "</option>";
     }
-    html += '<div class="tablet-admin-card">' +
+    html += '<div class="tablet-admin-card" data-admin-tablet="' + t.id + '">' +
       '<div class="tablet-admin-head">' +
         '<span class="tablet-admin-dot' + (t.online ? " is-online" : "") + '"></span>' +
         '<strong>' + escapeHtml(c.name || "Ohne Namen") + "</strong>" +
-        '<small>' + escapeHtml(t.device) + " · " + (t.online ? "online" : "zuletzt " + formatLastSeen(t.lastSeen)) + (t.page ? " · Seite: " + escapeHtml(t.page) : "") + (t.ip ? " · " + escapeHtml(t.ip) : "") + "</small>" +
+        '<small data-tablet-health="' + t.id + '">' + escapeHtml(tabletHealthText(t)) + "</small>" +
       "</div>" +
       '<div class="tablet-admin-grid">' +
         '<label>Name<input id="' + p + 'name" class="assist-input" type="text" maxlength="40" value="' + escapeHtml(c.name || "") + '"></label>' +
-        '<label>Raum<select id="' + p + 'room" class="room-select">' + tabletRoomOptions(c.room || "") + "</select></label>" +
-        '<label>Panel<select id="' + p + 'panel" class="room-select">' + tabletPanelOptions(c.panelId) + "</select></label>" +
-        '<label>Design<select id="' + p + 'theme" class="room-select">' +
-          '<option value="classic"' + (c.theme !== "home" ? " selected" : "") + '>Klassisch</option>' +
-          '<option value="home"' + (c.theme === "home" ? " selected" : "") + '>Home (Apple-Stil, Test)</option>' +
-        "</select></label>" +
+        '<label>Hauptraum<select id="' + p + 'room" class="room-select">' + tabletRoomOptions(c.room || "") + "</select></label>" +
+        '<label>Panel (klassische Oberfläche)<select id="' + p + 'panel" class="room-select">' + tabletPanelOptions(c.panelId) + "</select></label>" +
+        '<label>Design<select id="' + p + 'theme" class="room-select">' + WallpanelDesign.options(c.theme) + '</select></label>' +
+        tabletAssignedRoomFields(t) +
+        '<label class="settings-check"><input id="' + p + 'large" type="checkbox"' + (c.large ? " checked" : "") + '><span>Größere Schrift</span></label>' +
         '<label class="settings-check"><input id="' + p + 'doorbell" type="checkbox"' + (c.doorbellWake !== false ? " checked" : "") + "><span>Klingel-Popup anzeigen</span></label>" +
         '<label class="settings-check"><input id="' + p + 'sounds" type="checkbox"' + (c.sounds !== false ? " checked" : "") + "><span>Töne abspielen</span></label>" +
         '<label class="settings-check"><input id="' + p + 'ss" type="checkbox"' + (ss.enabled ? " checked" : "") + '><span>Bildschirmschoner nach</span></label>' +
@@ -1875,6 +1872,7 @@ function renderTabletsAdmin() {
       '<span id="tab_all_state" class="settings-save-state"></span>' +
       noticeFormHtml("tab_all_", "all") +
     "</div>" + html;
+  for(var ti=0;ti<tablets.length;ti++){var select=document.getElementById('tab_'+tablets[ti].id+'_theme');if(select){select.value=WallpanelDesign.normalize(tablets[ti].config.theme);}}
 }
 
 function tabletAdminValue(id) {
@@ -1891,11 +1889,14 @@ function setTabletAdminState(id, text) {
 }
 
 function saveTabletAdmin(id) {
+  if(!optionState.structure || !optionState.structure.tree){setTabletAdminState(id,"Bitte warten, bis die HA-Räume geladen sind.");return;}
   var p = "tab_" + id + "_";
   var num = function (key, fallback) { var v = parseInt(tabletAdminValue(p + key), 10); return isNaN(v) ? fallback : v; };
   var config = {
     name: tabletAdminValue(p + "name") || "",
     room: tabletAdminValue(p + "room") || "",
+    rooms: tabletCheckedRooms(id),
+    large: !!tabletAdminValue(p + "large"),
     panelId: tabletAdminValue(p + "panel") || "default",
     theme: tabletAdminValue(p + "theme") || "classic",
     doorbellWake: !!tabletAdminValue(p + "doorbell"),
@@ -1908,8 +1909,18 @@ function saveTabletAdmin(id) {
       brightness: num("nmb", 15)
     }
   };
-  apiPost("api/tablets/" + id, { config: config }, function (error) {
+  apiPost("api/tablets/" + id, { config: config }, function (error, result) {
+    if(!error){var card=document.querySelector('[data-admin-tablet="'+id+'"]');if(card){card.removeAttribute("data-dirty");}var records=tabletsAdminState.tablets || [];for(var i=0;i<records.length;i++){if(records[i].id===id){records[i].config=result.config || config;}}}
     setTabletAdminState(id, error ? "Fehler beim Speichern" : "Gespeichert – wird übernommen");
+  });
+}
+
+function reloadAllTablets() {
+  var state=document.getElementById("tabletsMaintenanceState");
+  if(state){state.textContent="Neuladen wird vorgemerkt …";}
+  apiPost("api/panel/reload", {target:"all"}, function(error,result) {
+    if(state){state.textContent=error?"Neuladen konnte nicht vorgemerkt werden. Bitte PIN-Sitzung und Verbindung prüfen.":"Neuladen für "+result.delivered+" Tablet(s) vorgemerkt.";}
+    if(!error){loadTabletsAdmin(true);}
   });
 }
 
@@ -2030,6 +2041,7 @@ function removeTabletAdmin(id) {
   if (!window.confirm("Tablet aus der Liste entfernen? Es meldet sich beim nächsten Öffnen neu an.")) { return; }
   var xhr = new XMLHttpRequest();
   xhr.open("DELETE", "api/tablets/" + id, true);
+  xhr.setRequestHeader("X-Wallpanel-Admin", "1");
   xhr.onreadystatechange = function () { if (xhr.readyState === 4) { loadTabletsAdmin(); } };
   xhr.send();
 }
@@ -2101,3 +2113,65 @@ function testDoorbell() {
 }
 
 initSettingsLock();
+
+// Keep the HA source current without replacing a tablet form while somebody edits it.
+document.addEventListener("wallpanelstructurechanged", function () {
+  optionState.structure = window.wallpanelStructure;
+  if (!optionState.config) { return; }
+  var active = document.activeElement;
+  if (active && /^(INPUT|SELECT|TEXTAREA)$/.test(active.tagName)) { return; }
+  fillTabletRoomSelect();
+  fillPageSelect();
+  renderAreaSelect();
+  renderDeviceAndEntityLists();
+});
+
+/* Central tablet maintenance; status refreshes never replace unsaved forms. */
+function tabletAssignedRoomFields(tablet) {
+  var c=tablet.config || {},assigned=Array.isArray(c.rooms)?c.rooms:(c.room?[c.room]:[]),tree=optionState.structure && optionState.structure.tree || [];
+  var html='<fieldset class="tablet-assigned-rooms"><legend>Raum-Schnelltasten</legend>';
+  for(var f=0;f<tree.length;f++){var rooms=tree[f].areas || [];for(var r=0;r<rooms.length;r++){var room=rooms[r];if(!room.areaId || /^\s*#/.test(room.name || '')){continue;}html+='<label class="settings-check"><input type="checkbox" name="tabletAssignedRoom" data-tablet="'+tablet.id+'" value="'+escapeHtml(room.areaId)+'"'+(assigned.indexOf(room.areaId)>=0?' checked':'')+'><span>'+escapeHtml(room.name)+'</span></label>';}}
+  return html+'</fieldset>';
+}
+function tabletCheckedRooms(id) {
+  var fields=document.querySelectorAll('[name="tabletAssignedRoom"][data-tablet="'+id+'"]'),rooms=[];
+  for(var i=0;i<fields.length;i++){if(fields[i].checked){rooms.push(fields[i].value);}}
+  return rooms;
+}
+function tabletHealthText(t) {
+  var status=t.panelStatus || {},version=tabletsAdminState.assetVersion;
+  return (t.device || 'Tablet')+' · '+(t.online?'online':'zuletzt '+formatLastSeen(t.lastSeen))+(t.ip?' · '+t.ip:'')+(t.page?' · '+t.page:'')+' · '+(status.version?'UI '+status.version+(version&&status.version!==version?' · Update verfügbar':' · aktuell'):'UI-Version noch nicht gemeldet')+' · '+(status.sound==='ready'?'Ton bereit':status.sound==='disabled'?'Ton aus':status.sound==='blocked'?'Ton nicht freigegeben':'Tonstatus noch nicht gemeldet')+(status.reload?' · Neuladen vorgemerkt':'');
+}
+function updateTabletAdminStatuses() {
+  var records=tabletsAdminState && tabletsAdminState.tablets || [];
+  for(var i=0;i<records.length;i++){var node=document.querySelector('[data-tablet-health="'+records[i].id+'"]');if(node){node.textContent=tabletHealthText(records[i]);var title=node.parentNode.querySelector('strong');if(title){title.textContent=records[i].config.name || 'Ohne Namen';}}}
+}
+var tabletMaintenanceShowDone=false;
+function toggleTabletMaintenanceArchive(){tabletMaintenanceShowDone=!tabletMaintenanceShowDone;renderTabletMaintenance();}
+function renderTabletMaintenance() {
+  var mount=document.getElementById('tabletsMaintenanceMount');if(!mount||!tabletsAdminState){return;}
+  var health=tabletsAdminState.health || {},tablets=tabletsAdminState.tablets || [],online=tablets.filter(function(t){return t.online;}).length;
+  var html='<section class="tablet-maintenance"><h3>Ferneinstellung &amp; Wartung</h3><p>'+online+' von '+tablets.length+' Tablets online · Home Assistant '+(health.haConnected===false?'nicht erreichbar':health.haConnected===true?'verbunden':'Status unbekannt')+'</p><p>Serverversion: '+escapeHtml(tabletsAdminState.assetVersion || '–')+'</p><p>Raum-Schnelltasten, Schrift, Ton, Klingel, Bildschirmschoner und Nachtzeiten stellst du unten je Tablet ein. Änderungen werden automatisch übernommen. Tonfreigabe benötigt einen Tipp direkt am iPad.</p><p>Neuladen wartet auf geschlossene Fenster und beendete Bedienung. Offline-iPads holen den Auftrag innerhalb von 24 Stunden ab.</p><h3>Gerätehinweise &amp; gemeinsamer Posteingang</h3><button type="button" class="pill-button" onclick="toggleTabletMaintenanceArchive()">'+(tabletMaintenanceShowDone?'Nur offene Hinweise':'Erledigte Hinweise anzeigen')+'</button>';
+  var list=(tabletsAdminState.inbox || []).filter(function(n){return tabletMaintenanceShowDone || !n.done;});
+  for(var i=0;i<list.length;i++){var n=list[i];html+='<article class="tablet-maintenance-notice"><strong>'+escapeHtml(n.title)+'</strong><p>'+escapeHtml(n.message)+'</p><small>'+(n.done?(n.active?'Erledigt':'Behoben'):n.hidden?'Auf Übersicht ausgeblendet':'Offen')+'</small><div>';
+    if(!n.done&&!n.hidden){html+='<button type="button" class="pill-button" data-notice-id="'+escapeHtml(n.id)+'" onclick="tabletMaintenanceAction(this,\'hide\')">Ausblenden</button>';}
+    if(!n.done){html+='<button type="button" class="pill-button" data-notice-id="'+escapeHtml(n.id)+'" onclick="tabletMaintenanceAction(this,\'done\')">Erledigt</button>';}
+    if(n.active&&(n.hidden||n.done)){html+='<button type="button" class="pill-button" data-notice-id="'+escapeHtml(n.id)+'" onclick="tabletMaintenanceAction(this,\'show\')">Wieder anzeigen</button>';}
+    html+='</div></article>';
+  }
+  mount.innerHTML=html+(list.length?'':'<p>Keine offenen Gerätehinweise.</p>')+'</section>';updateTabletAdminStatuses();
+}
+function tabletMaintenanceAction(button,action) {
+  if(button.disabled){return;}button.disabled=true;
+  apiPost('api/panel/inbox/action',{id:button.getAttribute('data-notice-id'),action:action},function(error,result){
+    if(error){button.disabled=false;var state=document.getElementById('tabletsMaintenanceState');if(state){state.textContent='Hinweis konnte nicht geändert werden.';}return;}
+    tabletsAdminState.inbox=result.items || [];renderTabletMaintenance();
+  });
+}
+function markTabletAdminDirty(event) {
+  var node=event.target;
+  while(node && node!==document){if(node.getAttribute && node.getAttribute('data-admin-tablet')){node.setAttribute('data-dirty','true');return;}node=node.parentNode;}
+}
+document.addEventListener('input',markTabletAdminDirty,false);
+document.addEventListener('change',markTabletAdminDirty,false);
+setInterval(function(){var tab=document.getElementById('settingsTab-tablets');if(!document.hidden && isSettingsUnlocked() && tab && tab.style.display!=='none'){loadTabletsAdmin(true);}},10000);

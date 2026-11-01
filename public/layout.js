@@ -35,7 +35,7 @@ function findAreaName(structure, areaId) {
 function buildHeader(activePage, roomLabel, roomId, visiblePages) {
   function navLink(label, href, key) {
     var activeClass = activePage === key ? "topnav-link active" : "topnav-link";
-    return '<a class="' + activeClass + '" href="' + href + '">' + label + '</a>';
+    return '<a data-nav-page="' + key + '" class="' + activeClass + '" href="' + href + '">' + label + '</a>';
   }
   function pageVisible(key) {
     return !visiblePages || visiblePages.indexOf(key) !== -1;
@@ -504,43 +504,9 @@ function buildFooter(activeRoom, structure) {
     '</aside>';
 }
 
-function loadSharedStructure(callback) {
-  var xhr = new XMLHttpRequest();
-  xhr.open('GET', 'api/ha/structure', true);
-  xhr.onreadystatechange = function () {
-    if (xhr.readyState !== 4) {
-      return;
-    }
-    if (xhr.status >= 200 && xhr.status < 300) {
-      try {
-        callback(null, JSON.parse(xhr.responseText));
-      } catch (error) {
-        callback(error);
-      }
-    } else {
-      callback(new Error('HTTP ' + xhr.status));
-    }
-  };
-  xhr.send();
-}
+function loadSharedStructure(callback) { apiGet('api/ha/structure', callback); }
 
-function loadPanelConfig(callback) {
-  var xhr = new XMLHttpRequest();
-  xhr.open('GET', 'api/panel-config', true);
-  xhr.onreadystatechange = function () {
-    if (xhr.readyState !== 4) { return; }
-    if (xhr.status >= 200 && xhr.status < 300) {
-      try {
-        callback(null, JSON.parse(xhr.responseText));
-      } catch (error) {
-        callback(error);
-      }
-    } else {
-      callback(new Error('HTTP ' + xhr.status));
-    }
-  };
-  xhr.send();
-}
+function loadPanelConfig(callback) { apiGet('api/panel-config', callback); }
 
 function getVisiblePagesFromConfig(payload) {
   var config = payload && payload.config ? payload.config : null;
@@ -590,6 +556,31 @@ function formatGermanDateTime(value) {
   return day + '.' + month + '.' + year + ' ' + hour + ':' + minute + ' Uhr';
 }
 
+var sharedStructureTimer = null;
+var sharedStructureBusy = false;
+window.wallpanelStructure = null;
+function acceptSharedStructure(structure) {
+  if (!structure) { return; }
+  var previous = window.wallpanelStructure;
+  var changed = !previous || !structure.structureRevision || previous.structureRevision !== structure.structureRevision;
+  window.wallpanelStructure = structure;
+  if (!changed) { return; }
+  var roomId = document.body.getAttribute('data-room') || getTabletRoom();
+  var roomLink = document.querySelector('[data-nav-page="raum"]');
+  if (roomLink) { roomLink.textContent = findAreaName(structure, roomId); }
+  renderRoomsModal(structure);
+  var event = document.createEvent('Event');
+  event.initEvent('wallpanelstructurechanged', false, false);
+  document.dispatchEvent(event);
+}
+function refreshSharedStructure() {
+  if (sharedStructureBusy || document.hidden) { return; }
+  sharedStructureBusy = true;
+  loadSharedStructure(function (error, structure) {
+    sharedStructureBusy = false;
+    if (!error) { acceptSharedStructure(structure); }
+  });
+}
 function renderSharedLayout() {
   var body = document.body;
   var activePage = body.getAttribute('data-page') || 'home';
@@ -608,6 +599,7 @@ function renderSharedLayout() {
       if (!error && structure) {
         loadPanelConfig(function (_configError, payload) {
           headerMount.innerHTML = buildHeader(activePage, findAreaName(structure, activeRoom), activeRoom, getVisiblePagesFromConfig(payload));
+          acceptSharedStructure(structure);
           renderRoomsModal(structure);
           checkAddonUpdate();
         });
@@ -626,33 +618,16 @@ function renderSharedLayout() {
     };
   }
 
-  updateClockTime();
-  setInterval(updateClockTime, 1000);
-  setupIdleHomeRedirect();
+  if (!sharedStructureTimer) {
+    sharedStructureTimer = setInterval(refreshSharedStructure, 30000);
+    updateClockTime();
+    setInterval(updateClockTime, 1000);
+  }
 }
 
 window.refreshRoomNavigation = function (structure, activeRoom) {
   if (structure) { renderRoomsModal(structure); }
 };
-
-function setupIdleHomeRedirect() {
-  var timeout;
-  var events = ['click', 'touchstart', 'mousemove', 'keydown', 'scroll'];
-
-  function resetTimer() {
-    clearTimeout(timeout);
-    timeout = setTimeout(function () {
-      if ((document.body.getAttribute('data-page') || 'home') !== 'home') {
-        window.location.href = 'index.html';
-      }
-    }, 60000);
-  }
-
-  for (var i = 0; i < events.length; i++) {
-    document.addEventListener(events[i], resetTimer, { passive: true });
-  }
-  resetTimer();
-}
 
 /* ── Add-on Update-Check ─────────────────────────────────────────── */
 var _addonInfo = null;
@@ -899,6 +874,7 @@ function setupScreensaver() {
 // Darüber kommen zentral gepflegte Einstellungen, Mitteilungen, die Klingel und Update-Hinweise.
 var TABLET_SYNC_MS = 3000;
 var tabletAssetVersion = null;
+var pendingDesign=null,lastDesignRevision=null;
 var tabletConfigLockUntil = 0;
 var tabletSyncBusy = false;
 window.wallpanelPopupOpen = false;
@@ -914,6 +890,7 @@ function writeStored(key, value) {
 function shouldRegisterAsTablet() {
   // Der Mac zur Verwaltung soll nicht als Tablet auftauchen.
   return !!window.navigator.standalone || /iPad|iPhone|Android/.test(navigator.userAgent || '') ||
+    (/Macintosh/.test(navigator.userAgent || '') && navigator.maxTouchPoints > 1) ||
     (readStoredJson('haWallpanel.forceTablet') === true);
 }
 
@@ -931,8 +908,9 @@ function getTabletId() {
 
 /** Design wechseln: auf dem Tablet merken und sofort anwenden (ohne Neuladen). */
 function applyWallpanelTheme(theme) {
-  theme = theme === 'home' ? 'home' : 'classic';
+  theme = normalizeWallpanelTheme(theme);
   writeStored('haWallpanel.theme', theme);
+  theme = getWallpanelPreviewTheme() || theme;
   var root = document.documentElement;
   root.className = root.className.replace(/\btheme-[a-z]+\b/g, '').replace(/\s+/g, ' ').replace(/^ | $/g, '');
   if (theme !== 'classic') { root.className += (root.className ? ' ' : '') + 'theme-' + theme; }
@@ -941,7 +919,7 @@ function applyWallpanelTheme(theme) {
 function getWallpanelTheme() {
   var theme = '';
   try { theme = window.localStorage.getItem('haWallpanel.theme') || ''; } catch (_e) { theme = ''; }
-  return theme === 'home' ? 'home' : 'classic';
+  return normalizeWallpanelTheme(theme);
 }
 
 function getLocalTabletConfig() {
@@ -967,7 +945,7 @@ function reportTabletConfig(partial) {
 function applyTabletConfig(config) {
   if (!config || new Date().getTime() < tabletConfigLockUntil) { return; }
   if (typeof config.name === 'string') { writeStored('haWallpanel.tabletName', config.name); }
-  if (config.theme && config.theme !== getWallpanelTheme()) { applyWallpanelTheme(config.theme); }
+  if(config.theme && (config.theme!==getWallpanelTheme() || lastDesignRevision!==null&&config.themeRevision!==lastDesignRevision)){if(config.theme==='panel'){pendingDesign='panel';}else{pendingDesign=null;applyWallpanelTheme(config.theme);}}lastDesignRevision=config.themeRevision || 0;
 
   if (config.screensaver && JSON.stringify(config.screensaver) !== JSON.stringify(readStoredJson('haWallpanel.screensaver'))) {
     writeStored('haWallpanel.screensaver', JSON.stringify(config.screensaver));
@@ -1076,13 +1054,15 @@ function runTabletCommand(command) {
   if (command.type === 'doorbell-close') { closeDoorbellPopup(true); }
 }
 
-function reloadWallpanel() {
+function reloadWallpanel(jobId) {
   // In der Rahmenseite alles neu laden, damit auch start.html aktuell ist.
   var shell = getShellWindow();
-  if (shell) { shell.location.reload(); } else { window.location.reload(); }
+  if (jobId) { var target=shell || window; target.location.replace(target.location.pathname+'?_reload='+new Date().getTime()+'&_reloadJob='+encodeURIComponent(jobId)+target.location.hash); } else if (shell) { shell.location.reload(); } else { window.location.reload(); }
 }
 
+var tabletBootReloadAck = null;
 function syncTablet() {
+  if(tabletBootReloadAck === null){var bootSearch=(getShellWindow() || window).location.search;var bootMatch=/[?&]_reloadJob=([a-f0-9]{24})/.exec(bootSearch);tabletBootReloadAck=bootMatch?bootMatch[1]:'';}
   if (tabletSyncBusy || document.hidden) { return; }
   tabletSyncBusy = true;
   var xhr = new XMLHttpRequest();
@@ -1099,10 +1079,14 @@ function syncTablet() {
     var commands = payload.commands || [];
     for (var i = 0; i < commands.length; i++) { runTabletCommand(commands[i]); }
     handleAssetVersion(payload.assetVersion);
+    if(pendingDesign&&!/^(INPUT|TEXTAREA|SELECT)$/.test((document.activeElement||{}).tagName||'')&&!window.wallpanelPopupOpen&&!document.querySelector('.open')&&document.body.getAttribute('data-page')!=='optionen'&&isTabletIdle(2000)&&!(wallpanelSoundAudio&&!wallpanelSoundAudio.paused)&&!(assistAudio&&!assistAudio.paused)&&!(window.parent!==window&&window.parent.shellAudio&&!window.parent.shellAudio.paused)){WallpanelDesign.go(pendingDesign);return;}
+    var focused=document.activeElement;
+    if(payload.reload && payload.reload.expiresAt>new Date().getTime() && !window.wallpanelPopupOpen && !document.querySelector('.open') && document.body.getAttribute('data-page') !== 'optionen' && isTabletIdle(2000) && !(focused && /^(INPUT|TEXTAREA|SELECT)$/.test(focused.tagName)) && !(wallpanelSoundAudio && !wallpanelSoundAudio.paused) && !(assistAudio && !assistAudio.paused)) { reloadWallpanel(payload.reload.id); }
   };
   xhr.send(JSON.stringify({
     id: getTabletId(),
     page: document.body.getAttribute('data-page') || '',
+    reloadAck: tabletBootReloadAck,
     local: getLocalTabletConfig()
   }));
 }
