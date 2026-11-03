@@ -3,9 +3,12 @@ var roomPageState = {
   pageId: "hof",
   structure: null,
   dashboard: null,
-  lastRenderedPageId: null
+  lastRenderedPageId: null,
+  boiler: null,
+  boilerBusy: false
 };
 var roomPageRequestSerial = 0;
+var roomBoilerSignature = "";
 
 function setRoomLoading(active, roomName, clearContent) {
   var panel = document.querySelector(".room-page-panel");
@@ -886,6 +889,9 @@ function renderEntityLayout(cards, entities, mount) {
     mount.appendChild(quick);
   }
 
+  var boilerSection = renderRoomBoilerSection();
+  if (boilerSection) { mount.appendChild(boilerSection); }
+
   if (actionEntities.length > 0) {
     renderControlCollection("Aktionen", actionEntities, mount, false);
   }
@@ -963,6 +969,7 @@ function renderRoomPayload(payload, preserveScroll) {
     renderEntityLayout(cards, entities, mount);
   }
   roomPageState.lastRenderedPageId = payload.pageId;
+  roomBoilerSignature = document.getElementById("roomBoilerSection") ? getRoomBoilerSignature() : "";
   if (preserveScroll && scrollPanel) { scrollPanel.scrollTop = panelScrollTop; }
 
   if (preserveScroll && scrollY > 0 && window.requestAnimationFrame) {
@@ -1077,6 +1084,122 @@ function fillRoomSelect() {
   };
 }
 
+/* Boiler-Timer: erscheint nur im Raum, dem der Server den Timer zuordnet (Küche). */
+function isRoomBoilerVisible() {
+  var data = roomPageState.boiler;
+  return !!(data && data.roomId && data.roomId === roomPageState.pageId);
+}
+
+function getRoomBoilerRemainingSeconds() {
+  var data = roomPageState.boiler;
+  if (!data || data.state !== "active") { return null; }
+  var finishesAt = data.attributes ? data.attributes.finishes_at : null;
+  if (!finishesAt) { return null; }
+  var end = new Date(finishesAt).getTime();
+  if (isNaN(end)) { return null; }
+  return Math.max(0, Math.ceil((end - new Date().getTime()) / 1000));
+}
+
+function formatRoomBoilerCountdown(seconds) {
+  var m = Math.floor(seconds / 60);
+  var s = seconds % 60;
+  return (m < 10 ? "0" : "") + m + ":" + (s < 10 ? "0" : "") + s;
+}
+
+function getRoomBoilerStateText() {
+  var data = roomPageState.boiler || {};
+  if (data.state === "active") {
+    var remaining = getRoomBoilerRemainingSeconds();
+    return remaining === null ? "Läuft" : "Läuft · noch " + formatRoomBoilerCountdown(remaining);
+  }
+  if (data.state === "paused") { return "Pausiert"; }
+  return "Aus";
+}
+
+function renderRoomBoilerSection() {
+  if (!isRoomBoilerVisible()) { return null; }
+  var active = roomPageState.boiler.state === "active";
+  var section = makeSection("Boiler", "boiler-section");
+  section.id = "roomBoilerSection";
+  var card = document.createElement("article");
+  card.className = "dynamic-special-card special-card-boiler" + (active ? " is-on" : "");
+  var title = document.createElement("div");
+  title.className = "dynamic-entity-title";
+  title.textContent = "Boiler";
+  var state = document.createElement("div");
+  state.className = "dynamic-entity-value boiler-card-state";
+  state.id = "roomBoilerState";
+  state.textContent = getRoomBoilerStateText();
+  var button = document.createElement("button");
+  button.type = "button";
+  button.className = "pill-button pill-button-large boiler-card-button" + (active ? "" : " active");
+  button.textContent = active ? "Neu starten (10 Min.)" : "10 Minuten starten";
+  button.disabled = roomPageState.boilerBusy;
+  button.onclick = confirmRoomBoilerStart;
+  card.appendChild(title);
+  card.appendChild(state);
+  card.appendChild(button);
+  section.appendChild(card);
+  return section;
+}
+
+function getRoomBoilerSignature() {
+  var data = roomPageState.boiler;
+  if (!isRoomBoilerVisible()) { return ""; }
+  return [roomPageState.pageId, data.state, data.attributes ? data.attributes.finishes_at : "", roomPageState.boilerBusy ? 1 : 0].join("|");
+}
+
+/* Nur den Boiler-Abschnitt austauschen, damit der restliche Raum nicht neu gezeichnet wird. */
+function updateRoomBoilerSection() {
+  var mount = document.getElementById("roomCardsMount");
+  if (!mount || roomPageState.lastRenderedPageId !== roomPageState.pageId) { return; }
+  var signature = getRoomBoilerSignature();
+  var existing = document.getElementById("roomBoilerSection");
+  if (signature === roomBoilerSignature && (!!existing === !!signature)) { return; }
+  roomBoilerSignature = signature;
+  var next = renderRoomBoilerSection();
+  if (existing && next) { mount.replaceChild(next, existing); return; }
+  if (existing) { mount.removeChild(existing); return; }
+  if (!next) { return; }
+  var quick = mount.querySelector(".quick-section");
+  if (quick && quick.parentNode === mount) { mount.insertBefore(next, quick.nextSibling); }
+  else { mount.insertBefore(next, mount.firstChild); }
+}
+
+var roomBoilerLoadAt = 0;
+function loadRoomBoiler() {
+  roomBoilerLoadAt = new Date().getTime();
+  apiGet("api/timer/boiler", function (error, data) {
+    if (error || !data) { return; }
+    roomPageState.boiler = data;
+    updateRoomBoilerSection();
+  });
+}
+
+function confirmRoomBoilerStart() {
+  if (roomPageState.boilerBusy) { return; }
+  if (!confirm("Timer auf 10 Minuten setzen?")) { return; }
+  roomPageState.boilerBusy = true;
+  updateRoomBoilerSection();
+  apiPost("api/timer/boiler/reset", {}, function () {
+    setTimeout(function () {
+      roomPageState.boilerBusy = false;
+      loadRoomBoiler();
+      updateRoomBoilerSection();
+    }, 700);
+  });
+}
+
+function tickRoomBoilerCountdown() {
+  var el = document.getElementById("roomBoilerState");
+  if (!el) { return; }
+  var text = getRoomBoilerStateText();
+  if (el.textContent !== text) { el.textContent = text; }
+  if (roomPageState.boiler && roomPageState.boiler.state === "active" && getRoomBoilerRemainingSeconds() === 0 && new Date().getTime() - roomBoilerLoadAt > 2000) {
+    loadRoomBoiler();
+  }
+}
+
 function initRoomPage() {
   roomPageState.panelId = getPanelId();
   roomPageState.pageId = getInitialRoomId();
@@ -1105,6 +1228,9 @@ function initRoomPage() {
     loadWhenReady();
   });
   setInterval(loadRoomPage, 10000);
+  loadRoomBoiler();
+  setInterval(loadRoomBoiler, 5000);
+  setInterval(tickRoomBoilerCountdown, 1000);
 }
 
 initRoomPage();

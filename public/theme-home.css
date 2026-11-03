@@ -707,3 +707,10 @@ html.theme-home .radar-time-badge.is-forecast { background: rgba(10, 132, 255, 0
 html.theme-home .radar-scale,
 html.theme-home .radar-legend { color: rgba(235, 235, 245, 0.6); }
 html.theme-home .radar-scale-now { color: #ffffff; }
+
+/* Boiler-Timer auf der Raumseite */
+html.theme-home .special-card-boiler.is-on { background: #f2f2f7; color: #000000; }
+html.theme-home .special-card-boiler.is-on .dynamic-entity-title,
+html.theme-home .special-card-boiler.is-on .dynamic-entity-value { color: #000000; }
+html.theme-home .special-card-boiler .boiler-card-button { border-radius: 14px; }
+html.theme-home .special-card-boiler.is-on .boiler-card-button { background: #ff9f0a; color: #000000; }

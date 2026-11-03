@@ -2042,7 +2042,14 @@ function removeTabletAdmin(id) {
   var xhr = new XMLHttpRequest();
   xhr.open("DELETE", "api/tablets/" + id, true);
   xhr.setRequestHeader("X-Wallpanel-Admin", "1");
-  xhr.onreadystatechange = function () { if (xhr.readyState === 4) { loadTabletsAdmin(); } };
+  xhr.onreadystatechange = function () {
+    if (xhr.readyState !== 4) { return; }
+    var result = null;
+    try { result = JSON.parse(xhr.responseText); } catch (_e) { result = null; }
+    if (xhr.status === 401) { window.alert("Bitte die Optionen erneut mit der PIN entsperren."); }
+    else if (result && result.wasOnline) { window.alert("Entfernt – das Tablet ist aber noch online und meldet sich gleich wieder an. Zum dauerhaften Entfernen die Web-App auf dem iPad schließen."); }
+    loadTabletsAdmin();
+  };
   xhr.send();
 }
 

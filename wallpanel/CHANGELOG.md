@@ -1,3 +1,18 @@
+## 1.11.1
+
+### Boiler-Timer in der Küche
+- Der Boiler-Timer erscheint jetzt auch in der Küche – auf der klassischen Raumseite und im neuen Panel: Zustand („Läuft · noch mm:ss“ bzw. „Aus“) und Button „10 Minuten starten“ bzw. „Neu starten (10 Min.)“
+- Die Küche wird automatisch erkannt: über den Raum, dem der Timer in Home Assistant zugeordnet ist, sonst über den Raum „Küche“
+
+### Wandtablets entfernen
+- Im neuen Panel lassen sich alte Tablets jetzt unter Einstellungen → Tablet bearbeiten → „Tablet entfernen“ löschen (vorher nur in den klassischen Optionen möglich)
+- Ist das Tablet noch eingeschaltet, meldet es sich gleich wieder an – darauf wird nach dem Entfernen hingewiesen
+
+### Klingel
+- Das Klingel-Popup zeigt sofort das letzte Klingel-Bild; der Livestream legt sich darüber, sobald er läuft (vorher blieb es bis dahin leer bzw. ganz ohne Bild, wenn Live nicht kam)
+- Der Livestream der Klingelkamera wird beim Klingeln sofort auf dem Server angestoßen, statt erst beim Öffnen des Popups – wichtig für Akku-Klingeln, die einige Sekunden zum Start brauchen
+- Ist Home Assistant kurz nicht erreichbar, liefert die Klingel-Abfrage eine saubere Fehlermeldung statt einer Fehlerseite
+
 ## 1.11.0
 
 ### Neue Wallpanel-Oberfläche

@@ -5862,3 +5862,24 @@ html {
 .tablet-maintenance-notice { padding: 12px; margin-top: 12px; border: 1px solid #40516d; border-radius: 12px; word-wrap: break-word; }
 .tablet-maintenance-notice small { display: block; margin-bottom: 8px; }
 .tablet-maintenance-notice .pill-button { margin: 4px 8px 0 0; }
+
+/* Boiler-Timer auf der Raumseite (Küche) */
+.boiler-section .special-card-boiler {
+  display: block;
+  min-height: 0;
+  padding: 16px;
+}
+.special-card-boiler.is-on { border-color: #5dd9c7; }
+.special-card-boiler .boiler-card-state {
+  margin: 8px 0 14px;
+  font-size: 26px;
+  line-height: 1.2;
+}
+.special-card-boiler .boiler-card-button {
+  display: block;
+  width: 100%;
+  margin: 0;
+  min-height: 60px;
+  font-size: 18px;
+}
+.special-card-boiler .boiler-card-button[disabled] { opacity: 0.5; }

@@ -269,5 +269,31 @@ export function createCameraLive(deps: LiveDeps) {
     }
   }
 
-  return { openMjpeg, getSourceInfo };
+  /**
+   * Livestream vorab starten (z. B. sobald es klingelt), damit er bereitsteht, wenn die Tablets
+   * das Popup öffnen. Hält ihn als Platzhalter-Zuschauer `holdMs` lang offen; danach greift die
+   * normale Abschaltlogik, falls niemand zuschaut.
+   */
+  async function prewarm(cameraEntityId: string, streamOverride: string, holdMs = 60000): Promise<boolean> {
+    const base = await deps.getGo2RtcBase();
+    if (!base) { return false; }
+    let source: LiveSource | null = null;
+    try {
+      source = await resolveSource(cameraEntityId, streamOverride);
+    } catch (_error) {
+      return false;
+    }
+    if (!source) { return false; }
+    const held = source;
+    addViewer(cameraEntityId);
+    setTimeout(() => removeViewer(cameraEntityId, held), holdMs);
+    let starting = startPromises.get(cameraEntityId);
+    if (!starting) {
+      starting = startAndWait(cameraEntityId, held, base).finally(() => startPromises.delete(cameraEntityId));
+      startPromises.set(cameraEntityId, starting);
+    }
+    try { return await starting; } catch (_error) { return false; }
+  }
+
+  return { openMjpeg, getSourceInfo, prewarm };
 }

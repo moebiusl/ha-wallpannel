@@ -1184,3 +1184,12 @@ body.large-type .room-readings strong { font-size: 17px; }
   .dialog-pin .pin-pad { max-width: 252px; }
   .dialog-pin .pin-key { width: 64px; min-width: 64px; height: 64px; min-height: 64px; margin: 4px 8px; line-height: 62px; font-size: 27px; }
 }
+/* Boiler-Timer in der Raumansicht (Küche) */
+.boiler-card { display: -webkit-flex; display: flex; -webkit-align-items: center; align-items: center; -webkit-flex-wrap: wrap; flex-wrap: wrap; margin-bottom: 14px; padding: 16px 19px; }
+.boiler-card .boiler-copy { -webkit-flex: 1 1 200px; flex: 1 1 200px; min-width: 0; margin: 4px 12px 4px 0; }
+.boiler-card .section-label { margin: 0 0 4px; }
+.boiler-card .boiler-state { display: block; color: #f1dfcb; font-size: 22px; line-height: 1.25; }
+.boiler-card.is-active { border-color: #e9be89; }
+.boiler-card .boiler-start { min-height: 56px; min-width: 210px; margin: 4px 0; font-size: 16px; font-weight: bold; }
+.boiler-card .boiler-start[disabled] { opacity: .55; }
+body.large-type .boiler-card .boiler-state { font-size: 25px; }

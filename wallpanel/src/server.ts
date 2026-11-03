@@ -2161,13 +2161,45 @@ app.get("/api/automations", async (_req: Request, res: Response) => {
 });
 
 let lastBoilerTimerState = "";
+let boilerRoomCache: { at: number; roomId: string | null } | null = null;
+const BOILER_ROOM_CACHE_MS = 60000;
+
+function normalizeRoomName(value: unknown): string {
+  return String(value || "").trim().toLowerCase().replace(/ü/g, "ue").replace(/[^a-z0-9]/g, "");
+}
+
+/** The boiler timer belongs to its HA area; without one, it falls back to the kitchen. */
+async function resolveBoilerRoomId(): Promise<string | null> {
+  if (boilerRoomCache && Date.now() - boilerRoomCache.at < BOILER_ROOM_CACHE_MS) { return boilerRoomCache.roomId; }
+  let roomId: string | null = null;
+  try {
+    const structure = await buildHaStructure();
+    const timer = structure.entities.find((entry) => entry.entityId === "timer.boiler_timer_10min");
+    const assigned = timer && typeof timer.areaId === "string" ? timer.areaId : "";
+    if (assigned && structure.areas.some((area) => area.area_id === assigned)) {
+      roomId = assigned;
+    } else {
+      const kitchen = structure.areas.find((area) => ["kuche", "kueche", "kitchen"].includes(String(area.area_id || ""))) ||
+        structure.areas.find((area) => ["kueche", "kuche"].includes(normalizeRoomName(area.name)));
+      roomId = kitchen && kitchen.area_id ? String(kitchen.area_id) : null;
+    }
+  } catch (error) {
+    console.error("Boiler-Raum konnte nicht ermittelt werden:", describeError(error));
+    return null;
+  }
+  boilerRoomCache = { at: Date.now(), roomId };
+  return roomId;
+}
+
 app.get("/api/timer/boiler", async (_req: Request, res: Response) => {
   const entity = await getEntity("timer.boiler_timer_10min");
   const currentState = entity ? entity.state : "not found";
   if (currentState !== lastBoilerTimerState) {
     lastBoilerTimerState = currentState;
   }
-  res.json(entity || { entity_id: "timer.boiler_timer_10min", state: "idle", attributes: {} });
+  let roomId: string | null = null;
+  try { roomId = await resolveBoilerRoomId(); } catch { roomId = null; }
+  res.json({ ...(entity || { entity_id: "timer.boiler_timer_10min", state: "idle", attributes: {} }), roomId });
 });
 
 app.post("/api/timer/boiler/reset", async (_req: Request, res: Response) => {
@@ -2415,6 +2447,14 @@ function triggerDoorbell(source: string, target?: string): number {
   );
   console.log(`Klingel (${source}) -> ${ids.length} Tablet(s)`);
   const settings = tabletRegistry.getSettings();
+  // Livestream sofort anstoßen (Eufy-Akkuklingeln brauchen etwas), damit er bereitsteht,
+  // wenn die Tablets das Popup öffnen. Läuft im Hintergrund, verzögert die Meldung nicht.
+  if (settings.doorbellCamera && isEntityId(settings.doorbellCamera)) {
+    const override = CAMERA_CONFIGS.find((config) => config.haCameraEntityId === settings.doorbellCamera)?.streamOverride || "";
+    void cameraLive.prewarm(settings.doorbellCamera, override)
+      .then((ready) => console.log(`Klingel-Livestream ${ready ? "bereit" : "konnte nicht vorab gestartet werden"} (${settings.doorbellCamera})`))
+      .catch(() => undefined);
+  }
   return tabletRegistry.enqueue(ids, { type: "doorbell", camera: settings.doorbellCamera, sound: settings.doorbellSound });
 }
 
@@ -2560,12 +2600,24 @@ app.post("/api/tablets/:id/command", (req: Request, res: Response) => {
 });
 
 app.delete("/api/tablets/:id", (req: Request, res: Response) => {
-  res.json({ ok: tabletRegistry.remove(String(req.params.id)) });
+  const id = String(req.params.id);
+  // Ein noch laufendes Tablet meldet sich beim nächsten Sync (wenige Sekunden) neu an – das zurückmelden.
+  const record = tabletRegistry.list().find((entry) => entry.id === id);
+  const wasOnline = Boolean(record && Date.now() - record.lastSeen < TABLET_ONLINE_MS);
+  const removed = tabletRegistry.remove(id);
+  res.status(removed ? 200 : 404).json({ ok: removed, wasOnline, message: removed ? undefined : "Tablet nicht gefunden." });
 });
 
 app.get("/api/doorbell", async (_req: Request, res: Response) => {
   await refreshDoorbellAutoDetect();
-  const stateMap = await getStateMap();
+  let stateMap: Map<string, HaState>;
+  try {
+    stateMap = await getStateMap();
+  } catch (error) {
+    console.warn(`Klingel-Daten nicht verfügbar: ${describeError(error)}`);
+    res.status(503).json({ ok: false, message: "Home Assistant ist gerade nicht erreichbar." });
+    return;
+  }
   const camera = tabletRegistry.getSettings().doorbellCamera;
   const cameraConfig = (await getDiscoveredCameraConfigs()).find((config) => config.haCameraEntityId === camera);
   res.setHeader("Cache-Control", "no-store");
@@ -2574,6 +2626,10 @@ app.get("/api/doorbell", async (_req: Request, res: Response) => {
     camera,
     cameraName: cameraConfig?.name || "Klingel",
     streamUrl: `api/camera-stream/${encodeURIComponent(camera)}${cameraConfig ? `?fallbackImage=${encodeURIComponent(cameraConfig.eventImageEntityId)}` : ""}`,
+    // Letztes Event-Bild der Klingel: sofort sichtbar, solange Live startet oder falls Live ausfällt.
+    imageUrl: cameraConfig?.eventImageEntityId && isEntityId(cameraConfig.eventImageEntityId)
+      ? `api/camera-image/${encodeURIComponent(cameraConfig.eventImageEntityId)}?v=${encodeURIComponent(readStateFromMap(stateMap, cameraConfig.eventImageEntityId)?.state || String(Date.now()))}`
+      : "",
     lights: getDoorbellLights().map((entityId) => {
       const state = readStateFromMap(stateMap, entityId);
       return {

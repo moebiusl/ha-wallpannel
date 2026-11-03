@@ -1249,6 +1249,14 @@ function loadDoorbellInfo(setStream) {
     if (setStream) {
       var image = document.getElementById('doorbellImage');
       var loading = document.getElementById('doorbellLoading');
+      // Letztes Klingel-Bild sofort als Hintergrund zeigen, bis der Livestream läuft.
+      var stage = image ? image.parentNode : null;
+      if (stage && info.imageUrl) {
+        stage.style.backgroundImage = 'url("' + String(info.imageUrl).replace(/"/g, '%22') + '")';
+        stage.style.backgroundSize = 'contain';
+        stage.style.backgroundPosition = 'center';
+        stage.style.backgroundRepeat = 'no-repeat';
+      }
       if (image && info.streamUrl) {
         image.onload = function () { if (loading) { loading.style.display = 'none'; } };
         image.onerror = function () { if (loading) { loading.style.display = 'none'; } };
