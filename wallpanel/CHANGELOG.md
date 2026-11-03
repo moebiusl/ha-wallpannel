@@ -1,3 +1,9 @@
+## 1.11.2
+
+### Boiler-Timer in der Küche
+- Die Boiler-Karte erscheint nur noch, solange der Timer der Boiler-Automation zählt, und verschwindet von selbst, wenn er abgelaufen ist
+- Beim Ablaufen spielt das Wallpanel keinen Ton ab
+
 ## 1.11.1
 
 ### Boiler-Timer in der Küche

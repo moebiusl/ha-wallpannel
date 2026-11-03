@@ -1086,8 +1086,9 @@ function fillRoomSelect() {
 
 /* Boiler-Timer: erscheint nur im Raum, dem der Server den Timer zuordnet (Küche). */
 function isRoomBoilerVisible() {
+  // Nur anzeigen, solange der Timer der Boiler-Automation tatsächlich zählt.
   var data = roomPageState.boiler;
-  return !!(data && data.roomId && data.roomId === roomPageState.pageId);
+  return !!(data && data.roomId && data.roomId === roomPageState.pageId && data.state === "active");
 }
 
 function getRoomBoilerRemainingSeconds() {

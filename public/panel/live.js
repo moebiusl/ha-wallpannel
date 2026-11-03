@@ -222,7 +222,8 @@
     textIfChanged(el('panelBoilerState'),boilerText());
   }
   function roomBoiler(id){
-    if(!boiler||!boiler.roomId||boiler.roomId!==id){return '';}var active=boiler.state==='active';
+    // Nur anzeigen, solange der Timer der Boiler-Automation tatsächlich zählt.
+    if(!boiler||!boiler.roomId||boiler.roomId!==id||boiler.state!=='active'){return '';}var active=true;
     return '<section class="card boiler-card'+(active?' is-active':'')+'" aria-label="Boiler"><div class="boiler-copy"><h2 class="section-label">Boiler</h2><strong id="panelBoilerState" class="boiler-state" role="status">'+esc(boilerText())+'</strong></div><button type="button" class="button'+(active?'':' primary')+' boiler-start" data-action="boiler-start"'+(busy.boiler?' disabled':'')+'>'+(active?'Neu starten (10 Min.)':'10 Minuten starten')+'</button></section>';
   }
   function startBoiler(node){
