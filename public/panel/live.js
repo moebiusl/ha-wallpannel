@@ -200,6 +200,7 @@
     textIfChanged(el('panelAudioInfo'),'Ton: '+(soundState()==='disabled'?'im Profil ausgeschaltet':soundUnlocked?'freigegeben':'noch nicht freigegeben'));
     if(g){attrIfChanged(g,'title',update?'Einstellungen · Update verfügbar':'Einstellungen');attrIfChanged(g,'data-update',update?'true':'false');attrIfChanged(g,'aria-label',update?'Tablet-Einstellungen · Update verfügbar':'Tablet-Einstellungen');}
     if(apps){attrIfChanged(apps,'data-update',update?'true':'false');attrIfChanged(apps,'title',update?'Apps · Update verfügbar':'Apps');}
+    if(ui){ui.state.updateAvailable=update;}var hint=el('appsUpdate');if(hint){var shown=update?'':'none';if(hint.style.display!==shown){hint.style.display=shown;}}
     var notice=el('startupUpdate');if(notice){var html=update?'<p>Update verfügbar: '+esc(lastVersion)+'</p><button class="button" type="button" data-action="reload-fresh">Aktuelle Version laden</button>':'';if(notice.getAttribute('data-version')!==lastVersion){notice.innerHTML=html;notice.setAttribute('data-version',lastVersion);}}
   }
   function softenLegacyArtwork(){
@@ -212,10 +213,11 @@
   var boiler=null,boilerLoading=false,boilerAt=0,boilerSignature='',boilerOffset=0;
   function boilerRemaining(){if(!boiler||boiler.state!=='active'||!boiler.attributes||!boiler.attributes.finishes_at){return null;}var end=new Date(boiler.attributes.finishes_at).getTime();return isNaN(end)?null:Math.max(0,Math.ceil((end-(Date.now()+boilerOffset))/1000));}
   function boilerPill(){var pill=el('panelBoilerPill');if(!pill){return;}var active=!!(boiler&&boiler.state==='active'),display=active?'':'none';if(pill.style.display!==display){pill.style.display=display;}if(!active){return;}var r=boilerRemaining(),text='Boiler';if(r!==null){var m=Math.floor(r/60),sec=r%60;text='Boiler · '+m+':'+(sec<10?'0':'')+sec;}textIfChanged(pill,text);var room=boiler.roomId || '';if(pill.getAttribute('data-id')!==room){pill.setAttribute('data-id',room);}}
-  function boilerText(){if(!boiler||boiler.state!=='active'){return boiler&&boiler.state==='paused'?'Pausiert':'Aus';}var r=boilerRemaining();if(r===null){return 'Läuft';}var m=Math.floor(r/60),sec=r%60;return 'Läuft · noch '+(m<10?'0':'')+m+':'+(sec<10?'0':'')+sec;}
+  function boilerLastOn(iso){var date=new Date(iso);if(isNaN(date.getTime())){return '';}var h=date.getHours(),m=date.getMinutes(),time=(h<10?'0':'')+h+':'+(m<10?'0':'')+m+' Uhr',today=new Date(),day=new Date(date.getTime());today.setHours(0,0,0,0);day.setHours(0,0,0,0);var diff=Math.round((today.getTime()-day.getTime())/86400000);if(diff===0){return 'heute '+time;}if(diff===1){return 'gestern '+time;}if(diff>1&&diff<7){return ['So.','Mo.','Di.','Mi.','Do.','Fr.','Sa.'][date.getDay()]+' '+time;}var d=date.getDate(),mo=date.getMonth()+1;return (d<10?'0':'')+d+'.'+(mo<10?'0':'')+mo+'. '+time;}
+  function boilerText(){if(!boiler||boiler.state!=='active'){if(boiler&&boiler.state==='paused'){return 'Pausiert';}var last=boiler&&boiler.lastOnAt?boilerLastOn(boiler.lastOnAt):'';return last?'Aus · zuletzt an: '+last:'Aus';}var r=boilerRemaining();if(r===null){return 'Läuft';}var m=Math.floor(r/60),sec=r%60;return 'Läuft · noch '+(m<10?'0':'')+m+':'+(sec<10?'0':'')+sec;}
   function loadBoiler(force){
     if(!ui||boilerLoading||document.hidden){return;}boilerLoading=true;boilerAt=Date.now();
-    request('GET','/api/timer/boiler',null,function(err,data){boilerLoading=false;if(err||!data||typeof data!=='object'){return;}boiler=data;boilerOffset=typeof data.serverTime==='number'?data.serverTime-Date.now():0;boilerPill();var sig=[data.roomId || '',data.state || '',data.attributes&&data.attributes.finishes_at || ''].join('|');if(sig!==boilerSignature||force){boilerSignature=sig;/* Karte nur in der Raumansicht – sonst reicht die Pille. */if(ui.state.view==='room'){dirty=true;render();}}});
+    request('GET','/api/timer/boiler',null,function(err,data){boilerLoading=false;if(err||!data||typeof data!=='object'){return;}boiler=data;boilerOffset=typeof data.serverTime==='number'?data.serverTime-Date.now():0;boilerPill();var sig=[data.roomId || '',data.state || '',data.attributes&&data.attributes.finishes_at || '',data.lastOnAt || '',data.boiler&&data.boiler.entityId || ''].join('|');if(sig!==boilerSignature||force){boilerSignature=sig;/* Karte nur in der Raumansicht – sonst reicht die Pille. */if(ui.state.view==='room'){dirty=true;render();}}});
   }
   function tickBoiler(){
     if(!ui||document.hidden){return;}
@@ -225,14 +227,14 @@
     textIfChanged(el('panelBoilerState'),boilerText());boilerPill();
   }
   function roomBoiler(id){
-    // Nur anzeigen, solange der Timer der Boiler-Automation tatsächlich zählt.
-    if(!boiler||!boiler.roomId||boiler.roomId!==id||boiler.state!=='active'){return '';}var active=true;
-    return '<section class="card boiler-card'+(active?' is-active':'')+'" aria-label="Boiler"><div class="boiler-copy"><h2 class="section-label">Boiler</h2><strong id="panelBoilerState" class="boiler-state" role="status">'+esc(boilerText())+'</strong></div><button type="button" class="button'+(active?'':' primary')+' boiler-start" data-action="boiler-start"'+(busy.boiler?' disabled':'')+'>'+(active?'Neu starten (10 Min.)':'10 Minuten starten')+'</button></section>';
+    // In der Küche immer zeigen (Einschalten, „zuletzt an“); die Kopfleisten-Pille nur bei laufendem Timer.
+    if(!boiler||!boiler.roomId||boiler.roomId!==id){return '';}var active=boiler.state==='active';
+    return '<section class="card boiler-card'+(active?' is-active':'')+'" aria-label="Boiler"><div class="boiler-copy"><h2 class="section-label">Boiler</h2><strong id="panelBoilerState" class="boiler-state" role="status">'+esc(boilerText())+'</strong></div><button type="button" class="button'+(active?'':' primary')+' boiler-start" data-action="boiler-start"'+(busy.boiler?' disabled':'')+'>'+(active?'Neu starten (10 Min.)':boiler.boiler?'Boiler einschalten (10 Min.)':'Timer starten (10 Min.)')+'</button></section>';
   }
   function startBoiler(node){
-    if(busy.boiler){return;}if(!window.confirm('Timer auf 10 Minuten setzen?')){return;}
+    if(busy.boiler){return;}if(!window.confirm(boiler&&boiler.state==='active'?'Boiler-Timer auf 10 Minuten neu starten?':'Boiler für 10 Minuten einschalten?')){return;}
     busy.boiler=true;if(node){node.disabled=true;node.setAttribute('aria-busy','true');}
-    request('POST','/api/timer/boiler/reset',{},function(err){setTimeout(function(){delete busy.boiler;if(err){error('Boiler-Timer konnte nicht gestartet werden.');}else{ui.toast('Boiler läuft 10 Minuten.');}boilerAt=0;loadBoiler(true);if(node&&node.parentNode){node.disabled=false;node.removeAttribute('aria-busy');}},err?0:600);});
+    request('POST','/api/timer/boiler/reset',{},function(err){setTimeout(function(){delete busy.boiler;if(err){error('Boiler konnte nicht eingeschaltet werden.');}else{ui.toast('Boiler läuft 10 Minuten.');}boilerAt=0;loadBoiler(true);if(node&&node.parentNode){node.disabled=false;node.removeAttribute('aria-busy');}},err?0:600);});
   }
   function roomClimate(id){var r=readings[id],html='';if(!r){return html;}if(typeof r.temperature==='number'){html+='<span>Temperatur <strong>'+esc(display(r.temperature))+' °C</strong></span>';}if(typeof r.humidity==='number'){html+='<span>Luftfeuchte <strong>'+esc(display(r.humidity))+' %</strong></span>';}return html?'<div class="room-readings" aria-label="Raumklima">'+html+'</div>':'';}
   function inboxItems(){return inbox || [];}

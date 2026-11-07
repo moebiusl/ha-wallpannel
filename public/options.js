@@ -2053,7 +2053,33 @@ function removeTabletAdmin(id) {
   xhr.send();
 }
 
+function renderBoilerSettings() {
+  var select = document.getElementById("boilerEntitySelect");
+  if (!select || !tabletsAdminState) { return; }
+  var settings = tabletsAdminState.settings || {};
+  var info = tabletsAdminState.boiler || {};
+  var list = (tabletsAdminState.candidates || {}).boiler || [];
+  var html = '<option value="">Automatisch' + (info.auto ? " (" + escapeHtml(info.auto.name) + ")" : " – nichts gefunden, nur Timer") + "</option>";
+  for (var i = 0; i < list.length; i++) {
+    html += '<option value="' + escapeHtml(list[i].entityId) + '"' + (list[i].entityId === settings.boilerEntity ? " selected" : "") + ">" + escapeHtml(list[i].name) + " (" + escapeHtml(list[i].entityId) + ")</option>";
+  }
+  // Eine gespeicherte Entität, die nicht nach „Boiler“ heißt, trotzdem anzeigen.
+  if (settings.boilerEntity && html.indexOf('value="' + settings.boilerEntity + '"') === -1) {
+    html += '<option value="' + escapeHtml(settings.boilerEntity) + '" selected>' + escapeHtml(settings.boilerEntity) + "</option>";
+  }
+  select.innerHTML = html;
+}
+
+function saveBoilerSettings() {
+  apiPost("api/tablets/settings", { boilerEntity: tabletAdminValue("boilerEntitySelect") || "" }, function (error) {
+    var state = document.getElementById("boilerSaveState");
+    if (state) { state.textContent = error ? "Fehler beim Speichern" : "Gespeichert"; }
+    if (!error) { loadTabletsAdmin(); }
+  });
+}
+
 function renderDoorbellSettings() {
+  renderBoilerSettings();
   if (!tabletsAdminState) { return; }
   var settings = tabletsAdminState.settings || {};
   var doorbell = tabletsAdminState.doorbell || {};

@@ -915,6 +915,9 @@ textarea.dialog-input { resize: vertical; min-height: 95px; }
 .thermostat-card .climate-modes { display: -webkit-flex; display: flex; -webkit-flex-wrap: wrap; flex-wrap: wrap; padding: 4px; margin: 0; border-radius: 14px; background: rgba(14,12,19,.28); border: 1px solid rgba(223,199,226,.1); }
 .thermostat-card .climate-modes .button { display: block; -webkit-flex: 1 1 58px; flex: 1 1 58px; min-width: 0; min-height: 44px; margin: 0; padding: 8px 6px; border: 0; border-radius: 10px; background: transparent; color: #ccbccc; font-size: 12px; line-height: 1.25; }
 .thermostat-card .climate-modes .button.primary { background: #edc38e; color: #402c20; box-shadow: 0 2px 5px rgba(0,0,0,.16); }
+.thermostat-card .climate-modes { -webkit-flex-direction: column; flex-direction: column; -webkit-flex-wrap: nowrap; flex-wrap: nowrap; }
+.thermostat-card .climate-modes .button { -webkit-flex: 0 0 auto; flex: 0 0 auto; width: 100%; font-size: 13px; }
+.thermostat-card .climate-modes .button + .button { margin-top: 4px; }
 .thermostat-card .climate-adjust { display: -webkit-flex; display: flex; width: 100%; margin: 12px 0 0; padding: 3px; border-radius: 14px; background: rgba(14,12,19,.22); border: 1px solid rgba(223,199,226,.1); }
 .thermostat-card .climate-adjust .icon-button { -webkit-flex: 1; flex: 1; min-width: 44px; min-height: 44px; height: 44px; margin: 0; border: 0; border-radius: 10px; background: transparent; color: #f0dfcc; font-size: 24px; font-weight: 300; }
 .thermostat-card .climate-adjust .icon-button + .icon-button { border-left: 1px solid rgba(223,199,226,.15); border-top-left-radius: 0; border-bottom-left-radius: 0; }
@@ -1196,3 +1199,10 @@ body.large-type .boiler-card .boiler-state { font-size: 25px; }
 
 /* Boiler-Timer in der Kopfleiste (wie die Lüften-Pille im Apartment-Wallpanel) */
 .quick-tool.boiler-pill{color:#edc597;background:rgba(237,197,151,.08);border-color:rgba(237,197,151,.3);font-weight:600;white-space:nowrap;padding-left:12px;padding-right:12px}
+
+/* Hinweis in Apps, wenn eine neue Version bereitliegt (erklärt die rote 1) */
+.apps-update { display: -webkit-flex; display: flex; -webkit-align-items: center; align-items: center; margin: 0 0 16px; padding: 14px 16px; border-radius: 16px; background: rgba(197,73,73,.14); border: 1px solid rgba(197,73,73,.45); }
+.apps-update > span { -webkit-flex: 1; flex: 1; min-width: 0; padding-right: 14px; }
+.apps-update strong { display: block; font-size: 16px; }
+.apps-update small { display: block; margin-top: 3px; color: #c6b4ce; font-size: 13px; }
+.apps-update .button { -webkit-flex: 0 0 auto; flex: 0 0 auto; min-height: 44px; }

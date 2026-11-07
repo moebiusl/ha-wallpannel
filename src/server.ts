@@ -18,6 +18,7 @@ import { computeAssetVersion, createTabletRegistry, normalizeSound } from "./tab
 import { createCameraLive, LiveSource, MjpegThrottle } from "./camera-live";
 import { createRadar } from "./radar";
 import { wasteDaysUntil } from "./waste";
+import { BOILER_TIMER, BoilerEntity, boilerCandidates, chooseBoilerEntity, lastOnFromHistory, lastOnFromState } from "./boiler";
 import { readPanelConfig, writePanelConfig, getConfigPath } from "./panel-config";
 import { getDomain } from "./entity-filter";
 
@@ -2198,30 +2199,88 @@ async function resolveBoilerRoomId(): Promise<string | null> {
   return roomId;
 }
 
+// ── Boiler: Entität zum Einschalten und „zuletzt an“ ──────────────────
+let boilerLastOnCache: { at: number; key: string; value: string | null } | null = null;
+
+async function resolveBoiler(): Promise<{ entity: BoilerEntity | null; states: HaState[] }> {
+  const states = await getAllStates();
+  return { entity: chooseBoilerEntity(states as any, tabletRegistry.getSettings().boilerEntity || ""), states };
+}
+
+async function historyLastOn(entityId: string): Promise<string | null> {
+  const since = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString();
+  const response = await ha.get(`/api/history/period/${encodeURIComponent(since)}`, {
+    params: { filter_entity_id: entityId, minimal_response: "", no_attributes: "" }
+  });
+  const list = Array.isArray(response.data) && Array.isArray(response.data[0]) ? response.data[0] : [];
+  return lastOnFromHistory(list);
+}
+
+/** Wann war der Boiler zuletzt an? Kurz zwischengespeichert, damit nicht jede Abfrage den Verlauf liest. */
+async function boilerLastOn(entity: BoilerEntity | null, states: HaState[]): Promise<string | null> {
+  const key = entity ? entity.entityId : BOILER_TIMER;
+  if (boilerLastOnCache && boilerLastOnCache.key === key && Date.now() - boilerLastOnCache.at < 60000) { return boilerLastOnCache.value; }
+  let value: string | null = null;
+  try {
+    const current = entity ? states.find((state) => state.entity_id === entity.entityId) : null;
+    value = lastOnFromState(current as any);
+    // Schalter/Helfer, die gerade aus sind: im Verlauf nachsehen. Ohne Boiler-Entität zählt der Timer.
+    if (!value && (!entity || ["switch", "input_boolean", "light"].includes(entity.domain))) {
+      value = await historyLastOn(entity ? entity.entityId : BOILER_TIMER);
+    }
+  } catch (error) {
+    console.warn(`„Zuletzt an“ für den Boiler nicht ermittelbar: ${describeError(error)}`);
+  }
+  boilerLastOnCache = { at: Date.now(), key, value };
+  return value;
+}
+
 app.get("/api/timer/boiler", async (_req: Request, res: Response) => {
-  const entity = await getEntity("timer.boiler_timer_10min");
+  const entity = await getEntity(BOILER_TIMER);
   const currentState = entity ? entity.state : "not found";
   if (currentState !== lastBoilerTimerState) {
     lastBoilerTimerState = currentState;
   }
   let roomId: string | null = null;
   try { roomId = await resolveBoilerRoomId(); } catch { roomId = null; }
+  let boiler: BoilerEntity | null = null;
+  let lastOnAt: string | null = null;
+  try {
+    const resolved = await resolveBoiler();
+    boiler = resolved.entity;
+    lastOnAt = await boilerLastOn(boiler, resolved.states);
+  } catch (error) {
+    console.warn(`Boiler-Entität nicht ermittelbar: ${describeError(error)}`);
+  }
   // serverTime: Tablets gleichen damit eine falsch gehende iPad-Uhr für den Countdown aus.
-  res.json({ ...(entity || { entity_id: "timer.boiler_timer_10min", state: "idle", attributes: {} }), roomId, serverTime: Date.now() });
+  res.json({
+    ...(entity || { entity_id: BOILER_TIMER, state: "idle", attributes: {} }),
+    roomId,
+    serverTime: Date.now(),
+    boiler,
+    lastOnAt
+  });
 });
 
+/** Boiler einschalten (Szene/Skript/Schalter) und den 10-Minuten-Timer starten. */
 app.post("/api/timer/boiler/reset", async (_req: Request, res: Response) => {
+  let boiler: BoilerEntity | null = null;
+  try { boiler = (await resolveBoiler()).entity; } catch { boiler = null; }
   try {
+    if (boiler) {
+      await callService(boiler.domain, "turn_on", { entity_id: boiler.entityId });
+    }
     await callService("timer", "start", {
-      entity_id: "timer.boiler_timer_10min",
+      entity_id: BOILER_TIMER,
       duration: "0:10:00"
     });
-    logActivity("timer", "Boiler-Timer auf 10 min gesetzt", true);
-    res.json({ ok: true });
+    boilerLastOnCache = null;
+    logActivity("timer", boiler ? `Boiler eingeschaltet (${boiler.name}), Timer 10 min` : "Boiler-Timer auf 10 min gesetzt", true);
+    res.json({ ok: true, switched: Boolean(boiler) });
   } catch (error) {
-    console.error("Fehler beim Zurücksetzen des Boiler-Timers:", describeError(error));
-    logActivity("timer", "Boiler-Timer auf 10 min gesetzt", false, describeError(error));
-    res.status(500).json({ ok: false });
+    console.error("Fehler beim Einschalten des Boilers:", describeError(error));
+    logActivity("timer", boiler ? `Boiler eingeschaltet (${boiler.name}), Timer 10 min` : "Boiler-Timer auf 10 min gesetzt", false, describeError(error));
+    res.status(500).json({ ok: false, message: "Boiler konnte nicht eingeschaltet werden." });
   }
 });
 
@@ -2352,7 +2411,8 @@ const tabletRegistry = createTabletRegistry(path.join(path.dirname(getConfigPath
   doorbellLights: [],
   doorbellSound: "gong",
   noticeSound: "ping",
-  announcementPresets: ["Essen ist fertig!", "Bitte mal runterkommen.", "Telefon für dich!", "Gute Nacht!"]
+  announcementPresets: ["Essen ist fertig!", "Bitte mal runterkommen.", "Telefon für dich!", "Gute Nacht!"],
+  boilerEntity: ""
 });
 
 type NoticeRequest = {
@@ -2527,7 +2587,12 @@ app.get("/api/tablets", async (_req: Request, res: Response) => {
     })),
     settings: tabletRegistry.getSettings(),
     doorbell: { entity: getDoorbellEntity(), lights: getDoorbellLights(), autoEntity: autoDoorbellEntity, autoLights: autoDoorbellLights },
+    boiler: {
+      entity: chooseBoilerEntity(states as any, tabletRegistry.getSettings().boilerEntity || ""),
+      auto: boilerCandidates(states as any)[0] || null
+    },
     candidates: {
+      boiler: boilerCandidates(states as any),
       doorbell: pick(/^(binary_sensor|event)\./),
       lights: pick(/^(light|switch)\./),
       cameras: (await getDiscoveredCameraConfigs()).map((config) => ({ entityId: config.haCameraEntityId, name: config.name }))

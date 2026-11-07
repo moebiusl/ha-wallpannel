@@ -78,6 +78,8 @@ export type TabletsSettings = {
   noticeSound: string;
   /** Schnell-Durchsagen im Durchsage-Fenster der Tablets. */
   announcementPresets: string[];
+  /** Entität, die den Boiler einschaltet (Szene/Skript/Schalter); leer = automatisch erkennen. */
+  boilerEntity?: string;
 };
 
 type TabletsFile = {
@@ -264,6 +266,10 @@ export function createTabletRegistry(filePath: string, defaults: TabletsSettings
   }
 
   function updateSettings(input: Partial<TabletsSettings>): TabletsSettings {
+    if (typeof input.boilerEntity === "string") {
+      const value = input.boilerEntity.trim();
+      settings.boilerEntity = /^(scene|script|switch|input_boolean|light)\.[a-z0-9_]+$/.test(value) ? value : "";
+    }
     if (typeof input.doorbellEntity === "string") { settings.doorbellEntity = input.doorbellEntity.trim(); }
     if (typeof input.doorbellCamera === "string") { settings.doorbellCamera = input.doorbellCamera.trim(); }
     if (Array.isArray(input.announcementPresets)) {

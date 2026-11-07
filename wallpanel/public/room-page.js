@@ -1086,9 +1086,25 @@ function fillRoomSelect() {
 
 /* Boiler-Timer: erscheint nur im Raum, dem der Server den Timer zuordnet (Küche). */
 function isRoomBoilerVisible() {
-  // Nur anzeigen, solange der Timer der Boiler-Automation tatsächlich zählt.
+  // In der Küche immer zeigen: zum Einschalten und für „zuletzt an“. Die Kopfleisten-Pille gibt es nur bei laufendem Timer.
   var data = roomPageState.boiler;
-  return !!(data && data.roomId && data.roomId === roomPageState.pageId && data.state === "active");
+  return !!(data && data.roomId && data.roomId === roomPageState.pageId);
+}
+
+/** „heute 06:40 Uhr“, „gestern 18:05 Uhr“, „Mo. 07:10 Uhr“ oder „03.11. 07:10 Uhr“. */
+function formatBoilerLastOn(iso) {
+  var date = new Date(iso);
+  if (isNaN(date.getTime())) { return ""; }
+  var h = date.getHours(), m = date.getMinutes();
+  var time = (h < 10 ? "0" : "") + h + ":" + (m < 10 ? "0" : "") + m + " Uhr";
+  var today = new Date(); today.setHours(0, 0, 0, 0);
+  var day = new Date(date.getTime()); day.setHours(0, 0, 0, 0);
+  var diff = Math.round((today.getTime() - day.getTime()) / 86400000);
+  if (diff === 0) { return "heute " + time; }
+  if (diff === 1) { return "gestern " + time; }
+  if (diff > 1 && diff < 7) { return ["So.", "Mo.", "Di.", "Mi.", "Do.", "Fr.", "Sa."][date.getDay()] + " " + time; }
+  var d = date.getDate(), mo = date.getMonth() + 1;
+  return (d < 10 ? "0" : "") + d + "." + (mo < 10 ? "0" : "") + mo + ". " + time;
 }
 
 function getRoomBoilerRemainingSeconds() {
@@ -1115,7 +1131,8 @@ function getRoomBoilerStateText() {
     return remaining === null ? "Läuft" : "Läuft · noch " + formatRoomBoilerCountdown(remaining);
   }
   if (data.state === "paused") { return "Pausiert"; }
-  return "Aus";
+  var last = data.lastOnAt ? formatBoilerLastOn(data.lastOnAt) : "";
+  return last ? "Aus · zuletzt an: " + last : "Aus";
 }
 
 function renderRoomBoilerSection() {
@@ -1135,7 +1152,7 @@ function renderRoomBoilerSection() {
   var button = document.createElement("button");
   button.type = "button";
   button.className = "pill-button pill-button-large boiler-card-button" + (active ? "" : " active");
-  button.textContent = active ? "Neu starten (10 Min.)" : "10 Minuten starten";
+  button.textContent = active ? "Neu starten (10 Min.)" : (roomPageState.boiler.boiler ? "Boiler einschalten (10 Min.)" : "Timer starten (10 Min.)");
   button.disabled = roomPageState.boilerBusy;
   button.onclick = confirmRoomBoilerStart;
   card.appendChild(title);
@@ -1148,7 +1165,7 @@ function renderRoomBoilerSection() {
 function getRoomBoilerSignature() {
   var data = roomPageState.boiler;
   if (!isRoomBoilerVisible()) { return ""; }
-  return [roomPageState.pageId, data.state, data.attributes ? data.attributes.finishes_at : "", roomPageState.boilerBusy ? 1 : 0].join("|");
+  return [roomPageState.pageId, data.state, data.attributes ? data.attributes.finishes_at : "", data.lastOnAt || "", data.boiler ? data.boiler.entityId : "", roomPageState.boilerBusy ? 1 : 0].join("|");
 }
 
 /* Nur den Boiler-Abschnitt austauschen, damit der restliche Raum nicht neu gezeichnet wird. */
@@ -1181,7 +1198,8 @@ function loadRoomBoiler() {
 
 function confirmRoomBoilerStart() {
   if (roomPageState.boilerBusy) { return; }
-  if (!confirm("Timer auf 10 Minuten setzen?")) { return; }
+  var running = !!(roomPageState.boiler && roomPageState.boiler.state === "active");
+  if (!confirm(running ? "Boiler-Timer auf 10 Minuten neu starten?" : "Boiler für 10 Minuten einschalten?")) { return; }
   roomPageState.boilerBusy = true;
   updateRoomBoilerSection();
   apiPost("api/timer/boiler/reset", {}, function () {

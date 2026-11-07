@@ -340,6 +340,17 @@
                 </section>
 
                 <section class="settings-section settings-section-wide">
+                  <div class="settings-title">Boiler</div>
+                  <div class="settings-hint">„Boiler einschalten (10 Min.)“ in der Küche schaltet diese Entität ein und startet den Boiler-Timer. Am besten eine Szene oder ein Skript, das den Boiler einschaltet.</div>
+                  <label class="select-label settings-label-spaced" for="boilerEntitySelect">Boiler einschalten über</label>
+                  <select id="boilerEntitySelect" class="room-select"></select>
+                  <div style="margin-top:12px">
+                    <button class="pill-button active" type="button" onclick="saveBoilerSettings()">Boiler speichern</button>
+                    <span id="boilerSaveState" class="settings-save-state"></span>
+                  </div>
+                </section>
+
+                <section class="settings-section settings-section-wide">
                   <div class="settings-title">Töne</div>
                   <label class="select-label" for="doorbellSoundSelect">Klingel-Ton</label>
                   <div class="tablets-sound-row"><select id="doorbellSoundSelect" class="room-select"></select><button class="pill-button" type="button" onclick="previewSound('doorbellSoundSelect')">▶ Anhören</button></div>

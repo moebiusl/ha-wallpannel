@@ -1,3 +1,18 @@
+## 1.11.4
+
+### Boiler einschalten wie eine Szene
+- Der Knopf in der Küche schaltet jetzt den Boiler selbst ein und startet dann den 10-Minuten-Timer. Vorher wurde nur der Timer gestartet
+- Die Boiler-Entität wird automatisch erkannt (Szene/Skript bevorzugt, sonst Schalter oder Helfer mit „Boiler“/„Warmwasser“ im Namen) und lässt sich in den Optionen unter Tablets → Boiler festlegen
+- Die Boiler-Karte in der Küche ist immer sichtbar und zeigt „Aus · zuletzt an: heute 06:40 Uhr“ bzw. den Countdown. Die Pille oben in der Leiste erscheint weiterhin nur, solange der Timer läuft
+- Beim Ablauf des Timers klingelt nichts
+
+### Heizung
+- Die +/−-Knöpfe am Thermostat sind entfallen; die Solltemperatur wird über den Halbkreis eingestellt
+- „Aus“ und „Heizen“ stehen untereinander
+
+### Update-Hinweis in Apps
+- Die rote „1“ an Apps bedeutet: Es gibt eine neue Version des Wallpanels. In Apps steht jetzt oben „Neue Version verfügbar“ mit einem Knopf „Jetzt neu laden“, ohne PIN
+
 ## 1.11.3
 
 ### Boiler-Timer in der Kopfleiste
