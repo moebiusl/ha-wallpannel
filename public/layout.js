@@ -1336,6 +1336,82 @@ function setupTabletSync() {
 }
 
 document.addEventListener('DOMContentLoaded', setupTabletSync);
+/* ── Boiler-Timer in der Kopfleiste ───────────────────────────────── */
+// Wie der Lüften-Timer im Apartment-Wallpanel: schmale Pille „Boiler · m:ss“, nur solange der
+// Timer der Boiler-Automation zählt. Antippen öffnet die Küche (dort „Neu starten“).
+var headerBoiler = null;
+var headerBoilerOffset = 0;
+var headerBoilerLoadAt = 0;
+var headerBoilerLoading = false;
+
+function headerBoilerRemaining() {
+  if (!headerBoiler || headerBoiler.state !== 'active' || !headerBoiler.attributes || !headerBoiler.attributes.finishes_at) { return null; }
+  var end = new Date(headerBoiler.attributes.finishes_at).getTime();
+  if (isNaN(end)) { return null; }
+  return Math.max(0, Math.ceil((end - (new Date().getTime() + headerBoilerOffset)) / 1000));
+}
+
+function loadHeaderBoiler() {
+  if (headerBoilerLoading) { return; }
+  headerBoilerLoading = true;
+  headerBoilerLoadAt = new Date().getTime();
+  var xhr = new XMLHttpRequest();
+  xhr.open('GET', 'api/timer/boiler', true);
+  xhr.onreadystatechange = function () {
+    if (xhr.readyState !== 4) { return; }
+    headerBoilerLoading = false;
+    if (xhr.status !== 200) { return; }
+    try {
+      headerBoiler = JSON.parse(xhr.responseText);
+      headerBoilerOffset = typeof headerBoiler.serverTime === 'number' ? headerBoiler.serverTime - new Date().getTime() : 0;
+    } catch (_e) { /* ignore */ }
+    tickHeaderBoiler(true);
+  };
+  xhr.send();
+}
+
+function tickHeaderBoiler(fromLoad) {
+  if (document.hidden) { return; }
+  var active = !!(headerBoiler && headerBoiler.state === 'active');
+  var remaining = headerBoilerRemaining();
+  // Laufender Timer: alle 5 s abfragen (und kurz nach Ablauf), sonst alle 15 s.
+  if (!fromLoad) {
+    var age = new Date().getTime() - headerBoilerLoadAt;
+    if (!headerBoilerLoadAt || age >= (active ? 5000 : 15000) || (remaining === 0 && age > 2000)) { loadHeaderBoiler(); }
+  }
+  var inner = document.querySelector('.topbar-inner');
+  var options = inner ? inner.querySelector('.topnav-options') : null;
+  if (!options) { return; }
+  var pill = document.getElementById('headerBoilerPill');
+  if (!active) {
+    if (pill) { pill.parentNode.removeChild(pill); }
+    inner.className = inner.className.replace(/\s*\bhas-boiler\b/g, '');
+    return;
+  }
+  if (!pill) {
+    // Die Kopfleiste wird beim Laden neu aufgebaut – die Pille daher bei Bedarf neu einsetzen.
+    pill = document.createElement('a');
+    pill.id = 'headerBoilerPill';
+    pill.className = 'topnav-boiler-pill';
+    pill.setAttribute('aria-label', 'Boiler-Timer');
+    options.insertBefore(pill, options.firstChild);
+  }
+  if (inner.className.indexOf('has-boiler') === -1) { inner.className += ' has-boiler'; }
+  var href = headerBoiler.roomId ? 'raum.html?room=' + encodeURIComponent(headerBoiler.roomId) : '#';
+  if (pill.getAttribute('href') !== href) { pill.setAttribute('href', href); }
+  var text = 'Boiler';
+  if (remaining !== null) {
+    var m = Math.floor(remaining / 60);
+    var sec = remaining % 60;
+    text = 'Boiler · ' + m + ':' + (sec < 10 ? '0' : '') + sec;
+  }
+  if (pill.textContent !== text) { pill.textContent = text; }
+}
+
+document.addEventListener('DOMContentLoaded', function () {
+  loadHeaderBoiler();
+  setInterval(function () { tickHeaderBoiler(false); }, 1000);
+});
 document.addEventListener('DOMContentLoaded', setupScreensaver);
 document.addEventListener('DOMContentLoaded', renderSharedLayout);
 document.addEventListener('DOMContentLoaded', function () {

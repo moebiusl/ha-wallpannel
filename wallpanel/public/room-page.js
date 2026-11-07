@@ -1098,7 +1098,8 @@ function getRoomBoilerRemainingSeconds() {
   if (!finishesAt) { return null; }
   var end = new Date(finishesAt).getTime();
   if (isNaN(end)) { return null; }
-  return Math.max(0, Math.ceil((end - new Date().getTime()) / 1000));
+  var offset = typeof roomPageState.boilerClockOffset === "number" ? roomPageState.boilerClockOffset : 0;
+  return Math.max(0, Math.ceil((end - (new Date().getTime() + offset)) / 1000));
 }
 
 function formatRoomBoilerCountdown(seconds) {
@@ -1173,6 +1174,7 @@ function loadRoomBoiler() {
   apiGet("api/timer/boiler", function (error, data) {
     if (error || !data) { return; }
     roomPageState.boiler = data;
+    roomPageState.boilerClockOffset = typeof data.serverTime === "number" ? data.serverTime - new Date().getTime() : 0;
     updateRoomBoilerSection();
   });
 }

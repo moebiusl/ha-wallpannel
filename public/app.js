@@ -495,10 +495,11 @@ function renderWaste(data) {
   var gelbeTonne = data.gelbeTonneNaechsteLeerung || "unavailable";
   var blaueTonne = data.blaueTonneNaechsteLeerung || "unavailable";
   var restmuell = data.restmuellNaechsteLeerung || "unavailable";
+  var days = data.wasteDays || {};
   var nextWaste = getNextWaste([
-    { key: "yellow", name: "Gelbe Tonne", value: gelbeTonne },
-    { key: "blue", name: "Papiertonne", value: blaueTonne },
-    { key: "dark", name: "Restmüll", value: restmuell }
+    { key: "yellow", name: "Gelbe Tonne", value: gelbeTonne, days: days.yellow },
+    { key: "blue", name: "Papiertonne", value: blaueTonne, days: days.blue },
+    { key: "dark", name: "Restmüll", value: restmuell, days: days.dark }
   ]);
 
   setText("gelbeTonne", formatWasteDisplay(gelbeTonne));
@@ -525,9 +526,14 @@ function parseWasteUrgency(value) {
   return match ? Number(match[1]) : 999;
 }
 
+function wasteSortDays(item) {
+  // Vom Server berechnete Tage bevorzugen; sonst grob aus dem Text schätzen.
+  return typeof item.days === "number" ? item.days : parseWasteUrgency(item.value);
+}
+
 function getNextWaste(items) {
   var sorted = items.slice().sort(function (a, b) {
-    return parseWasteUrgency(a.value) - parseWasteUrgency(b.value);
+    return wasteSortDays(a) - wasteSortDays(b);
   });
   return sorted[0] || { key: "dark", name: "Nächste Leerung", value: "unavailable" };
 }

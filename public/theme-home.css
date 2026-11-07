@@ -714,3 +714,10 @@ html.theme-home .special-card-boiler.is-on .dynamic-entity-title,
 html.theme-home .special-card-boiler.is-on .dynamic-entity-value { color: #000000; }
 html.theme-home .special-card-boiler .boiler-card-button { border-radius: 14px; }
 html.theme-home .special-card-boiler.is-on .boiler-card-button { background: #ff9f0a; color: #000000; }
+
+/* Boiler-Pille in der Kopfleiste (Apple-Stil) */
+html.theme-home .topnav-boiler-pill {
+  border-color: rgba(255, 159, 10, 0.4);
+  background: rgba(255, 159, 10, 0.16);
+  color: #ffb340;
+}

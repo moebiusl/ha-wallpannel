@@ -1,3 +1,14 @@
+## 1.11.3
+
+### Boiler-Timer in der Kopfleiste
+- Solange der Timer der Boiler-Automation zählt, steht oben in der Leiste eine Pille „Boiler · m:ss“ – auf jeder Seite, in der klassischen Oberfläche und im neuen Panel (wie der Lüften-Timer im Apartment-Wallpanel)
+- Antippen öffnet die Küche mit „Neu starten (10 Min.)“; läuft der Timer ab, verschwindet die Pille von selbst
+- Der Countdown gleicht eine falsch gehende iPad-Uhr über die Serverzeit aus
+
+### Fix: Abfall zeigte immer die Papiertonne
+- Die große Abfall-Ansicht zeigt jetzt die Tonne, die als nächste geleert wird. Vorher wurde bei Angaben wie „in 2 Tagen“ nicht richtig sortiert und im neuen Panel immer die Papiertonne gezeigt
+- Der Server berechnet die Tage bis zur Leerung aus „heute“, „morgen“, „in N Tagen“, „N Wochen“, Datumsangaben oder Sensor-Attributen
+
 ## 1.11.2
 
 ### Boiler-Timer in der Küche

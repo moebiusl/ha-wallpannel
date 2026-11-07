@@ -1193,3 +1193,6 @@ body.large-type .room-readings strong { font-size: 17px; }
 .boiler-card .boiler-start { min-height: 56px; min-width: 210px; margin: 4px 0; font-size: 16px; font-weight: bold; }
 .boiler-card .boiler-start[disabled] { opacity: .55; }
 body.large-type .boiler-card .boiler-state { font-size: 25px; }
+
+/* Boiler-Timer in der Kopfleiste (wie die Lüften-Pille im Apartment-Wallpanel) */
+.quick-tool.boiler-pill{color:#edc597;background:rgba(237,197,151,.08);border-color:rgba(237,197,151,.3);font-weight:600;white-space:nowrap;padding-left:12px;padding-right:12px}

@@ -17,6 +17,7 @@ import { getHaRegistries, HaRegistries, runAssist, runTts, subscribeToHaEvents, 
 import { computeAssetVersion, createTabletRegistry, normalizeSound } from "./tablets";
 import { createCameraLive, LiveSource, MjpegThrottle } from "./camera-live";
 import { createRadar } from "./radar";
+import { wasteDaysUntil } from "./waste";
 import { readPanelConfig, writePanelConfig, getConfigPath } from "./panel-config";
 import { getDomain } from "./entity-filter";
 
@@ -1937,6 +1938,12 @@ app.get("/api/dashboard", async (req: Request, res: Response) => {
     gelbeTonneNaechsteLeerung: gelbeTonneNaechsteLeerung?.state ?? "unavailable",
     blaueTonneNaechsteLeerung: blaueTonneNaechsteLeerung?.state ?? "unavailable",
     restmuellNaechsteLeerung: restmuellNaechsteLeerung?.state ?? "unavailable",
+    // Tage bis zur Leerung je Tonne – zum Sortieren, damit die wirklich nächste Leerung vorne steht.
+    wasteDays: {
+      yellow: wasteDaysUntil(gelbeTonneNaechsteLeerung),
+      blue: wasteDaysUntil(blaueTonneNaechsteLeerung),
+      dark: wasteDaysUntil(restmuellNaechsteLeerung)
+    },
 
     updatedAt: formatGermanDateTime(new Date())
   });
@@ -2199,7 +2206,8 @@ app.get("/api/timer/boiler", async (_req: Request, res: Response) => {
   }
   let roomId: string | null = null;
   try { roomId = await resolveBoilerRoomId(); } catch { roomId = null; }
-  res.json({ ...(entity || { entity_id: "timer.boiler_timer_10min", state: "idle", attributes: {} }), roomId });
+  // serverTime: Tablets gleichen damit eine falsch gehende iPad-Uhr für den Countdown aus.
+  res.json({ ...(entity || { entity_id: "timer.boiler_timer_10min", state: "idle", attributes: {} }), roomId, serverTime: Date.now() });
 });
 
 app.post("/api/timer/boiler/reset", async (_req: Request, res: Response) => {

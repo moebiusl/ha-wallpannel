@@ -114,7 +114,7 @@
     }
     return result;
   }
-  function wasteList() { var d=dashboard || {}, list=[{name:'Papiertonne',color:'blue',value:d.blaueTonneNaechsteLeerung},{name:'Gelbe Tonne',color:'yellow',value:d.gelbeTonneNaechsteLeerung},{name:'Restmüll',color:'brown',value:d.restmuellNaechsteLeerung}].filter(function(w){return w.value && ['unavailable','unknown'].indexOf(w.value)<0;});list.forEach(function(w){w.time=Date.parse(w.value);w.label=isFinite(w.time)?new Date(w.time).toLocaleDateString('de-DE'):display(w.value);});list.sort(function(a,b){return (isFinite(a.time)?a.time:Infinity)-(isFinite(b.time)?b.time:Infinity);});return list; }
+  function wasteList() { var d=dashboard || {}, list=[{name:'Papiertonne',color:'blue',value:d.blaueTonneNaechsteLeerung},{name:'Gelbe Tonne',color:'yellow',value:d.gelbeTonneNaechsteLeerung},{name:'Restmüll',color:'brown',value:d.restmuellNaechsteLeerung}].filter(function(w){return w.value && ['unavailable','unknown'].indexOf(w.value)<0;});var days=d.wasteDays || {},keys={blue:'blue',yellow:'yellow',brown:'dark'};list.forEach(function(w){w.time=Date.parse(w.value);w.label=isFinite(w.time)?new Date(w.time).toLocaleDateString('de-DE'):display(w.value);var n=days[keys[w.color]];w.days=typeof n==='number'?n:(isFinite(w.time)?Math.round((w.time-Date.now())/86400000):Infinity);});/* Nach Tagen bis zur Leerung sortieren: Texte wie „in 2 Tagen“ sind kein Datum. */list.sort(function(a,b){return a.days-b.days;});return list; }
   function wasteContents() {
     var list=wasteList(),all=ui.state.wasteExpanded,shown=all?list:list.slice(0,1),html='<span class="waste-content"><span class="home-kicker">ABFALL</span><span class="waste-items'+(all?' waste-inline-list':'')+'">';
     for(var i=0;i<shown.length;i++){var w=shown[i];html+='<span class="waste-item bin-'+w.color+'"><span class="bin-mark">'+ui.icon('waste')+'</span><span class="bin-copy"><strong class="waste-name">'+esc(w.name)+'</strong><em class="waste-due">'+esc(w.label)+'</em></span></span>';}
@@ -208,18 +208,21 @@
     if(img.complete){soften();}else{img.onload=soften;}
   }
 
-  // Boiler-Timer: nur in der Raumansicht abfragen; der Server ordnet ihn einem Raum (Küche) zu.
-  var boiler=null,boilerLoading=false,boilerAt=0,boilerSignature='';
-  function boilerRemaining(){if(!boiler||boiler.state!=='active'||!boiler.attributes||!boiler.attributes.finishes_at){return null;}var end=new Date(boiler.attributes.finishes_at).getTime();return isNaN(end)?null:Math.max(0,Math.ceil((end-Date.now())/1000));}
+  // Boiler-Timer: Kopfleisten-Pille auf allen Ansichten, Karte in der Küche. Der Server ordnet ihn einem Raum zu.
+  var boiler=null,boilerLoading=false,boilerAt=0,boilerSignature='',boilerOffset=0;
+  function boilerRemaining(){if(!boiler||boiler.state!=='active'||!boiler.attributes||!boiler.attributes.finishes_at){return null;}var end=new Date(boiler.attributes.finishes_at).getTime();return isNaN(end)?null:Math.max(0,Math.ceil((end-(Date.now()+boilerOffset))/1000));}
+  function boilerPill(){var pill=el('panelBoilerPill');if(!pill){return;}var active=!!(boiler&&boiler.state==='active'),display=active?'':'none';if(pill.style.display!==display){pill.style.display=display;}if(!active){return;}var r=boilerRemaining(),text='Boiler';if(r!==null){var m=Math.floor(r/60),sec=r%60;text='Boiler · '+m+':'+(sec<10?'0':'')+sec;}textIfChanged(pill,text);var room=boiler.roomId || '';if(pill.getAttribute('data-id')!==room){pill.setAttribute('data-id',room);}}
   function boilerText(){if(!boiler||boiler.state!=='active'){return boiler&&boiler.state==='paused'?'Pausiert':'Aus';}var r=boilerRemaining();if(r===null){return 'Läuft';}var m=Math.floor(r/60),sec=r%60;return 'Läuft · noch '+(m<10?'0':'')+m+':'+(sec<10?'0':'')+sec;}
   function loadBoiler(force){
-    if(!ui||ui.state.view!=='room'||boilerLoading||document.hidden){return;}boilerLoading=true;boilerAt=Date.now();
-    request('GET','/api/timer/boiler',null,function(err,data){boilerLoading=false;if(err||!data||typeof data!=='object'){return;}boiler=data;var sig=[data.roomId || '',data.state || '',data.attributes&&data.attributes.finishes_at || ''].join('|');if(sig!==boilerSignature||force){boilerSignature=sig;dirty=true;render();}});
+    if(!ui||boilerLoading||document.hidden){return;}boilerLoading=true;boilerAt=Date.now();
+    request('GET','/api/timer/boiler',null,function(err,data){boilerLoading=false;if(err||!data||typeof data!=='object'){return;}boiler=data;boilerOffset=typeof data.serverTime==='number'?data.serverTime-Date.now():0;boilerPill();var sig=[data.roomId || '',data.state || '',data.attributes&&data.attributes.finishes_at || ''].join('|');if(sig!==boilerSignature||force){boilerSignature=sig;/* Karte nur in der Raumansicht – sonst reicht die Pille. */if(ui.state.view==='room'){dirty=true;render();}}});
   }
   function tickBoiler(){
-    if(!ui||ui.state.view!=='room'||document.hidden){return;}
-    if(!boilerAt||Date.now()-boilerAt>=5000||boilerRemaining()===0&&Date.now()-boilerAt>2000){loadBoiler(false);}
-    textIfChanged(el('panelBoilerState'),boilerText());
+    if(!ui||document.hidden){return;}
+    var running=!!(boiler&&boiler.state==='active');
+    /* Laufender Timer: alle 5 s abfragen (und kurz nach Ablauf), sonst alle 15 s. */
+    if(!boilerAt||Date.now()-boilerAt>=(running?5000:15000)||boilerRemaining()===0&&Date.now()-boilerAt>2000){loadBoiler(false);}
+    textIfChanged(el('panelBoilerState'),boilerText());boilerPill();
   }
   function roomBoiler(id){
     // Nur anzeigen, solange der Timer der Boiler-Automation tatsächlich zählt.
