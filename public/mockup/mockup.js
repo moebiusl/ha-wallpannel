@@ -344,7 +344,7 @@
   function openDialog(title,content,type,id) {
     if(runtime){runtime.releaseDialog();}model.livePreviewActive=null;
     state.returnFocus=state.dialog?state.returnFocus:document.activeElement;state.dialog={type:type,id:id};lockModalBackground();
-    var cls=type==='light'?' dialog-light':type==='energy'?' dialog-energy':type==='gate'?' dialog-gate':type==='camera'||type==='doorbell'?' dialog-camera':type==='weather'?' dialog-weather':type==='pin'?' dialog-pin':type==='tablet'?' dialog-tablet':type==='rooms'?' dialog-rooms':'';
+    var cls=type==='light'?' dialog-light':type==='energy'?' dialog-energy':type==='gate'?' dialog-gate':type==='camera'||type==='doorbell'?' dialog-camera':type==='weather'?' dialog-weather':type==='pin'?' dialog-pin':type==='tablet'?' dialog-tablet':type==='rooms'?' dialog-rooms':type==='light-settings'?' dialog-light-settings':'';
     byId('dialogRoot').innerHTML='<div class="dialog-backdrop'+(type==='camera'||type==='doorbell'?' camera-backdrop':'')+'" data-action="backdrop-close"><section class="dialog'+cls+'" role="dialog" aria-modal="true" aria-labelledby="dialogTitle"><div class="dialog-head"><h2 id="dialogTitle">'+esc(title)+'</h2><button class="dialog-close" type="button" data-action="dialog-close" aria-label="Schließen"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg></button></div><div class="dialog-body">'+content+'</div></section></div>';
     var close=byId('dialogRoot').querySelector('.dialog-close');if(close){close.focus();}if(runtime){runtime.afterDialog();}
   }
@@ -361,6 +361,7 @@
     }
     html += '</div>';
     if(runtime&&runtime.lightControls){html+=runtime.lightControls(id);}else if (light.colorCapable) { html += '<div class="color-swatches">'; var colors=[['warm','Warm','#ebc58f'],['white','Weiß','#e9e4dd'],['blue','Blau','#8eb6c7'],['green','Grün','#a8c6a2']];for(var i=0;i<colors.length;i++){html+='<button type="button" class="color-swatch" style="background:'+colors[i][2]+'"'+action('color',colors[i][0])+'>'+colors[i][1]+'</button>';}html+='</div>'; }
+    html += '<button type="button" class="light-settings-button"' + action('light-settings',id) + ' aria-label="' + esc('Einstellungen für ' + light.name) + '" title="Name, Raum, Gruppe">' + icon('settings') + '</button>';
     openDialog(light.name,html,'light',id);
   }
   var playlists = [ ['Entspannt durch den Tag', 'Ruhige Lieblingsmusik'], ['Lieblingslieder', 'Ein bisschen von allem'], ['Klassik am Morgen', 'Ein ruhiger Start'], ['Radio', 'Dein Lieblingssender'] ];
@@ -380,6 +381,7 @@
     else if (name === 'select-room') { var selected = find(model.rooms, id); if (selected && roomVisible(selected)) { state.roomId = id; closeDialog(); go('room'); byId('content').scrollTop = 0; } }
     else if (name === 'light') { light = find(model.lights, id); if (light) { light.on = !light.on; render(); } }
     else if (name === 'light-details') { openLight(id); }
+    else if (name === 'light-settings') { toast('Name, Raum und Gruppen lassen sich im Live-Panel ändern.'); }
     else if (name === 'light-dialog-toggle') { light=find(model.lights,id);if(light){light.on=!light.on;openLight(id);render();} }
     else if (name === 'color' && state.dialog) { light = find(model.lights, state.dialog.id); if (light) { light.color = id; light.on = true; var swatches = byId('dialogRoot').querySelectorAll('.color-swatch'); for (var i = 0; i < swatches.length; i++) { swatches[i].className = 'color-swatch' + (swatches[i] === node ? ' selected' : ''); } render(); } }
     else if (name === 'temperature-up' || name === 'temperature-down') { if (room) { room.target = Math.max(5, Math.min(30, room.target + (name === 'temperature-up' ? .5 : -.5))); render(); } }

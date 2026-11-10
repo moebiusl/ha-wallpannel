@@ -1206,3 +1206,17 @@ body.large-type .boiler-card .boiler-state { font-size: 25px; }
 .apps-update strong { display: block; font-size: 16px; }
 .apps-update small { display: block; margin-top: 3px; color: #c6b4ce; font-size: 13px; }
 .apps-update .button { -webkit-flex: 0 0 auto; flex: 0 0 auto; min-height: 44px; }
+/* Zahnrad unten rechts im Lampen-Dialog und der Einstellungsdialog dahinter */
+.light-settings-button { display: block; width: 44px; height: 44px; margin: 12px -6px 0 auto; padding: 10px; border: 0; border-radius: 50%; background: rgba(255,255,255,.08); color: inherit; opacity: .8; }
+.light-settings-button svg { display: block; width: 24px; height: 24px; }
+.dialog-light-settings { max-width: 440px; }
+.light-settings .button { display: block; width: 100%; margin-top: 10px; }
+.light-settings .button + .button { margin-left: 0; }
+.light-settings .field { margin-top: 16px; }
+.light-settings .field label { display: block; margin-bottom: 6px; }
+.light-settings .field select { width: 100%; min-height: 48px; }
+.light-settings-heading { margin: 24px 0 6px; font-size: 15px; }
+.light-settings .button[aria-busy=true] { opacity: .6; }
+.light-settings .field { display: block; width: 100%; max-width: none; }
+.light-settings .field .dialog-input, .light-settings .field select { display: block; width: 100%; max-width: none; -webkit-box-sizing: border-box; box-sizing: border-box; }
+.light-settings .field select { padding: 10px 12px; border: 1px solid #504457; border-radius: 11px; background: #332b39; color: #f0e8f5; font-size: 15px; }

@@ -45,7 +45,7 @@
   <script>
     (function () {
       var reload = /[?&]_reload=([0-9]+)/.exec(window.location.search);
-      var files = ["../navigation.js", "../mockup/power-fader.js", "../mockup/thermostat.js", "details.js", "apps.js", "alerts.js", "light-color.js", "light-controls.js", "live.js", "../mockup/mockup.js"], index = 0;
+      var files = ["../navigation.js", "../mockup/power-fader.js", "../mockup/thermostat.js", "details.js", "apps.js", "alerts.js", "light-color.js", "light-controls.js", "light-settings.js", "live.js", "../mockup/mockup.js"], index = 0;
       function next() { if(index >= files.length) { return; } var script=document.createElement('script');script.src=files[index++] + (reload ? '?_reload=' + reload[1] : '?_build=' + encodeURIComponent(window.WallpanelBuild || 'local'));script.onload=next;document.body.appendChild(script); }
       next();
     })();

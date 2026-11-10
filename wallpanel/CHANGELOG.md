@@ -1,3 +1,13 @@
+## 1.11.5
+
+### Lampen zusammenfassen, umbenennen, verschieben
+- Durchnummerierte Lampen im selben Raum („Esstisch 4“, „Esstisch 5“) erscheinen im Panel automatisch als eine Lampe „Esstisch“. Schalten, Dimmen und Farbe wirken auf alle; Farbe nur bei den Lampen, die sie können
+- Im Lampen-Dialog (lange drücken) gibt es unten rechts ein Zahnrad. Dahinter, nach PIN-Freigabe:
+  - Lampe umbenennen und in einen anderen Raum verschieben – direkt in Home Assistant, gilt also auch in der HA-App
+  - Lampen gruppieren, Gruppen ändern oder auflösen – nur im Wallpanel, Home Assistant bleibt unverändert
+- Lampen ohne eindeutige ID in Home Assistant lassen sich nur dort umbenennen; das Panel weist darauf hin
+- Gruppen gelten im neuen Panel; die klassische Ansicht zeigt weiterhin die einzelnen Lampen
+
 ## 1.11.4
 
 ### Boiler einschalten wie eine Szene

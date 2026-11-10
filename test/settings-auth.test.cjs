@@ -11,6 +11,9 @@ test('Verwaltungsänderungen benötigen eine gültige PIN-Sitzung und eigenen He
   app.delete('/api/tablets/test', (_, res) => res.json({ok:true}));
   app.post('/api/panel/reload', (_, res) => res.json({ok:true}));
   app.post('/api/tablets/notify', (_, res) => res.json({ok:true}));
+  app.post('/api/lights/:id/rename', (_, res) => res.json({ok:true}));
+  app.post('/api/lights/:id/room', (_, res) => res.json({ok:true}));
+  app.post('/api/light-groups', (_, res) => res.json({ok:true}));
   const server = app.listen(0, '127.0.0.1');
   await new Promise(resolve => server.once('listening', resolve));
   const base = 'http://127.0.0.1:' + server.address().port;
@@ -18,6 +21,9 @@ test('Verwaltungsänderungen benötigen eine gültige PIN-Sitzung und eigenen He
   try {
     assert.equal((await post('/api/panel-config')).status, 401);
     assert.equal((await post('/api/panel/reload',{target:'all'})).status,401);
+    assert.equal((await post('/api/lights/light.esstisch_4/rename',{name:'X'})).status,401);
+    assert.equal((await post('/api/lights/group:auto:kueche:esstisch/room',{areaId:'kueche'})).status,401);
+    assert.equal((await post('/api/light-groups',{type:'auto',enabled:true})).status,401);
     assert.equal((await post('/api/settings/unlock', {pin:'0000'})).status,401);
     const unlocked = await post('/api/settings/unlock', {pin:'5678'});
     assert.equal(unlocked.status,200);
@@ -28,6 +34,8 @@ test('Verwaltungsänderungen benötigen eine gültige PIN-Sitzung und eigenen He
     const headers = {Cookie:cookie,'X-Wallpanel-Admin':'1'};
     assert.equal((await post('/api/panel-config',{},headers)).status,200);
     assert.equal((await post('/api/panel/reload',{target:'all'},headers)).status,200);
+    assert.equal((await post('/api/lights/light.esstisch_4/rename',{name:'X'},headers)).status,200);
+    assert.equal((await post('/api/light-groups',{type:'auto',enabled:true},headers)).status,200);
     assert.equal((await post('/api/panel-config',{}, {...headers,Cookie:cookie.slice(0,-1)+(cookie.endsWith('a')?'b':'a')})).status,401);
     assert.equal((await fetch(base+'/api/tablets/test',{method:'DELETE',headers})).status,200);
     assert.equal((await post('/api/tablets/notify')).status,200);

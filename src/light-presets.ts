@@ -19,7 +19,7 @@ export function createLightPresets(file:string){
   try{entries=JSON.parse(fs.readFileSync(file,"utf8"));}catch(e:any){if(e.code!=="ENOENT"){throw e;}}
   function list(id:string,a:Record<string,any>){return (entries[id] || defaultLightPresets(a)).filter(p=>{try{validateLightColor(p.action==="color"?{rgb_color:p.value}:{color_temp_kelvin:p.value},a);return true;}catch{return false;}});}
   function change(id:string,input:any,a:Record<string,any>){
-    if(!/^light\.[a-z0-9_]+$/.test(id)){throw new Error("Ungültige Lampe.");}
+    if(!/^(light\.[a-z0-9_]+|group:[a-z0-9_:]{1,120})$/.test(id)){throw new Error("Ungültige Lampe.");}
     const next=list(id,a).slice();
     if(input.type==="remove"){
       const index=next.findIndex(p=>p.id===input.presetId);if(index<0){throw new Error("Vorauswahl nicht gefunden.");}next.splice(index,1);

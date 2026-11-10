@@ -38,7 +38,8 @@ export function createSettingsAuth(pin: string) {
       req.path === "/api/panel/reload" ||
       req.path === "/api/tablets/doorbell-test" || /^\/api\/tablets\/[^/]+(?:\/command)?$/.test(req.path) &&
       !["/api/tablets/notify", "/api/tablets/doorbell-close"].includes(req.path) ||
-      /^\/api\/addons\/[^/]+\/update$/.test(req.path)
+      /^\/api\/addons\/[^/]+\/update$/.test(req.path) ||
+      req.path === "/api/light-groups" || /^\/api\/lights\/[^/]+\/(?:rename|room)$/.test(req.path)
     );
     if (adminWrite && (!authenticated(req) || req.get("X-Wallpanel-Admin") !== "1")) {
       res.status(401).json({ ok: false, message: "Bitte die Optionen mit der PIN entsperren." });

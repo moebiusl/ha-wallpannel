@@ -4,6 +4,7 @@ import { isEntityId, validateEntityService } from "./entity-service";
 import { createHostGuard } from "./host-guard";
 import { discoverHaEntities, discoverHaCameras, resolveHaRoom, selectHaRoomEntities, isWallpanelAreaVisible } from "./ha-discovery";
 import { createLightPresets, validateLightColor } from "./light-presets";
+import { applyLightGroups, createLightGroupStore, isLightGroupId, lightGroupEntity, planLightGroups } from "./light-groups";
 import { RADIO_STATIONS, validPlaylistUri } from "./media";
 import { createSettingsAuth } from "./settings-auth";
 import express, { Request, Response } from "express";
@@ -13,7 +14,7 @@ import dotenv from "dotenv";
 import fs from "fs";
 import crypto from "crypto";
 import path from "path";
-import { getHaRegistries, HaRegistries, runAssist, runTts, subscribeToHaEvents, subscribeToStateChanges } from "./ha-websocket";
+import { getHaRegistries, HaRegistries, runAssist, runHaCommand, runTts, subscribeToHaEvents, subscribeToStateChanges } from "./ha-websocket";
 import { computeAssetVersion, createTabletRegistry, normalizeSound } from "./tablets";
 import { createCameraLive, LiveSource, MjpegThrottle } from "./camera-live";
 import { createRadar } from "./radar";
@@ -1342,6 +1343,26 @@ const settingsAuth = createSettingsAuth(SETTINGS_PIN);
 const panelFeatures = createPanelFeatures(path.join(path.dirname(getConfigPath()), "panel-features.json"));
 const climateSyncBusy = new Set<string>();
 const lightPresets=createLightPresets(path.join(path.dirname(getConfigPath()),"light-presets.json"));
+const lightGroups=createLightGroupStore(path.join(path.dirname(getConfigPath()),"light-groups.json"));
+type PanelEntityList=ReturnType<typeof projectPanelEntities>;
+function currentLightGroups(projected:PanelEntityList){return planLightGroups(projected.filter(e=>e.domain==="light"),lightGroups.get());}
+function withLightGroups(projected:PanelEntityList):PanelEntityList{return applyLightGroups(projected as any,currentLightGroups(projected)) as any;}
+/** Sichtbare Lampen und Gruppen, wie das Panel sie sieht. */
+async function panelLightContext(){
+  const [structure,states]=await Promise.all([buildHaStructure(),getAllStates()]);
+  const projected=projectPanelEntities(structure.entities,states),groups=currentLightGroups(projected);
+  const lights=projected.filter(e=>e.domain==="light");
+  function group(id:string){const g=groups.find(entry=>entry.id===id);if(!g){return null;}const members=lights.filter(e=>g.members.includes(e.entityId));return members.length?{group:g,members,entity:lightGroupEntity(g,members as any)}:null;}
+  return {structure,lights,groups,group};
+}
+/** Nach Änderungen an der HA-Registry alles neu lesen (Namen, Räume). */
+function invalidateRegistries(){registryGeneration++;registriesCache=null;invalidateHaCaches();}
+async function updateHaEntityRegistry(entityId:string,changes:{name?:string|null;area_id?:string|null}){
+  const registries=await getCachedRegistries();
+  if(!registries.entities.some(e=>e.entity_id===entityId)){throw Object.assign(new Error("Diese Lampe hat in Home Assistant keine eindeutige ID und kann nur dort geändert werden."),{status:409});}
+  await runHaCommand(HA_URL,HA_TOKEN,"config/entity_registry/update",{entity_id:entityId,...changes});
+}
+function lightAdminError(res:Response,error:unknown){const status=(error as any)?.status || 400;res.status(status).json({ok:false,message:error instanceof Error?error.message:"Änderung fehlgeschlagen."});}
 app.use(settingsAuth.guard);
 app.get(["/panel/", "/panel/index.html"], (_req, res) => {
   res.setHeader("Cache-Control", "no-store");
@@ -1381,7 +1402,7 @@ app.get("/api/panel/state", async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
     panelFeatures.observe(structure.entities);
     res.json({ revision: structure.structureRevision, areas: structure.areas, floors: structure.floors,
-      entities: projectPanelEntities(structure.entities, states).filter(entity => req.query.compact !== "1" || ["light","climate","media_player","switch","input_boolean","scene"].includes(entity.domain) || entity.deviceClass === "battery" || req.query.view === "security" && entity.domain === "binary_sensor" && ["motion","occupancy","presence","door","window","opening","garage_door","smoke","gas","carbon_monoxide","moisture","safety"].includes(entity.deviceClass)), roomReadings: roomReadings(structure.entities), inbox: panelFeatures.list() });
+      entities: withLightGroups(projectPanelEntities(structure.entities, states)).filter(entity => req.query.compact !== "1" || ["light","climate","media_player","switch","input_boolean","scene"].includes(entity.domain) || entity.deviceClass === "battery" || req.query.view === "security" && entity.domain === "binary_sensor" && ["motion","occupancy","presence","door","window","opening","garage_door","smoke","gas","carbon_monoxide","moisture","safety"].includes(entity.deviceClass)), roomReadings: roomReadings(structure.entities), inbox: panelFeatures.list() });
   } catch { res.status(502).json({ ok: false, message: "Home Assistant nicht erreichbar" }); }
 });
 
@@ -1515,6 +1536,21 @@ app.post("/api/entity/:entityId/service", async (req: Request, res: Response) =>
     const service = String(req.body?.service || "");
     if (climateSyncBusy.has(entityId)) { res.status(409).json({ok:false,message:"Heizung wird synchronisiert."}); return; }
     const data = req.body?.data && typeof req.body.data === "object" ? req.body.data : {};
+    if (isLightGroupId(entityId)) {
+      const group = (await panelLightContext()).group(entityId);
+      if (!group) { res.status(404).json({ ok: false, message: "Gruppe nicht gefunden." }); return; }
+      let groupData: Record<string, unknown>;
+      try { groupData = validateEntityService(group.members[0].entityId, service, data); }
+      catch (error) { res.status(400).json({ ok: false, message: String(error) }); return; }
+      const colored = ["hs_color","rgb_color","color_temp_kelvin"].some(key => groupData[key] !== undefined);
+      const fits = group.members.filter(m => { if (!colored) { return true; } try { validateLightColor(groupData, (m.attributes || {}) as Record<string,any>); return true; } catch { return false; } }).map(m => m.entityId);
+      if (!fits.length) { res.status(400).json({ ok: false, message: "Keine Lampe der Gruppe unterstützt diese Farbe." }); return; }
+      await callService("light", service, { ...groupData, entity_id: fits });
+      const rest = group.members.map(m => m.entityId).filter(id => !fits.includes(id));
+      if (rest.length && service === "turn_on") { await callService("light", "turn_on", { entity_id: rest }); }
+      res.json({ ok: true });
+      return;
+    }
     if (!service) {
       res.status(400).json({ ok: false, message: "service missing" });
       return;
@@ -1584,11 +1620,56 @@ app.post("/api/music/:entityId/radio",async(req,res)=>{
     await callService("music_assistant","play_media",{entity_id:id,media_id:station.url,media_type:"radio",enqueue:"replace"});res.json({ok:true});
   }catch{res.status(502).json({ok:false,message:"Radio konnte nicht gestartet werden."});}
 });
+async function presetLight(id:string):Promise<{attributes:Record<string,any>}|null>{
+  if(isLightGroupId(id)){const g=(await panelLightContext()).group(id);return g?{attributes:g.entity.attributes}:null;}
+  const structure=await buildHaStructure();const light=structure.entities.find(e=>e.entityId===id&&e.domain==="light"&&e.visibleByDefault&&!e.haHidden);return light?{attributes:(light.attributes || {}) as Record<string,any>}:null;
+}
+// Lampe umbenennen/verschieben wirkt direkt in Home Assistant (Entity-Registry); Gruppen nur im Wallpanel.
+app.post("/api/lights/:id/rename",async(req,res)=>{
+  try{
+    const id=String(req.params.id),name=String(req.body?.name ?? "").replace(/\s+/g," ").trim().slice(0,60),ctx=await panelLightContext();
+    if(!name){throw new Error("Bitte einen Namen eingeben.");}
+    if(isLightGroupId(id)){
+      const g=ctx.group(id);if(!g){res.status(404).json({ok:false,message:"Gruppe nicht gefunden."});return;}
+      const saved=lightGroups.save({id:g.group.auto?undefined:g.group.id,name,room:g.group.room,members:g.group.members,replaces:g.group.auto?g.group.id:undefined},new Set(ctx.lights.map(l=>l.entityId)));
+      res.json({ok:true,id:saved.id});return;
+    }
+    if(!ctx.lights.some(l=>l.entityId===id)){res.status(404).json({ok:false,message:"Lampe nicht gefunden."});return;}
+    await updateHaEntityRegistry(id,{name});
+    invalidateRegistries();res.json({ok:true,id});
+  }catch(error){lightAdminError(res,error);}
+});
+app.post("/api/lights/:id/room",async(req,res)=>{
+  try{
+    const id=String(req.params.id),areaId=String(req.body?.areaId || ""),registries=await getCachedRegistries(),area=registries.areas.find(a=>a.area_id===areaId);
+    if(!area || !isWallpanelAreaVisible(area)){throw new Error("Unbekannter Raum.");}
+    const ctx=await panelLightContext(),group=isLightGroupId(id)?ctx.group(id):null;
+    const targets=group?group.group.members:ctx.lights.some(l=>l.entityId===id)?[id]:[];
+    if(!targets.length){res.status(404).json({ok:false,message:"Lampe nicht gefunden."});return;}
+    for(const target of targets){await updateHaEntityRegistry(target,{area_id:areaId});}
+    if(group&&!group.group.auto){lightGroups.setRoom(id,areaId);}
+    invalidateRegistries();res.json({ok:true});
+  }catch(error){invalidateRegistries();lightAdminError(res,error);}
+});
+app.get("/api/light-groups",(_req,res)=>{res.setHeader("Cache-Control","no-store");res.json({autoGroup:lightGroups.get().autoGroup});});
+app.post("/api/light-groups",async(req,res)=>{
+  try{
+    const type=String(req.body?.type || "");
+    if(type==="auto"){lightGroups.setAutoGroup(req.body?.enabled===true);res.json({ok:true});return;}
+    if(type==="remove"){lightGroups.remove(String(req.body?.id || ""));res.json({ok:true});return;}
+    if(type!=="save"){throw new Error("Ungültige Aktion.");}
+    const ctx=await panelLightContext(),members=Array.isArray(req.body?.members)?req.body.members.map(String):[];
+    const existing=req.body?.id?ctx.group(String(req.body.id)):null;
+    const first=ctx.lights.find(l=>l.entityId===members[0]);
+    const saved=lightGroups.save({id:existing&&!existing.group.auto?existing.group.id:undefined,replaces:existing&&existing.group.auto?existing.group.id:undefined,name:req.body?.name || existing?.group.name,room:existing?existing.group.room:first?.areaId || null,members},new Set(ctx.lights.map(l=>l.entityId)));
+    res.json({ok:true,id:saved.id});
+  }catch(error){lightAdminError(res,error);}
+});
 app.get("/api/light-presets/:entityId",async(req,res)=>{
-  try{const id=String(req.params.entityId),structure=await buildHaStructure(),light=structure.entities.find(e=>e.entityId===id&&e.domain==="light"&&e.visibleByDefault&&!e.haHidden);if(!light){res.status(404).json({ok:false});return;}res.setHeader("Cache-Control","no-store");res.json({presets:lightPresets.list(id,(light.attributes || {}) as Record<string,any>)});}catch{res.status(502).json({ok:false,message:"Vorauswahlen nicht verfügbar."});}
+  try{const id=String(req.params.entityId),light=await presetLight(id);if(!light){res.status(404).json({ok:false});return;}res.setHeader("Cache-Control","no-store");res.json({presets:lightPresets.list(id,(light.attributes || {}) as Record<string,any>)});}catch{res.status(502).json({ok:false,message:"Vorauswahlen nicht verfügbar."});}
 });
 app.post("/api/light-presets/:entityId",async(req,res)=>{
-  try{const id=String(req.params.entityId),structure=await buildHaStructure(),light=structure.entities.find(e=>e.entityId===id&&e.domain==="light"&&e.visibleByDefault&&!e.haHidden);if(!light){res.status(404).json({ok:false});return;}res.json({ok:true,presets:lightPresets.change(id,req.body,(light.attributes || {}) as Record<string,any>)});}catch(e){res.status(400).json({ok:false,message:e instanceof Error?e.message:"Vorauswahl konnte nicht gespeichert werden."});}
+  try{const id=String(req.params.entityId),light=await presetLight(id);if(!light){res.status(404).json({ok:false});return;}res.json({ok:true,presets:lightPresets.change(id,req.body,(light.attributes || {}) as Record<string,any>)});}catch(e){res.status(400).json({ok:false,message:e instanceof Error?e.message:"Vorauswahl konnte nicht gespeichert werden."});}
 });
 
 const ARTWORK_CACHE_MAX_BYTES = 32 * 1024 * 1024;

@@ -26,7 +26,7 @@ test('Die Start- und Cache-Neulade-Skripte bleiben ebenfalls ES5-kompatibel',()=
 
 // The actual live bundle and gesture controller must also parse in Safari 9.
 test('Live-Einstieg und Regler bleiben ES5-kompatibel',()=>{
- for(const file of ['public/panel/live.js','public/panel/apps.js','public/panel/light-color.js','public/panel/light-controls.js','public/mockup/thermostat.js','public/mockup/power-fader.js','public/panel/details.js']) {
+ for(const file of ['public/panel/live.js','public/panel/apps.js','public/panel/light-color.js','public/panel/light-controls.js','public/panel/light-settings.js','public/mockup/thermostat.js','public/mockup/power-fader.js','public/panel/details.js']) {
   const js=fs.readFileSync(file,'utf8');acorn.parse(js,{ecmaVersion:5});
   assert.doesNotMatch(js,/\b(?:fetch|Promise|URLSearchParams|ResizeObserver)\b\s*\(/);
   assert.doesNotMatch(js,/\.(?:closest|includes|find|replaceAll)\s*\(/);

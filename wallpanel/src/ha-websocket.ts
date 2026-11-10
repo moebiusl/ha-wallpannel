@@ -552,3 +552,54 @@ export function runTts(haUrl: string, token: string, text: string): Promise<stri
     ws.onerror = (error: unknown) => finish(describeWsError(error, wsUrl));
   });
 }
+
+/**
+ * Führt einen einzelnen WebSocket-Befehl mit Nutzdaten aus (z. B. config/entity_registry/update)
+ * und liefert dessen Ergebnis. Fehler von HA werden mit ihrer Meldung weitergereicht.
+ */
+export function runHaCommand(haUrl: string, token: string, type: string, payload: Record<string, unknown>): Promise<unknown> {
+  const wsUrl = wsUrlFromHaUrl(haUrl);
+
+  return new Promise((resolve, reject) => {
+    const ws = new WebSocket(wsUrl);
+    const commandId = 1;
+    let finished = false;
+
+    function finish(error: Error | null, result?: unknown): void {
+      if (finished) { return; }
+      finished = true;
+      clearTimeout(timeout);
+      try { ws.close(); } catch (_) { /* ignore */ }
+      if (error) { reject(error); } else { resolve(result); }
+    }
+
+    const timeout = setTimeout(() => finish(new Error("Timeout beim Ändern in Home Assistant")), 10000);
+
+    ws.onmessage = (event: { data: unknown }) => {
+      try {
+        const raw = typeof event.data === "string" ? event.data : Buffer.from(event.data as ArrayBuffer).toString();
+        const msg = JSON.parse(raw);
+        if (msg.type === "auth_required") {
+          ws.send(JSON.stringify({ type: "auth", access_token: token }));
+          return;
+        }
+        if (msg.type === "auth_invalid") {
+          finish(new Error("Home-Assistant-WebSocket-Auth fehlgeschlagen"));
+          return;
+        }
+        if (msg.type === "auth_ok") {
+          ws.send(JSON.stringify({ ...payload, id: commandId, type }));
+          return;
+        }
+        if (msg.type === "result" && msg.id === commandId) {
+          if (msg.success) { finish(null, msg.result); }
+          else { finish(new Error(msg.error?.message || "Home Assistant hat die Änderung abgelehnt")); }
+        }
+      } catch (error) {
+        finish(error instanceof Error ? error : new Error(String(error)));
+      }
+    };
+
+    ws.onerror = (error: unknown) => finish(describeWsError(error, wsUrl));
+  });
+}
