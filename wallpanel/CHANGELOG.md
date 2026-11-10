@@ -7,6 +7,7 @@
   - Lampen gruppieren, Gruppen ändern oder auflösen – nur im Wallpanel, Home Assistant bleibt unverändert
 - Lampen ohne eindeutige ID in Home Assistant lassen sich nur dort umbenennen; das Panel weist darauf hin
 - Gruppen gelten im neuen Panel; die klassische Ansicht zeigt weiterhin die einzelnen Lampen
+- Ein „#“ vor dem Namen einer Lampe oder eines Geräts in Home Assistant blendet es im Wallpanel aus – wie bisher schon bei Räumen
 
 ## 1.11.4
 

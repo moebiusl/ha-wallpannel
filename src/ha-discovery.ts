@@ -39,6 +39,8 @@ export function discoverHaEntities(states: HaState[], registries: HaRegistries) 
     const floor = floors.get(area?.floor_id || "");
     const hiddenArea = !isWallpanelAreaVisible(area);
     const weatherMap = getDomain(state.entity_id) === "camera" && isWeatherMapCamera(state.entity_id, registry?.platform);
+    // Wie bei Räumen: ein „#“ vor dem Namen in HA blendet das Gerät im Wallpanel aus.
+    const hashName = getFriendlyEntityName(state, registry).trim().startsWith("#");
     return {
       entityId: state.entity_id,
       name: getFriendlyEntityName(state, registry),
@@ -56,8 +58,8 @@ export function discoverHaEntities(states: HaState[], registries: HaRegistries) 
       musicAssistant: registry?.platform === "music_assistant",
       entityCategory: registry?.entity_category || null,
       haEntityHidden: !!(device?.disabled_by || registry?.disabled_by || registry?.hidden_by),
-      haHidden: !!(hiddenArea || device?.disabled_by || registry?.disabled_by || registry?.hidden_by),
-      visibleByDefault: !hiddenArea && !weatherMap && !device?.disabled_by && isProbablyUsefulEntity(state, registry) &&
+      haHidden: !!(hiddenArea || hashName || device?.disabled_by || registry?.disabled_by || registry?.hidden_by),
+      visibleByDefault: !hiddenArea && !hashName && !weatherMap && !device?.disabled_by && isProbablyUsefulEntity(state, registry) &&
         (!mediaKey || !preferred.has(mediaKey) || preferred.get(mediaKey) === state.entity_id)
     };
   });

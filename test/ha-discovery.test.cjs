@@ -77,3 +77,10 @@ test('DWD-Karten und nicht erreichbare Kameras erscheinen nicht in der Kameralis
  f.registries.entities.push({entity_id:'binary_sensor.connectivity',device_id:'device1'});
  assert.deepEqual(discoverHaCameras(f.states,f.registries),[]);
 });
+test('Ein # vor dem Gerätenamen blendet es im Wallpanel aus, wie bei Räumen',()=>{
+ const f=fixture();assert.equal(selectHaRoomEntities(discoverHaEntities(f.states,f.registries),{areaId:'living'}).length,1);
+ f.states[0].attributes={...(f.states[0].attributes||{}),friendly_name:'# Technik Licht'};
+ const e=discoverHaEntities(f.states,f.registries)[0];
+ assert.equal(e.visibleByDefault,false);assert.equal(e.haHidden,true);
+ assert.equal(selectHaRoomEntities(discoverHaEntities(f.states,f.registries),{areaId:'living'}).length,0);
+});
