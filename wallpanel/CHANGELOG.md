@@ -16,6 +16,16 @@
 - In den Auswahllisten (Klingel-Sensor, Kamera, Lichter) erscheinen Geräte mit „#“ am Namenanfang nicht mehr
 - Die alte klassische Verwaltungsseite ist entfernt. Entfallen sind dabei die Einstellungen für die klassischen Seiten („Inhalte“) und die Benachrichtigungs-Schwellwerte, die das Panel nie ausgewertet hat
 
+### Eine Energie-Seite mit Verläufen
+- Die Kachel „Energie“ auf der Übersicht und die App „Energie“ zeigten zwei verschieden gebaute Seiten. Jetzt gibt es nur noch eine: Die Kachel öffnet die Energie-Seite
+- Neu auf der Seite: Strom (Netzbezug und Einspeisung), Solar, Akku (geladen und entladen), Gas und Wasser mit Heute, Gestern, 7 Tagen, Monat und einem Balkendiagramm der letzten 14 Tage. Die Werte kommen aus den Langzeitstatistiken von Home Assistant; Wh werden als kWh angezeigt
+- Eingefrorene „heute“-Werte der EcoFlow-Geräte (Solar, Akku) werden als „–“ angezeigt statt als alte Zahl, die gar nicht von heute ist
+
+### Status & Hinweise nur für Wichtiges
+- Keine „nicht erreichbar“-Hinweise mehr
+- Keine Akku-Hinweise von iPhone, iPad, Mac, Uhr, AirPods und Handy-App-Geräten. Akku-Hinweise für Haus-Geräte (z. B. Fenstersensoren) und Meldungen zu offenen Türen, Fenstern und Alarmen bleiben
+- Alte Hinweise dieser Art verschwinden beim nächsten Durchlauf auch aus dem Posteingang
+
 ### Schneller auf den iPads
 - Start: Die zwölf Skripte des Panels werden jetzt gleichzeitig geladen (vorher eines nach dem anderen) und laufen weiterhin in der richtigen Reihenfolge
 - Neuladen: Dateien mit Versionskennung bleiben dauerhaft im Browser. Vorher hat jedes Tablet bei jedem Neuladen für jede Datei erneut beim Server nachgefragt. Nach einem Update kommen die neuen Dateien sofort, weil sich ihre Adresse ändert

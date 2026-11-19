@@ -29,7 +29,7 @@ const energy={summary:{consumptionDisplay:'12345 W',solarPowerDisplay:'345 W'},p
    return route.fulfill({json:data});
   });
   await page.goto('http://127.0.0.1:3000/panel/');await confirmPanelStartup(page);await page.waitForFunction(()=>window.WallpanelMockup&&WallpanelMockup.model.lights.length===2);
-  const kinds=['weather','energy','gate','rooms','light','binary','music','announcement','assist','pin','tablet','notice','doorbell'];
+  const kinds=['weather','gate','rooms','light','binary','music','announcement','assist','pin','tablet','notice','doorbell'];
   for(const size of [{width:1024,height:768},{width:1024,height:600},{width:800,height:600},{width:768,height:1024},{width:640,height:480}]){
    await page.setViewportSize(size);
    for(const view of ['home','room','scenes','cameras','settings']){await page.evaluate(view=>{WallpanelMockup.closeDialog();WallpanelMockup.state.settingsUnlockedUntil=Date.now()+60000;WallpanelMockup.state.roomId='living';WallpanelMockup.go(view);},view);assert.equal(await page.locator('#content').evaluate(n=>n.scrollWidth>n.clientWidth+1),false,name+' page '+view+' '+JSON.stringify(size));}await page.evaluate(()=>WallpanelMockup.go('home'));
@@ -37,13 +37,12 @@ const energy={summary:{consumptionDisplay:'12345 W',solarPowerDisplay:'345 W'},p
     await page.evaluate(kind=>{const ui=WallpanelMockup;ui.closeDialog();ui.state.roomId='living';if(kind==='weather')ui.go('weather');else if(kind==='energy'||kind==='gate'||kind==='rooms'||kind==='announcement'||kind==='assist'){const action={energy:'energy',gate:'gate-request',rooms:'rooms',announcement:'announce',assist:'assist'}[kind];document.querySelector('[data-action="'+action+'"]').click();}else if(kind==='light'||kind==='binary')ui.openLight(kind==='light'?'light.rgb':'light.binary');else if(kind==='music')ui.openMusic('media_player.pod');else if(kind==='pin')ui.openSettingsPin();else if(kind==='tablet')ui.openDialog('Tablet bearbeiten','<form id="tabletSettings" data-tablet-id="this">'+ui.tabletFields(ui.model.tablets[0])+'</form>','tablet');else if(kind==='notice')ui.openDialog('Durchsage','<div class="incoming-notice"><p class="incoming-message">'+Array(40).join('Eine längere Durchsage mit allen wichtigen Informationen. ')+'</p></div>','notice');else if(kind==='doorbell')ui.receiveDoorbell();},kind);
     await page.getByRole('dialog').waitFor();
     if(kind==='weather'){await page.locator('#detailWeather .detail-section').first().waitFor();await page.locator('#detailForecast article').first().waitFor();assert.equal(await page.locator('#detailForecast article').count(),7);}
-    if(kind==='energy')await page.locator('#detailEnergy .detail-section').first().waitFor();
     const report=await page.getByRole('dialog').evaluate(dialog=>{const body=dialog.querySelector('.dialog-body');body.scrollLeft=100;body.scrollTop=body.scrollHeight;const close=dialog.querySelector('.dialog-close').getBoundingClientRect();return{dialogOverflow:dialog.scrollWidth-dialog.clientWidth,bodyOverflow:body.scrollWidth-body.clientWidth,scrollLeft:body.scrollLeft,closeVisible:close.top>=0&&close.bottom<=innerHeight};});
     assert.ok(report.dialogOverflow<=1&&report.bodyOverflow<=1&&report.scrollLeft===0,name+' '+kind+' '+JSON.stringify({size,report}));assert.equal(report.closeVisible,true,name+' close '+kind);
     if(size.width===1024&&size.height===768&&(kind==='weather'||kind==='energy'))await page.screenshot({path:'data/mockup-preview/'+name+'-'+kind+'-no-horizontal.png'});
     await page.getByRole('button',{name:'Schließen',exact:true}).click();assert.equal(await page.getByRole('dialog').count(),0);
    }
   }
-  assert.deepEqual(errors,[]);console.log(name+': 13 Popup-Arten in fünf Auflösungen ohne horizontales Scrollen; Schließen bleibt erreichbar.');
+  assert.deepEqual(errors,[]);console.log(name+': 12 Popup-Arten in fünf Auflösungen ohne horizontales Scrollen; Schließen bleibt erreichbar.');
  }finally{await browser.close();}
 }})().catch(e=>{console.error(e);process.exitCode=1;});

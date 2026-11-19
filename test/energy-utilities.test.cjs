@@ -3,9 +3,9 @@ const {pickUtilitySources,parseDailyBuckets,formatAmount,utilityMetrics,buildUti
 const DAY=86400000,localDay=Date.UTC(2026,10,19); // 19.11.2026
 const bucket=(daysAgo,change)=>({start:localDay-daysAgo*DAY-3600000,change}); // Mitternacht deutscher Zeit = 23:00 UTC Vortag
 
-test('Energie-Einstellungen: nur Gas und Wasser, jeder Zähler einmal',()=>{
+test('Energie-Einstellungen: Gas und Wasser, jeder Zähler einmal, leere Einträge ignoriert',()=>{
  const prefs={energy_sources:[{type:'grid'},{type:'gas',stat_energy_from:'sensor.gas'},{type:'water',stat_energy_from:'sensor.wasser'},{type:'gas',stat_energy_from:'sensor.gas'},{type:'solar'},{type:'water'}]};
- assert.deepEqual(pickUtilitySources(prefs),[{kind:'gas',statId:'sensor.gas'},{kind:'water',statId:'sensor.wasser'}]);
+ assert.deepEqual(pickUtilitySources(prefs),[{kind:'gas',statIds:['sensor.gas']},{kind:'water',statIds:['sensor.wasser']}]);
  assert.deepEqual(pickUtilitySources(null),[]);assert.deepEqual(pickUtilitySources({energy_sources:'x'}),[]);
 });
 
@@ -23,7 +23,7 @@ test('Mengen deutsch formatiert, je Einheit sinnvoll gerundet',()=>{
 
 test('Heute, Gestern, 7 Tage, Monat und Zählerstand',()=>{
  const buckets=[bucket(20,9),bucket(8,1),bucket(6,2),bucket(1,4),bucket(0,0.762)];
- const m=utilityMetrics(buckets,{state:'1234.5',attributes:{unit_of_measurement:'m³'}},localDay);
+ const m=utilityMetrics(buckets,'m³',1234.5,localDay);
  const by=Object.fromEntries(m.map(x=>[x.id,x.display]));
  assert.equal(by.today,'0,762 m³');assert.equal(by.yesterday,'4,000 m³');
  assert.equal(by.week,'6,762 m³');             // 6 Tage zurück + heute, 8 Tage zurück zählt nicht
@@ -32,16 +32,15 @@ test('Heute, Gestern, 7 Tage, Monat und Zählerstand',()=>{
 });
 
 test('Ohne Statistik nur der Zählerstand, ohne beides nichts',()=>{
- assert.deepEqual(utilityMetrics([],{state:'12',attributes:{unit_of_measurement:'m³'}},localDay).map(x=>x.id),['meter']);
- assert.deepEqual(utilityMetrics([],{state:'unavailable',attributes:{}},localDay),[]);
- assert.deepEqual(utilityMetrics([],undefined,localDay),[]);
+ assert.deepEqual(utilityMetrics([],'m³',12,localDay).map(x=>x.id),['meter']);
+ assert.deepEqual(utilityMetrics([],'m³',null,localDay),[]);
 });
 
 test('Gruppen: Titel Gas/Wasser, bei mehreren Zählern mit Namen',()=>{
  const states={'sensor.gas':{state:'10',attributes:{unit_of_measurement:'m³',friendly_name:'Gaszähler'}},'sensor.wasser':{state:'5',attributes:{unit_of_measurement:'L'}}};
- const g=buildUtilityGroups([{kind:'gas',statId:'sensor.gas'},{kind:'water',statId:'sensor.wasser'}],{'sensor.gas':[bucket(0,1)]},id=>states[id],localDay);
- assert.deepEqual(g.map(x=>x.title),['Gas','Wasser']);assert.equal(g[0].metrics[0].id,'sensor.gas:today');
- const two=buildUtilityGroups([{kind:'gas',statId:'sensor.gas'},{kind:'gas',statId:'sensor.gas2'}],{},id=>id==='sensor.gas'?states['sensor.gas']:{state:'3',attributes:{unit_of_measurement:'m³'}},localDay);
+ const g=buildUtilityGroups([{kind:'gas',statIds:['sensor.gas']},{kind:'water',statIds:['sensor.wasser']}],{'sensor.gas':[bucket(0,1)]},id=>states[id],localDay);
+ assert.deepEqual(g.map(x=>x.title),['Gas','Wasser']);assert.equal(g[0].metrics[0].id,'gas:sensor.gas:today');
+ const two=buildUtilityGroups([{kind:'gas',statIds:['sensor.gas']},{kind:'gas',statIds:['sensor.gas2']}],{},id=>id==='sensor.gas'?states['sensor.gas']:{state:'3',attributes:{unit_of_measurement:'m³'}},localDay);
  assert.deepEqual(two.map(x=>x.title),['Gas · Gaszähler','Gas · sensor.gas2']);
 });
 
@@ -62,6 +61,28 @@ test('Diagramm: 14 Tage, lückenlos, heute zuletzt, ohne Statistik kein Diagramm
  assert.equal(c.bars[11].value,0);assert.equal(c.bars[10].value,2);       // Lücke wird 0
  assert.equal(c.bars[13].label,'0,762');assert.equal(c.max,4);            // 20 Tage alte Daten fehlen
  assert.equal(utilityChart([],'m³',localDay),null);
- const g=buildUtilityGroups([{kind:'gas',statId:'sensor.gas'}],{'sensor.gas':[bucket(0,1)]},()=>({state:'1',attributes:{unit_of_measurement:'m³'}}),localDay);
+ const g=buildUtilityGroups([{kind:'gas',statIds:['sensor.gas']}],{'sensor.gas':[bucket(0,1)]},()=>({state:'1',attributes:{unit_of_measurement:'m³'}}),localDay);
  assert.equal(g[0].kind,'gas');assert.equal(g[0].chart.unit,'m³');
+});
+
+test('Energie-Einstellungen: Netz (neues und altes Format), Solar und Akku',()=>{
+ const neu={energy_sources:[{type:'grid',flow_from:[{stat_energy_from:'sensor.bezug'}],flow_to:[{stat_energy_to:'sensor.einsp'}]},{type:'solar',stat_energy_from:'sensor.pv1'},{type:'solar',stat_energy_from:'sensor.pv2'},{type:'battery',stat_energy_from:'sensor.aus',stat_energy_to:'sensor.ein'}]};
+ assert.deepEqual(pickUtilitySources(neu),[{kind:'grid',statIds:['sensor.bezug']},{kind:'grid_export',statIds:['sensor.einsp']},{kind:'solar',statIds:['sensor.pv1','sensor.pv2']},{kind:'battery_out',statIds:['sensor.aus']},{kind:'battery_in',statIds:['sensor.ein']}]);
+ const alt={energy_sources:[{type:'grid',stat_energy_from:'sensor.verbrauch',stat_energy_to:'sensor.einspeisung',stat_rate:'sensor.leistung'}]};
+ assert.deepEqual(pickUtilitySources(alt),[{kind:'grid',statIds:['sensor.verbrauch']},{kind:'grid_export',statIds:['sensor.einspeisung']}]);
+});
+
+test('Gruppen: Wh werden zu kWh, mehrere Zähler addiert, feste Reihenfolge, kein Zählerstand bei „heute“-Zählern',()=>{
+ const states={'sensor.pv1':{state:'1022',attributes:{unit_of_measurement:'Wh'}},'sensor.pv2':{state:'1056',attributes:{unit_of_measurement:'Wh'}},'sensor.bezug':{state:'5000.5',attributes:{unit_of_measurement:'kWh'}}};
+ const g=buildUtilityGroups([{kind:'solar',statIds:['sensor.pv1','sensor.pv2'],meter:false},{kind:'grid',statIds:['sensor.bezug']}],{'sensor.pv1':[bucket(0,500),bucket(1,1000)],'sensor.pv2':[bucket(0,250)],'sensor.bezug':[bucket(0,4)]},id=>states[id],localDay);
+ assert.deepEqual(g.map(x=>x.kind),['grid','solar']);                       // Netz vor Solar
+ const by=Object.fromEntries(g[1].metrics.map(m=>[m.id.split(':').pop(),m.display]));
+ assert.equal(by.today,'0,75 kWh');assert.equal(by.yesterday,'1,00 kWh');assert.equal(by.meter,undefined);
+ assert.equal(g[1].chart.unit,'kWh');assert.equal(g[1].chart.bars[13].value,0.75);
+ assert.equal(g[0].metrics.find(m=>m.id.endsWith(':meter')).display,'5000,5 kWh');
+});
+
+test('Eingefrorene Zähler ergeben Nullen statt falscher Balken',()=>{
+ const g=buildUtilityGroups([{kind:'solar',statIds:['sensor.pv'],meter:false}],{'sensor.pv':[bucket(0,0),bucket(1,0),bucket(2,0)]},()=>({state:'1022',attributes:{unit_of_measurement:'Wh'}}),localDay);
+ assert.equal(g[0].chart.max,0);assert.ok(g[0].chart.bars.every(b=>b.value===0));
 });

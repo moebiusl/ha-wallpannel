@@ -20,6 +20,15 @@ export function berlinToday(now: number): number {
   return Date.UTC(local.getUTCFullYear(), local.getUTCMonth(), local.getUTCDate());
 }
 
+/** Beginn des heutigen Tages in deutscher Zeit als Zeitpunkt (Millisekunden). */
+export function berlinDayStartMs(now: number): number {
+  const day = berlinToday(now);
+  const year = new Date(now).getUTCFullYear();
+  const guess = day - 60 * 60 * 1000;
+  const summer = guess >= lastSundayUtc(year, 2) && guess < lastSundayUtc(year, 9);
+  return day - (summer ? 2 : 1) * 60 * 60 * 1000;
+}
+
 function daysFromDate(year: number, month: number, day: number, today: number): number | null {
   if (month < 1 || month > 12 || day < 1 || day > 31) { return null; }
   const target = Date.UTC(year, month - 1, day);

@@ -23,11 +23,21 @@ test('Batteriehinweise pro HA-Gerät, unbekannte Werte sind keine Erholung',()=>
  a.state='85';b.state='off';store.observe([a,b]);assert.equal(store.list()[0].active,false);
  a.state='9';store.observe([a,b]);assert.equal(store.list()[0].active,true);assert.equal(store.list()[0].done,false);
 }));
-test('Offline erst nach zehn Minuten fortlaufender Beobachtung, kurze Ausfälle bleiben still',()=>fixture(file=>{
+test('Nicht erreichbar erzeugt keinen Hinweis mehr, auch nicht nach langer Zeit',()=>fixture(file=>{
  let now=1000000;const store=createPanelFeatures(file,()=>now),a=entity('light.one',{deviceId:'dev',state:'unavailable'});
- for(let i=0;i<40;i++){store.observe([a]);now+=15000;}assert.equal(store.list().length,0);store.observe([a]);assert.equal(store.list()[0].kind,'offline');
- a.state='on';store.observe([a]);assert.equal(store.list()[0].active,false);
- a.state='unavailable';now+=15000;store.observe([a]);now+=610000;store.observe([a]);assert.equal(store.list()[0].active,false,'HA-Verbindungsunterbrechung zählt nicht als gemessene Offlinezeit');
+ for(let i=0;i<80;i++){store.observe([a]);now+=15000;}
+ assert.equal(store.list().length,0);
+}));
+test('Akkuhinweise: Haus-Geräte ja, iPhone/iPad/Mac/Uhr und Companion-App nein',()=>fixture(file=>{
+ const store=createPanelFeatures(file),bat=(id,extra)=>entity(id,{domain:'sensor',deviceClass:'battery',state:'8',...extra});
+ store.observe([bat('sensor.fenster_battery',{deviceId:'d1',deviceName:'Fenstersensor Bad'}),bat('sensor.iphone_battery',{deviceId:'d2',deviceName:'Lucas iPhone'}),bat('sensor.ipad_battery',{deviceId:'d3',deviceName:'Küchen-iPad'}),bat('sensor.mbp_battery',{deviceId:'d4',deviceName:'MacBook Pro'}),bat('sensor.watch_battery',{deviceId:'d5',deviceName:'Apple Watch'}),bat('sensor.app_battery',{deviceId:'d6',deviceName:'Telefon',platform:'mobile_app'}),bat('sensor.imac_battery',{deviceId:'d7',deviceName:'Mac mini'}),bat('sensor.macro',{deviceId:'d8',deviceName:'Macrosensor Keller'})]);
+ assert.deepEqual(store.list().map(i=>i.title).sort(),['Fenstersensor Bad','Macrosensor Keller']);
+}));
+test('Alte Hinweise (nicht erreichbar, Akku persönlicher Geräte) verschwinden aus dem Posteingang',()=>fixture(file=>{
+ const old={inbox:{'offline:x':{id:'offline:x',kind:'offline',title:'Lampe',message:'Seit mindestens 10 Minuten nicht erreichbar',active:true,hidden:false,done:false,firstAt:1,updatedAt:1},'battery:p':{id:'battery:p',kind:'battery',title:'Lucas iPhone',message:'Batterie 9 %',active:true,hidden:false,done:false,firstAt:1,updatedAt:1},'battery:h':{id:'battery:h',kind:'battery',title:'Fenstersensor',message:'Batterie 9 %',active:true,hidden:false,done:false,firstAt:1,updatedAt:1}},offline:{},reloads:{}};
+ fs.writeFileSync(file,JSON.stringify(old));
+ const store=createPanelFeatures(file);store.observe([entity('sensor.fenster_battery',{domain:'sensor',deviceId:'h',deviceName:'Fenstersensor',deviceClass:'battery',state:'9'})]);
+ assert.deepEqual(store.list().map(i=>i.id),['battery:h']);
 }));
 test('Posteingang: Ausblenden und Erledigen geräteübergreifend dauerhaft, Wiederauftreten öffnet neu',()=>fixture(file=>{
  let store=createPanelFeatures(file);const a=entity('sensor.battery',{deviceId:'dev',deviceClass:'battery',state:'10'});store.observe([a]);const id=store.list()[0].id;

@@ -44,12 +44,26 @@
     }
     function batteryList(entities){var groups=batteryGroups(entities),html='<div class="energy-batteries">';for(var i=0;i<groups.length;i++){var g=groups[i];html+='<article class="energy-battery'+(g.low?' is-warning':'')+'"><div class="storage-head"><strong>'+esc(g.name)+'</strong><span>'+esc(g.label)+'</span></div><small>'+esc(g.room || 'Ohne Raum')+'</small>'+batteryBar(g.level)+'</article>';}return groups.length?html+'</div>':empty('Keine sichtbaren Batteriedaten.');}
     function measurementGroups(entities){var groups={},keys=[];for(var i=0;i<entities.length;i++){var e=entities[i];if(sensorClass(e)==='battery'){continue;}var key=e.deviceId || e.entityId;if(!groups[key]){groups[key]={name:e.deviceId&&e.deviceName&&e.deviceName!=='Ohne Gerät'?e.deviceName:e.name,values:[]};keys.push(key);}groups[key].values.push(e);}var html='';for(var j=0;j<keys.length;j++){var g=groups[keys[j]],body='<div class="energy-metrics">';for(var n=0;n<g.values.length;n++){var v=g.values[n],unit=(v.attributes || {}).unit_of_measurement;body+=metric(v.name,known(v.state)?value(v.state)+(unit?' '+unit:''):'–');}html+='<section class="card energy-device"><h3>'+esc(g.name)+'</h3>'+body+'</div></section>';}return html?'<div class="energy-device-grid">'+html+'</div>':empty('Keine weiteren sichtbaren Energiemessgeräte.');}
+    function chartHtml(c,kind){
+      if(!c || !c.bars || !c.bars.length){return '';}
+      var html='<div class="energy-chart energy-chart-'+esc(kind)+'" role="img" aria-label="Verbrauch pro Tag, letzte '+c.bars.length+' Tage"><div class="energy-chart-head"><span>Pro Tag</span><span>'+esc(c.unit)+'</span></div><div class="energy-chart-bars">';
+      for(var i=0;i<c.bars.length;i++){var b=c.bars[i],h=c.max>0&&b.value>0?Math.min(100,Math.max(3,Math.round(b.value/c.max*100))):0;
+        html+='<div class="energy-bar-col'+(b.today?' is-today':'')+(b.clipped?' is-clipped':'')+'"><span class="energy-bar-value">'+esc(b.value>0?b.label:'')+'</span><div class="energy-bar-track"><div class="energy-bar" style="height:'+h+'%"></div></div><span class="energy-bar-label">'+esc(b.weekday)+'<br>'+esc(b.day)+'</span></div>';}
+      return html+'</div></div>';
+    }
+    // Verlauf und Summen für Strom, Solar, Akku, Gas und Wasser (aus den Langzeitstatistiken von Home Assistant).
+    function utilitySections(list){
+      var html='';
+      for(var i=0;i<list.length;i++){var g=list[i];html+=section(g.title,metricList(g.metrics)+chartHtml(g.chart,g.kind));}
+      return html;
+    }
     function energy(){
-      var html=header('Energie',fetchedAt?'Stand '+clock(fetchedAt):'Solar, Verbrauch und Speicher','energy-app-refresh');
+      var html=header('Energie',fetchedAt?'Stand '+clock(fetchedAt):'Strom, Solar, Gas, Wasser und Speicher','energy-app-refresh');
       if(energyError){html+='<p class="app-error" role="alert">'+esc(energyError)+(energyData?' · Letzter bekannter Stand':'')+'</p>';}
       if(!energyData){return '<div class="energy-page">'+html+(energyError?'':'<p class="app-empty" role="status"><span class="panel-spinner"></span> Energiedaten werden geladen …</p>')+'</div>';}
       var d=energyData.energy || {},s=d.summary || {},devices=energyData.devices || [];
       html+='<div class="app-summary energy-flow">'+metric('Solarleistung',s.solarPowerDisplay,'flow-solar')+metric('Hausverbrauch',s.consumptionDisplay,'flow-home')+metric('Netzleistung',s.gridPowerDisplay,'flow-grid')+metric('Einspeisung',s.feedInDisplay,'flow-export')+'</div>';
+      html+=utilitySections(d.utilities || []);
       html+='<div class="energy-storage-grid">'+storage('Powerstream',d.powerstream,d.powerstream && d.powerstream.batteryCharge)+storage('Delta2',d.delta2,d.delta2 && d.delta2.mainBattery)+'</div>';
       html+=section('Haus & Netz',metricList(d.grid || {}));
       html+=section('Batterien & Akkus',batteryList(devices));

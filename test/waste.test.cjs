@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { wasteDaysUntil } = require('../src/waste.ts');
+const { wasteDaysUntil, berlinDayStartMs } = require('../src/waste.ts');
 
 // Fester „Jetzt“-Zeitpunkt: Freitag, 7.11.2026, 10:00 Uhr deutscher Zeit (Winterzeit, UTC+1)
 const now = Date.UTC(2026, 10, 7, 9, 0, 0);
@@ -46,4 +46,13 @@ test('waste days: German date around midnight uses German time', () => {
   assert.equal(wasteDaysUntil({ state: '2026-11-08' }, Date.UTC(2026, 10, 7, 22, 30)), 1);
   // 00:30 Uhr deutsche Zeit am 8.11. = 23:30 UTC am 7.11. → „heute“ ist schon der 8.11.
   assert.equal(wasteDaysUntil({ state: '2026-11-08' }, Date.UTC(2026, 10, 7, 23, 30)), 0);
+});
+
+test('Tagesbeginn in deutscher Zeit: Winter, Sommer und die Tage um die Zeitumstellung',()=>{
+ const iso=ms=>new Date(ms).toISOString();
+ assert.equal(iso(berlinDayStartMs(Date.parse('2026-11-19T10:00:00Z'))),'2026-11-18T23:00:00.000Z');   // Winterzeit: 00:00 MEZ = 23:00 UTC
+ assert.equal(iso(berlinDayStartMs(Date.parse('2026-07-10T10:00:00Z'))),'2026-07-09T22:00:00.000Z');   // Sommerzeit: 00:00 MESZ = 22:00 UTC
+ assert.equal(iso(berlinDayStartMs(Date.parse('2026-11-18T23:30:00Z'))),'2026-11-18T23:00:00.000Z');   // 00:30 Uhr deutsche Zeit gehört schon zum neuen Tag
+ assert.equal(iso(berlinDayStartMs(Date.parse('2026-03-29T12:00:00Z'))),'2026-03-28T23:00:00.000Z');   // Tag der Umstellung auf Sommerzeit beginnt noch in MEZ
+ assert.equal(iso(berlinDayStartMs(Date.parse('2026-10-25T12:00:00Z'))),'2026-10-24T22:00:00.000Z');   // Tag der Umstellung auf Winterzeit beginnt noch in MESZ
 });

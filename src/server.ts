@@ -18,7 +18,7 @@ import { getHaRegistries, HaRegistries, runAssist, runHaCommand, runTts, subscri
 import { computeAssetVersion, createTabletRegistry, normalizeSound } from "./tablets";
 import { createCameraLive, LiveSource, MjpegThrottle } from "./camera-live";
 import { createRadar } from "./radar";
-import { wasteDaysUntil, berlinToday } from "./waste";
+import { wasteDaysUntil, berlinToday, berlinDayStartMs } from "./waste";
 import { buildUtilityGroups, parseDailyBuckets, pickUtilitySources, UTILITY_HISTORY_DAYS, UtilitySource, DailyBucket } from "./energy-utilities";
 import { BOILER_TIMER, BoilerEntity, boilerCandidates, chooseBoilerEntity, lastOnFromHistory, lastOnFromState } from "./boiler";
 import { readPanelConfig, writePanelConfig, getConfigPath } from "./panel-config";
@@ -800,6 +800,21 @@ function metricFromState(states: Map<string, HaState>, entityId: string, label: 
   };
 }
 
+/**
+ * „Heute“-Zähler beginnen täglich um Mitternacht bei 0. Hat sich ein solcher Wert seit gestern nicht mehr geändert
+ * und steht nicht auf 0, ist die Quelle eingefroren: dann „–“ statt einer alten Zahl als „heute“ anzuzeigen.
+ */
+function todayMetricFromState(states: Map<string, HaState>, entityId: string, label: string) {
+  const metric = metricFromState(states, entityId, label);
+  const entity = readStateFromMap(states, entityId);
+  const changed = Date.parse(String(entity?.last_changed || ""));
+  const value = Number(entity?.state);
+  if (entity && Number.isFinite(changed) && Number.isFinite(value) && value > 0 && changed < berlinDayStartMs(Date.now())) {
+    return { ...metric, value: "unavailable", display: "unavailable", stale: true };
+  }
+  return metric;
+}
+
 function formatMetricDisplay(value: string, unit: string): string {
   if (!value || value === "unknown" || value === "unavailable") {
     return "unavailable";
@@ -831,19 +846,26 @@ async function loadUtilityData(): Promise<{ sources: UtilitySource[]; buckets: R
   if (utilityCache && Date.now() - utilityCache.at < UTILITY_CACHE_MS) { return utilityCache; }
   try {
     const sources = pickUtilitySources(await runHaCommand(HA_URL, HA_TOKEN, "energy/get_prefs", {}));
+    // Solar und Akku (EcoFlow) stehen oft nicht in den Energie-Einstellungen: dann die bekannten Sensoren nehmen.
+    // Das sind „heute“-Zähler, die täglich bei 0 beginnen; ihre Änderungen je Tag liefern die Tageswerte.
+    const eco = ENERGY_ENTITIES.powerstream;
+    if (!sources.some((source) => source.kind === "solar")) { sources.push({ kind: "solar", statIds: [eco.pv1Today, eco.pv2Today], meter: false }); }
+    if (!sources.some((source) => source.kind === "battery_in")) { sources.push({ kind: "battery_in", statIds: [eco.toBatteryToday], meter: false }); }
+    if (!sources.some((source) => source.kind === "battery_out")) { sources.push({ kind: "battery_out", statIds: [eco.fromBatteryToday], meter: false }); }
+    const ids = Array.from(new Set(sources.flatMap((source) => source.statIds)));
     const buckets: Record<string, DailyBucket[]> = {};
-    if (sources.length) {
+    if (ids.length) {
       const day = berlinToday(Date.now());
       const raw = await runHaCommand(HA_URL, HA_TOKEN, "recorder/statistics_during_period", {
         start_time: new Date(day - UTILITY_HISTORY_DAYS * 24 * 60 * 60 * 1000).toISOString(),
-        statistic_ids: sources.map((source) => source.statId), period: "day", types: ["change"]
+        statistic_ids: ids, period: "day", types: ["change"]
       });
-      for (const source of sources) { buckets[source.statId] = parseDailyBuckets(raw, source.statId); }
+      for (const id of ids) { buckets[id] = parseDailyBuckets(raw, id); }
     }
     utilityCache = { at: Date.now(), sources, buckets };
   } catch (error) {
     // Home Assistant hat die Energie-Daten (noch) nicht: nichts anzeigen, nach 30 s erneut versuchen.
-    console.warn(`Gas/Wasser aus den Energie-Einstellungen nicht lesbar: ${describeError(error)}`);
+    console.warn(`Strom, Gas und Wasser aus den Energie-Einstellungen nicht lesbar: ${describeError(error)}`);
     utilityCache = { at: Date.now() - UTILITY_CACHE_MS + 30000, sources: utilityCache?.sources || [], buckets: utilityCache?.buckets || {} };
   }
   return utilityCache;
@@ -880,8 +902,8 @@ async function buildEnergySummary(stateMap?: Map<string, HaState>) {
       feedInDisplay: metricFromState(stateMap, ENERGY_ENTITIES.grid.feedIn, "Einspeisung").display,
       chargeTimeDisplay: metricFromState(stateMap, ENERGY_ENTITIES.powerstream.chargeTime, "Bis voll").display,
       dischargeTimeDisplay: metricFromState(stateMap, ENERGY_ENTITIES.powerstream.dischargeTime, "Bis leer").display,
-      fromBatteryTodayDisplay: metricFromState(stateMap, ENERGY_ENTITIES.powerstream.fromBatteryToday, "Akku heute").display,
-      toBatteryTodayDisplay: metricFromState(stateMap, ENERGY_ENTITIES.powerstream.toBatteryToday, "In Akku heute").display,
+      fromBatteryTodayDisplay: todayMetricFromState(stateMap, ENERGY_ENTITIES.powerstream.fromBatteryToday, "Akku heute").display,
+      toBatteryTodayDisplay: todayMetricFromState(stateMap, ENERGY_ENTITIES.powerstream.toBatteryToday, "In Akku heute").display,
       consumptionDisplay: currentConsumption === null ? "unavailable" : `${Math.round(currentConsumption)} W`
     },
     delta2: {
@@ -913,10 +935,10 @@ async function buildEnergySummary(stateMap?: Map<string, HaState>) {
       batteryInputWatts: metricFromState(stateMap, ENERGY_ENTITIES.powerstream.batteryInputWatts, "Batterie Eingang"),
       chargeTime: metricFromState(stateMap, ENERGY_ENTITIES.powerstream.chargeTime, "Bis voll"),
       dischargeTime: metricFromState(stateMap, ENERGY_ENTITIES.powerstream.dischargeTime, "Bis leer"),
-      fromBatteryToday: metricFromState(stateMap, ENERGY_ENTITIES.powerstream.fromBatteryToday, "Akku genutzt heute"),
-      toBatteryToday: metricFromState(stateMap, ENERGY_ENTITIES.powerstream.toBatteryToday, "In Akku heute"),
-      pv1Today: metricFromState(stateMap, ENERGY_ENTITIES.powerstream.pv1Today, "PV1 heute"),
-      pv2Today: metricFromState(stateMap, ENERGY_ENTITIES.powerstream.pv2Today, "PV2 heute"),
+      fromBatteryToday: todayMetricFromState(stateMap, ENERGY_ENTITIES.powerstream.fromBatteryToday, "Akku genutzt heute"),
+      toBatteryToday: todayMetricFromState(stateMap, ENERGY_ENTITIES.powerstream.toBatteryToday, "In Akku heute"),
+      pv1Today: todayMetricFromState(stateMap, ENERGY_ENTITIES.powerstream.pv1Today, "PV1 heute"),
+      pv2Today: todayMetricFromState(stateMap, ENERGY_ENTITIES.powerstream.pv2Today, "PV2 heute"),
       inverterOutputWatts: metricFromState(stateMap, ENERGY_ENTITIES.powerstream.inverterOutputWatts, "Inverter"),
       smartPlugLoads: metricFromState(stateMap, ENERGY_ENTITIES.powerstream.smartPlugLoads, "Smart Plugs"),
       otherLoads: metricFromState(stateMap, ENERGY_ENTITIES.powerstream.otherLoads, "Andere Lasten"),

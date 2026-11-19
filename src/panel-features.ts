@@ -66,6 +66,13 @@ export function planClimateSync(entities: Entity[], sourceId: string) {
   return { plans, skipped };
 }
 
+/** Persönliche Geräte (Handy, Tablet, Rechner, Uhr, Kopfhörer): ihr Akkustand ist kein Haus-Hinweis. */
+const PERSONAL_DEVICE = /\b(iphone|ipad|ipod|macbook|imac|mac\s?(?:mini|pro|studio|book)?|apple\s?watch|watch|airpods?|handy|smartphone|pixel|galaxy|oneplus|xiaomi\s?phone)\b/i;
+export function isPersonalDevice(entity: { platform?: unknown; name?: unknown; deviceName?: unknown }): boolean {
+  if (entity.platform === "mobile_app" || entity.platform === "icloud" || entity.platform === "ios") { return true; }
+  return PERSONAL_DEVICE.test(String(entity.deviceName || "")) || PERSONAL_DEVICE.test(String(entity.name || ""));
+}
+
 export type InboxItem = { id: string; kind: string; title: string; message: string; active: boolean; hidden: boolean; done: boolean; firstAt: number; updatedAt: number; resolvedAt?: number };
 type Reload = { id: string; createdAt: number; expiresAt: number };
 type Data = { inbox: Record<string, InboxItem>; offline: Record<string, number>; reloads: Record<string, Reload> };
@@ -73,7 +80,7 @@ export function createPanelFeatures(file: string, clock: () => number = Date.now
   let data: Data = { inbox: {}, offline: {}, reloads: {} };
   try { const saved = JSON.parse(fs.readFileSync(file,"utf8")); data = { ...data, ...saved }; }
   catch (e: any) { if (e.code !== "ENOENT") { throw e; } }
-  // Offline time requires continuous successful observation, never server downtime.
+  // „Nicht erreichbar“-Hinweise gibt es nicht mehr; das Feld bleibt nur für ältere Dateien.
   data.offline = {};
   let lastObservation: number | undefined;
   const statuses = new Map<string, { version: string; sound: string; updatedAt: number }>();
@@ -95,23 +102,21 @@ export function createPanelFeatures(file: string, clock: () => number = Date.now
       if(lastObservation !== undefined && now-lastObservation>60000) { data.offline={}; }
       for(const [key, group] of groups) {
         const label=group[0].deviceId && group[0].deviceName !== "Ohne Gerät" ? group[0].deviceName : group[0].name;
-        const batteries=group.filter(e => (e.deviceClass || e.attributes?.device_class) === "battery");
+        const batteries=group.filter(e => (e.deviceClass || e.attributes?.device_class) === "battery" && !isPersonalDevice(e) && !isPersonalDevice({ platform: undefined, name: label, deviceName: label }));
         const measured=batteries.filter(e => e.domain === "sensor" && available(e) && String(e.state).trim() && Number.isFinite(Number(e.state)) && Number(e.state)>=0 && Number(e.state)<=100);
         const binary=batteries.filter(e => e.domain === "binary_sensor" && ["on","off"].includes(e.state));
         const low=measured.filter(e => Number(e.state)<=20);
         if(low.length || binary.some(e => e.state === "on")) { problems.set("battery:"+key,{kind:"battery",title:label,message:low.length ? `Batterie ${Math.min(...low.map(e=>Number(e.state)))} %` : "Batterie schwach"}); }
         else if(batteries.length && !measured.length && !binary.length) { uncertain.add("battery:"+key); }
-        const primary=group.filter(e => e.visibleByDefault && !e.entityCategory && ["light","switch","climate","fan","cover","lock","sensor","binary_sensor","media_player"].includes(e.domain) && e.platform !== "icloud" && !e.entityId.startsWith("sensor.wallpanel_") && !/battery/.test(e.deviceClass || ""));
-        if(primary.length && primary.every(e => !available(e))) {
-          if(data.offline[key] === undefined) { data.offline[key]=now; }
-          if(now-data.offline[key]>=600000) { problems.set("offline:"+key,{kind:"offline",title:label,message:"Seit mindestens 10 Minuten nicht erreichbar"}); }
-          else { uncertain.add("offline:"+key); }
-        } else { delete data.offline[key]; }
         for(const e of group) { if(e.domain === "binary_sensor" && ["door","window","opening","smoke","gas","moisture","safety"].includes(e.deviceClass)) {
           const id="state:"+e.entityId;
           if(e.state === "on") { problems.set(id,{kind:"state",title:e.name,message:["door","window","opening"].includes(e.deviceClass)?"Offen":"Alarm"}); }
           else if(!available(e)) { uncertain.add(id); }
         } }
+      }
+      // Alte Hinweise, die es nach den heutigen Regeln nicht mehr gibt, komplett entfernen (auch aus dem Verlauf).
+      for(const item of Object.values(data.inbox)) {
+        if(item.kind === "offline" || (item.kind === "battery" && PERSONAL_DEVICE.test(String(item.title || "")))) { delete data.inbox[item.id]; }
       }
       for(const [id,p] of problems) {
         const item=data.inbox[id];

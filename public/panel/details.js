@@ -8,14 +8,6 @@
     function value(v){return v===undefined || v===null || v==='' || v==='unavailable' || v==='unknown'?'–':String(v).replace(/^(\d+)\.(\d+)/,'$1,$2');}
     function metric(label,v){return '<div class="detail-metric"><span>'+esc(label)+'</span><strong>'+esc(value(v))+'</strong></div>';}
     function section(title,metrics){var html='<section class="detail-section"><h3>'+esc(title)+'</h3><div class="detail-grid">';for(var i=0;i<metrics.length;i++){var m=metrics[i];if(m){html+=metric(m.label,m.display);}}return html+'</div></section>';}
-    function chartHtml(c,kind){
-      if(!c || !c.bars || !c.bars.length){return '';}
-      var html='<div class="energy-chart energy-chart-'+esc(kind)+'" role="img" aria-label="Verbrauch pro Tag, letzte '+c.bars.length+' Tage"><div class="energy-chart-head"><span>Pro Tag</span><span>'+esc(c.unit)+'</span></div><div class="energy-chart-bars">';
-      for(var i=0;i<c.bars.length;i++){var b=c.bars[i],h=c.max>0&&b.value>0?Math.min(100,Math.max(3,Math.round(b.value/c.max*100))):0;
-        html+='<div class="energy-bar-col'+(b.today?' is-today':'')+(b.clipped?' is-clipped':'')+'"><span class="energy-bar-value">'+esc(b.value>0?b.label:'')+'</span><div class="energy-bar-track"><div class="energy-bar" style="height:'+h+'%"></div></div><span class="energy-bar-label">'+esc(b.weekday)+'<br>'+esc(b.day)+'</span></div>';}
-      return html+'</div></div>';
-    }
-    function utilitySection(g){var html=section(g.title,g.metrics);return html.replace(/<\/section>$/,chartHtml(g.chart,g.kind)+'</section>');}
     function fields(obj,keys){var result=[];for(var i=0;i<keys.length;i++){if(obj&&obj[keys[i]]){result.push(obj[keys[i]]);}}return result;}
     function open(title,type,html){ui.openDialog(title,html,type);return alive;}
     function release(){alive++;clearTimeout(radarTimer);clearInterval(refreshTimer);radarTimer=null;refreshTimer=null;radar=null;radarPlaying=false;loading=false;pending={};}
@@ -23,21 +15,6 @@
     function button(action,label,extra){return '<button type="button" class="button" data-action="'+action+'"'+(extra || '')+'>'+esc(label)+'</button>';}
     function spinner(label){return '<div class="detail-loading" role="status"><span class="panel-spinner"></span>'+esc(label)+'</div>';}
     function errorRetry(message,action){return '<p role="alert">'+esc(message)+'</p>'+button(action,'Erneut laden');}
-    function loadEnergy(token){if(loading){return;}loading=true;request('GET','/api/energy',null,function(err,d){if(!valid('energy',token)){return;}loading=false;if(err){el('detailEnergy').innerHTML=errorRetry(err,'energy-retry');return;}renderEnergy(d);});}
-    function energy(){var token=open('Energie im Überblick','energy','<div id="detailEnergy">'+spinner('Energiedaten werden geladen …')+'</div>');loadEnergy(token);refreshTimer=setInterval(function(){loadEnergy(token);},10000);}
-    function renderEnergy(d){var s=d.summary || {},html='<div class="detail-grid detail-summary">';
-      var summaries=[['Solar aktuell','solarPowerDisplay'],['Verbrauch','consumptionDisplay'],['Netzleistung','gridPowerDisplay'],['Powerstream Akku','powerstreamBatteryDisplay'],['Einspeisung','feedInDisplay'],['Bis voll','chargeTimeDisplay'],['Bis leer','dischargeTimeDisplay'],['Akku genutzt heute','fromBatteryTodayDisplay'],['In Akku heute','toBatteryTodayDisplay']];
-      for(var i=0;i<summaries.length;i++){html+=metric(summaries[i][0],s[summaries[i][1]]);}html+='</div>';
-      var utilities=d.utilities || [];for(var ui2=0;ui2<utilities.length;ui2++){html+=utilitySection(utilities[ui2]);}
-      html+=section('Powerstream',fields(d.powerstream,['batteryCharge','solarPower','inverterOutputWatts','batteryInputWatts','chargeTime','dischargeTime','fromBatteryToday','toBatteryToday','pv1Today','pv2Today','status','smartPlugLoads','otherLoads','batteryStatus','batteryTemperature','inverterTemperature']));
-      html+=section('Haus / Netz',fields(d.grid,['power','feedIn','consumption','feedInTotal']));
-      html+=section('Delta2',fields(d.delta2,['status','totalInPower','totalOutPower','solarInPower','acInPower','acOutPower','remainingTime','batteryTemperature','cycles']));
-      html+='<section class="detail-section"><h3>Batterien</h3><div class="battery-detail-list">';var batteries=options.entities().filter(function(e){return e.deviceClass==='battery' || e.attributes && e.attributes.device_class==='battery';});
-      batteries.sort(function(a,b){return (isFinite(Number(a.state))?Number(a.state):999)-(isFinite(Number(b.state))?Number(b.state):999);});
-      for(var bi=0;bi<batteries.length;bi++){var e=batteries[bi];html+='<div class="battery-detail-row'+(e.state!=='unknown'&&e.state!=='unavailable'&&Number(e.state)<=20?' warn':'')+'"><span>'+esc(e.name)+'</span><strong>'+esc(value(e.state))+' '+esc(e.attributes && e.attributes.unit_of_measurement || (e.domain==='sensor'?'%':''))+'</strong></div>';}
-      html+=(batteries.length?'':'<p class="muted">Keine sichtbaren Batteriedaten.</p>')+'</div></section><p class="detail-updated">Stand: '+esc(d.updatedAt || '')+'</p>';
-      var mount=el('detailEnergy'),top=mount.parentNode.scrollTop;mount.innerHTML=html;mount.parentNode.scrollTop=top;
-    }
     function weather(){var w=options.dashboard().weather || {},html='<div class="detail-grid detail-summary">'+metric('Wetter',w.stateLabel)+metric('Temperatur',value(w.temperature)+' °C')+metric('Luftfeuchtigkeit',value(w.humidity)+' %')+metric('Taupunkt',value(w.dewPoint)+' °C')+metric('Sichtweite',w.visibility)+metric('Bewölkung',value(w.cloudCoverage)+' %')+'</div><div id="detailWeather">'+spinner('Wetterstation wird geladen …')+'</div><section class="detail-section"><h3>Regenradar</h3><div id="detailRadar">'+spinner('Regenkarte wird geladen …')+'</div></section><div id="detailForecast"></div><p id="detailStatus" role="status"></p>';
       var token=open('Wetter & Regenkarte','weather',html);loadWeather(token);loadRadar(token);refreshTimer=setInterval(function(){loadWeather(token);},60000);
     }
@@ -72,16 +49,16 @@
     function gateSend(path,node,field,expected){var token=alive,key=path.split('/')[0];if(pending[key]){return;}pending[key]={field:field,expected:expected};node.disabled=true;node.setAttribute('aria-busy','true');request('POST','/api/tor/'+path,{},function(err){if(!valid('gate',token)){return;}if(err){delete pending[key];updateGate(options.dashboard());status(err);return;}status('Anforderung gesendet.');if(!field){setTimeout(function(){if(valid('gate',token)){delete pending[key];updateGate(options.dashboard());}},1500);}options.loadDashboard();setTimeout(function(){if(valid('gate',token)&&pending[key]){delete pending[key];updateGate(options.dashboard());status('Änderung vom Tor noch nicht bestätigt.');}},15000);});}
     function led(id,data,service){var token=alive;if(pending.led){return;}pending.led=true;request('POST','/api/entity/'+encodeURIComponent(id)+'/service',{service:service,data:data},function(err){delete pending.led;if(!valid('weather',token)){return;}if(err){status(err);}else{loadWeather(token);}});}
     function action(name,id,node){
-      if(name==='energy'){energy();return true;}if(name==='gate-request'){gate();return true;}
+      if(name==='gate-request'){gate();return true;}
       if(name==='gate-execute'){if(['auto-open','impulse','wait60'].indexOf(id)>=0){gateSend(id,node);}return true;}
       if(name==='gate-setting'){var d=options.dashboard(),field=node.getAttribute('data-field');if(['smart-control','automatik','dauer-auf'].indexOf(id)>=0){gateSend(id+'/'+(d[field]?'off':'on'),node,field,!d[field]);}return true;}
-      if(name==='energy-retry'){loadEnergy(alive);return true;}if(name==='weather-retry'){loadWeather(alive);return true;}if(name==='radar-retry'){stopRadar();loadRadar(alive);return true;}
+      if(name==='weather-retry'){loadWeather(alive);return true;}if(name==='radar-retry'){stopRadar();loadRadar(alive);return true;}
       if(name==='radar-play'){if(!radar){return true;}if(radarPlaying){stopRadar();}else{radarPlaying=true;node.textContent='Pause';node.setAttribute('aria-pressed','true');showFrame();}return true;}
       if(name==='radar-next'||name==='radar-previous'){stopRadar();if(radar){radarIndex=Math.max(0,Math.min(radar.frames.length-1,radarIndex+(name==='radar-next'?1:-1)));showFrame();}return true;}
       if(name==='tank-led'){if(tank && tank.led){led(id,{},tank.led.state==='on'?'turn_off':'turn_on');}return true;}
       return false;
     }
     function change(e){if(e.target.id==='radarTimeline'){stopRadar();radarIndex=Number(e.target.value);showFrame();return true;}var id=e.target.getAttribute('data-detail-led');if(id){led(id,{brightness_pct:Number(e.target.value)},'turn_on');return true;}return false;}
-    return {weather:weather,energy:energy,gate:gate,release:release,action:action,change:change,updateGate:updateGate};
+    return {weather:weather,gate:gate,release:release,action:action,change:change,updateGate:updateGate};
   };
 })();
