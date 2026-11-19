@@ -11,8 +11,8 @@
     function chartHtml(c,kind){
       if(!c || !c.bars || !c.bars.length){return '';}
       var html='<div class="energy-chart energy-chart-'+esc(kind)+'" role="img" aria-label="Verbrauch pro Tag, letzte '+c.bars.length+' Tage"><div class="energy-chart-head"><span>Pro Tag</span><span>'+esc(c.unit)+'</span></div><div class="energy-chart-bars">';
-      for(var i=0;i<c.bars.length;i++){var b=c.bars[i],h=c.max>0&&b.value>0?Math.max(3,Math.round(b.value/c.max*100)):0;
-        html+='<div class="energy-bar-col'+(b.today?' is-today':'')+'"><span class="energy-bar-value">'+esc(b.value>0?b.label:'')+'</span><div class="energy-bar-track"><div class="energy-bar" style="height:'+h+'%"></div></div><span class="energy-bar-label">'+esc(b.weekday)+'<br>'+esc(b.day)+'</span></div>';}
+      for(var i=0;i<c.bars.length;i++){var b=c.bars[i],h=c.max>0&&b.value>0?Math.min(100,Math.max(3,Math.round(b.value/c.max*100))):0;
+        html+='<div class="energy-bar-col'+(b.today?' is-today':'')+(b.clipped?' is-clipped':'')+'"><span class="energy-bar-value">'+esc(b.value>0?b.label:'')+'</span><div class="energy-bar-track"><div class="energy-bar" style="height:'+h+'%"></div></div><span class="energy-bar-label">'+esc(b.weekday)+'<br>'+esc(b.day)+'</span></div>';}
       return html+'</div></div>';
     }
     function utilitySection(g){var html=section(g.title,g.metrics);return html.replace(/<\/section>$/,chartHtml(g.chart,g.kind)+'</section>');}

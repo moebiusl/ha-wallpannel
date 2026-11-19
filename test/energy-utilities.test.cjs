@@ -45,6 +45,15 @@ test('Gruppen: Titel Gas/Wasser, bei mehreren Zählern mit Namen',()=>{
  assert.deepEqual(two.map(x=>x.title),['Gas · Gaszähler','Gas · sensor.gas2']);
 });
 
+test('Diagramm: ein Messfehler staucht die anderen Balken nicht, bleibt aber sichtbar gekennzeichnet',()=>{
+ const buckets=[bucket(0,0.762),bucket(1,4.5),bucket(2,5.9),bucket(3,6.5),bucket(4,5.7),bucket(5,8.4),bucket(6,151767.9),bucket(7,367.4)];
+ const c=utilityChart(buckets,'m³',localDay);
+ const clipped=c.bars.filter(b=>b.clipped);
+ assert.deepEqual(clipped.map(b=>b.value),[367.4,151767.9]);   // echte Werte bleiben im Label erhalten
+ assert.ok(c.max<30&&c.max>=8.4);                               // Maßstab richtet sich nach den normalen Tagen
+ assert.equal(utilityChart([bucket(0,1),bucket(1,50)],'m³',localDay).bars.some(b=>b.clipped),false); // zu wenig Daten: nie kappen
+});
+
 test('Diagramm: 14 Tage, lückenlos, heute zuletzt, ohne Statistik kein Diagramm',()=>{
  const c=utilityChart([bucket(0,0.762),bucket(1,4),bucket(3,2),bucket(20,9)],'m³',localDay);
  assert.equal(c.bars.length,14);assert.equal(c.bars[13].today,true);assert.equal(c.bars.filter(b=>b.today).length,1);

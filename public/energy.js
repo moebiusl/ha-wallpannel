@@ -85,8 +85,8 @@ function energyChart(chart, kind) {
   var html = '<div class="energy-chart-head"><span>Pro Tag</span><span></span></div><div class="energy-chart-bars">';
   for (var i = 0; i < chart.bars.length; i++) {
     var b = chart.bars[i];
-    var h = chart.max > 0 && b.value > 0 ? Math.max(3, Math.round(b.value / chart.max * 100)) : 0;
-    html += '<div class="energy-bar-col' + (b.today ? " is-today" : "") + '"><span class="energy-bar-value"></span><div class="energy-bar-track"><div class="energy-bar" style="height:' + h + '%"></div></div><span class="energy-bar-label"></span></div>';
+    var h = chart.max > 0 && b.value > 0 ? Math.min(100, Math.max(3, Math.round(b.value / chart.max * 100))) : 0;
+    html += '<div class="energy-bar-col' + (b.today ? " is-today" : "") + (b.clipped ? " is-clipped" : "") + '"><span class="energy-bar-value"></span><div class="energy-bar-track"><div class="energy-bar" style="height:' + h + '%"></div></div><span class="energy-bar-label"></span></div>';
   }
   wrap.innerHTML = html + "</div>";
   wrap.setAttribute("role", "img");

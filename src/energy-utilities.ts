@@ -6,7 +6,7 @@ export type UtilityKind = "gas" | "water";
 export type UtilitySource = { kind: UtilityKind; statId: string };
 export type DailyBucket = { start: number; change: number };
 export type UtilityMetric = { id: string; label: string; display: string };
-export type ChartBar = { weekday: string; day: string; value: number; label: string; today: boolean };
+export type ChartBar = { weekday: string; day: string; value: number; label: string; today: boolean; clipped: boolean };
 export type UtilityChart = { unit: string; bars: ChartBar[]; max: number };
 export type UtilityGroup = { id: string; title: string; kind: UtilityKind; metrics: UtilityMetric[]; chart: UtilityChart | null };
 type StateLike = { state?: string; attributes?: Record<string, unknown> } | undefined;
@@ -65,9 +65,15 @@ export function utilityChart(buckets: DailyBucket[], unit: string, localDay: num
     const dayStart = localDay - i * DAY_MS;
     const value = Math.max(0, sumSince(buckets, dayStart - TOLERANCE_MS, dayStart + DAY_MS - TOLERANCE_MS));
     const date = new Date(dayStart);
-    bars.push({ weekday: WEEKDAYS[date.getUTCDay()], day: String(date.getUTCDate()), value, label: formatNumber(value, unit), today: i === 0 });
+    bars.push({ weekday: WEEKDAYS[date.getUTCDay()], day: String(date.getUTCDate()), value, label: formatNumber(value, unit), today: i === 0, clipped: false });
   }
-  return { unit, bars, max: Math.max(...bars.map((b) => b.value)) };
+  // Messfehler (z. B. ein Zählersprung) sollen nicht alle anderen Balken winzig machen:
+  // ab dem Vierfachen des mittleren Tageswerts wird der Balken gekappt und gekennzeichnet.
+  const nonZero = bars.map((b) => b.value).filter((v) => v > 0).sort((a, b) => a - b);
+  const median = nonZero.length ? nonZero[Math.floor(nonZero.length / 2)] : 0;
+  const cap = nonZero.length >= 4 ? median * 4 : Infinity;
+  for (const bar of bars) { bar.clipped = bar.value > cap; }
+  return { unit, bars, max: Math.min(Math.max(...bars.map((b) => b.value)), cap) };
 }
 
 function sumSince(buckets: DailyBucket[], from: number, to: number): number {
