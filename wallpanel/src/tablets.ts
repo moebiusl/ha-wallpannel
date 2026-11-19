@@ -11,7 +11,6 @@ export type TabletConfig = {
   room?: string;
   panelId?: string;
   rooms?: string[];
-  quickLights?: string[];
   large?: boolean;
   screensaver?: { enabled: boolean; minutes: number };
   nightMode?: {
@@ -95,9 +94,7 @@ function sanitizeConfig(input: unknown): TabletConfig {
   const config: TabletConfig = {};
   if (typeof source.name === "string") { config.name = source.name.trim().slice(0, 40); }
   if (typeof source.room === "string") { config.room = source.room.slice(0, 80); }
-  for (const field of ["rooms", "quickLights"] as const) {
-    if (Array.isArray(source[field])) { config[field] = Array.from(new Set(source[field].filter((value: unknown): value is string => typeof value === "string" && value.length > 0 && value.length <= 100))).slice(0, field === "rooms" ? 12 : 2); }
-  }
+  if (Array.isArray(source.rooms)) { config.rooms = Array.from(new Set(source.rooms.filter((value: unknown): value is string => typeof value === "string" && value.length > 0 && value.length <= 100))).slice(0, 12); }
   if (typeof source.large === "boolean") { config.large = source.large; }
   if (typeof source.panelId === "string" && source.panelId) { config.panelId = source.panelId.slice(0, 80); }
   if (source.screensaver && typeof source.screensaver === "object") {

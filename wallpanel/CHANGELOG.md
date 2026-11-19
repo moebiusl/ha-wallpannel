@@ -6,6 +6,7 @@
 - Gespeicherte Tablet-Profile mit „Klassisch“ oder „Apple“ werden als Panel gelesen, auch auf Tablets, die noch die alte Oberfläche zeigen. Die Design-Auswahl in den Tablet-Einstellungen und in der Verwaltung entfällt
 - Die Verwaltung (`/verwaltung`) bleibt erhalten; ihre Kopfzeile führt jetzt mit „← Wallpanel“ zurück zum Panel
 - Unbekannte Adressen unter `/api/` melden jetzt „404“ statt einer Webseite
+- Die „Schnelllichter“ sind entfernt. Die Einstellung wurde zwar gespeichert, aber nirgends angezeigt
 
 ### Schneller auf den iPads
 - Start: Die zwölf Skripte des Panels werden jetzt gleichzeitig geladen (vorher eines nach dem anderen) und laufen weiterhin in der richtigen Reihenfolge

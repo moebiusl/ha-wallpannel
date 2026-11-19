@@ -21,7 +21,7 @@ Die gesamte Vorschau benutzt Beispieldaten und führt keine Netzwerk-, HA-, Durc
 - **Immer erreichbar:** Durchsage, Assist und die Einstellungen stehen unabhängig von der geöffneten Ansicht oben rechts. Auf schmalen Geräten bleiben beschriftete bzw. zugänglich benannte Symbole mit großen Touch-Flächen.
 - **Obere Karten:** Wetter, Energie und Hoftor. Die Toraktion ist direkt erreichbar und wird vor der simulierten Ausführung bestätigt.
 - **Große Kamera auf dem Homescreen:** Zeigt die letzte Bewegung mit Ereignisart und Zeit. Kameraknöpfe wechseln das Bild; „Neueste“ springt zum jüngsten Ereignis zurück. Antippen des Bildes öffnet ein großes Popup mit einem bildfüllend vergrößerten Eventbild; Zuschnitt ist zugelassen. Nur dort gibt es die Auswahl Event/Live. Auf dem Homescreen gibt es keinen direkten Live-Schalter. Beim Schließen, Zurückschalten auf Event oder Ersetzen des Popups durch eine Mitteilung endet der simulierte Live-Zustand. Eine manuelle Kameraauswahl wird bei Datenänderungen für 30 Sekunden beibehalten, statt sofort wieder umzuschalten.
-- **Daneben:** Müllabholung, Status/Hinweise und direkt schaltbare Schnelllichter. Antippen der Müllkachel wechselt direkt zwischen nächster Abholung und allen drei Terminen; es öffnet sich kein Dialog und die Kamera wird dabei nicht neu aufgebaut. Status/Hinweise zeigt Fenster-, Tür- und Batteriehinweise. Das Hoftor steht ausschließlich in seiner eigenen Kachel bzw. in der Klingelbedienung. Die Schnelllichter lassen sich ebenfalls pro Tablet festlegen.
+- **Daneben:** Müllabholung, Status/Hinweise. Antippen der Müllkachel wechselt direkt zwischen nächster Abholung und allen drei Terminen; es öffnet sich kein Dialog und die Kamera wird dabei nicht neu aufgebaut. Status/Hinweise zeigt Fenster-, Tür- und Batteriehinweise. Das Hoftor steht ausschließlich in seiner eigenen Kachel bzw. in der Klingelbedienung.
 - **Keine Szenen-Voraussetzung:** Das Beispielmodell startet ohne Szenen. Raumlicht, Tor, Kameras, Durchsage und Assist sind unabhängig davon bedienbar. Szenen können später als Ergänzung aus HA hinzukommen.
 
 Auf 1024×768, 1024×600 und 800×600 bleibt die allgemeine Übersicht vollständig sichtbar. Im Hochformat 768×1024 steht die Kamera oberhalb der ergänzenden Statuskarten. Bei 640×480 ist vertikales Scrollen vorgesehen. Die Hauptnavigation und die beiden Kommunikationsfunktionen bleiben oben.
@@ -49,7 +49,7 @@ Die visuellen Verbesserungen sollen anschließend in die bestehenden Raumkompone
 
 Nach der Freigabe stehen zwei Ansichten zur Verfügung:
 
-1. **Dieses Tablet:** Name, Hauptraum, Zimmer-Schaltflächen, zwei Schnelllichter, Schriftgröße, Bildschirmschoner, Nachtmodus und Töne.
+1. **Dieses Tablet:** Name, Hauptraum, Zimmer-Schaltflächen, Schriftgröße, Bildschirmschoner, Nachtmodus und Töne.
 2. **Alle Tablets:** Die identischen Profilfelder für jedes Beispieltablet und eine simulierte Identifizierung.
 
 Beide Ansichten benutzen dieselbe Formularfunktion und dieselben Profilobjekte. Änderungen am aktuellen Tablet aus der zentralen Ansicht erscheinen daher auch unter „Dieses Tablet“. Das aktuelle Beispielprofil wird in einem eigenen Browser-Speicherschlüssel gesichert; die übrigen Beispielprofile leben nur in der geöffneten Sitzung. Nachtmodus, Bildschirmschoner und Audio werden hier nicht tatsächlich aktiviert.
@@ -77,7 +77,7 @@ Sichtbare Schaltflächen haben mindestens ungefähr 44 CSS-Pixel große Touch-Zi
 
 - `npm test`: Regressionstests einschließlich ES5-Parserprüfung, fehlender Netzwerk-/Gerätebefehle im Mockup und der HA-Filterregeln.
 - `scripts/check-mockup.cjs`: optionale Chromium-/WebKit-Prüfung. `WALLPANEL_PLAYWRIGHT_MODULE` kann auf eine vorhandene Playwright-Installation zeigen, `WALLPANEL_PREVIEW_URL` auf eine abweichende Vorschauadresse.
-- Fünf Bildschirmgrößen, Touch-Ziele, größere Schrift, Kamerawechsel und Neueste-Auswahl, unbeschnittenes Eventbild und explizite Live-Auswahl im Popup, Beenden des Live-Zustands, Müllwechsel ohne Popup, Wetter-Popup ohne Verlust der Navigationsposition, Empfang von Durchsage/Klingel als Popup, Cache-Neuladen schon bei der PIN-Eingabe, Zimmerverknüpfungen, Schnelllichter, Torbestätigung, Durchsage, Assist, falsche/richtige PIN, lokale/zentral identische Einstellungen und moderne Raumkarten werden geprüft. Jeder API-Aufruf aus der Vorschau wäre ein Testfehler.
+- Fünf Bildschirmgrößen, Touch-Ziele, größere Schrift, Kamerawechsel und Neueste-Auswahl, unbeschnittenes Eventbild und explizite Live-Auswahl im Popup, Beenden des Live-Zustands, Müllwechsel ohne Popup, Wetter-Popup ohne Verlust der Navigationsposition, Empfang von Durchsage/Klingel als Popup, Cache-Neuladen schon bei der PIN-Eingabe, Zimmerverknüpfungen, Torbestätigung, Durchsage, Assist, falsche/richtige PIN, lokale/zentral identische Einstellungen und moderne Raumkarten werden geprüft. Jeder API-Aufruf aus der Vorschau wäre ein Testfehler.
 - Screenshots und JSON-Bericht: `data/mockup-preview/` (von Git ausgeschlossen).
 
 Noch offen bleiben die Prüfung auf den echten iPads mit iOS 9.3.6, Touch-/Audiofreigabe, Safari-/Homescreen-Höhe, Speicherverhalten der neuen Live-Oberfläche unter `/panel/`. Aktuelles WebKit und ES5-Syntaxprüfung ersetzen keine echte iOS-9-Abnahme.

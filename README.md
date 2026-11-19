@@ -52,6 +52,6 @@ Der bedienbare Entwurf unter [`/mockup/`](http://localhost:3000/mockup/) behält
 
 Unter **[http://localhost:3000/panel/](http://localhost:3000/panel/)** läuft die neue Oberfläche mit echten HA-Daten. Auf dem iPad im selben WLAN: **http://192.168.178.150:3000/panel/** (Mac eingeschaltet lassen). Geräteaktionen werden wirklich ausgeführt.
 
-Die Übersicht behält Kamera, Wetter, Energie, Tor, Abfall und Schnelllichter. Raumkarten zeigen HomePod-Cover/Titel/Play/Lautstärke, weitere Musikoptionen per Halten oder Cover-Tipp, Halbkreis-Heizungsregler und Lichtkacheln mit senkrechtem Regler beziehungsweise Schalter beim langen Drücken. Einstellungen sind mit der bestehenden Verwaltungs-PIN geschützt; „Dieses Tablet“ und „Alle Tablets“ speichern dieselben zentralen Profile.
+Die Übersicht behält Kamera, Wetter, Energie, Tor, Abfall und Status. Raumkarten zeigen HomePod-Cover/Titel/Play/Lautstärke, weitere Musikoptionen per Halten oder Cover-Tipp, Halbkreis-Heizungsregler und Lichtkacheln mit senkrechtem Regler beziehungsweise Schalter beim langen Drücken. Einstellungen sind mit der bestehenden Verwaltungs-PIN geschützt; „Dieses Tablet“ und „Alle Tablets“ speichern dieselben zentralen Profile.
 
 Die isolierte Beispieldaten-Vorschau bleibt unter `/mockup/`, die Verwaltung unter `/verwaltung`. Details und Testgrenzen: [PANEL-LOKAL.md](PANEL-LOKAL.md). Es wurde nichts committed, gepusht oder ausgerollt.

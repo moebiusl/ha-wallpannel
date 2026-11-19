@@ -144,7 +144,6 @@ async function metrics(page) {
       await enterPin(page, '1310');
       await page.getByRole('heading', { name: 'Einstellungen für dieses Tablet', exact: true }).waitFor();
       await page.getByRole('checkbox', { name: 'Flur', exact: true }).check();
-      await page.getByRole('combobox', { name: 'Schnelllicht 1', exact: true }).selectOption('halllight');
       await page.getByRole('button', { name: 'Einstellungen speichern', exact: true }).click();
       assert.equal(await page.locator('#mainNav').getByRole('button', { name: 'Flur', exact: true }).count(), 1);
       await page.getByRole('button', { name: 'Alle Tablets', exact: true }).click();

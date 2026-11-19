@@ -19,7 +19,7 @@ Die Oberfläche ist mit dem HA-Server aus `.env` verbunden. Schalten, Heizen, Mu
 - Heizung: Halbkreis mit HA-Minimum, Maximum und Schrittweite, Ist-/Solltemperatur, unterstützten Betriebsarten und Plus/Minus.
 - Licht: Die ganze Kachel schaltet beim kurzen Antippen. Keine Helligkeitsanzeige, kein Slider und kein Switch auf der Lichtkachel. Halten öffnet den senkrechten Apple-artigen Helligkeitsregler; reine Ein/Aus-Lampen erhalten stattdessen einen großen senkrechten Schalter. Unterstützte Farboptionen stehen darunter.
 - Durchsage und Klingel: Popups, Töne abhängig vom Tabletprofil; Safari benötigt eine erste Berührung zur Audiofreigabe. Assist verwendet den vorhandenen HA-Konversations-/Audio-Proxy. Auf iOS 9 wird Assist per Text bedient.
-- Einstellungen: Bestehende serverseitige PIN-Sitzung; Neuladen mit neuen Asset-URLs bereits bei der PIN-Eingabe. Profile speichern zentral und dauerhaft; Raumknöpfe, Schnelllichter, Schrift, Bildschirmschoner, Nachtmodus und Hinweistöne sind lokal und zentral bearbeitbar. Nachtzeiten entsprechen der bisherigen Konfiguration, bei neuen Profilen 22–7 Uhr.
+- Einstellungen: Bestehende serverseitige PIN-Sitzung; Neuladen mit neuen Asset-URLs bereits bei der PIN-Eingabe. Profile speichern zentral und dauerhaft; Raumknöpfe, Schrift, Bildschirmschoner, Nachtmodus und Hinweistöne sind lokal und zentral bearbeitbar. Nachtzeiten entsprechen der bisherigen Konfiguration, bei neuen Profilen 22–7 Uhr.
 
 ## Daten und Leistung
 

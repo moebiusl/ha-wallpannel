@@ -58,7 +58,7 @@ Die neuen Regressionstests decken die Geräte- und Raumänderungen ohne feste Pa
 
 ## Entwurfsrichtung korrigiert: ursprüngliche Abläufe bewahren
 
-Der Entwurf behält wieder die allgemeine Übersicht mit Wetter/Energie/Tor, großer Kamera samt letzter Bewegung und Kamerawechsel, Abfall/Status/Schnelllichtern und direkten Zimmerknöpfen pro Tablet. Durchsage und Assist sind ständig erreichbar. Szenen sind keine Voraussetzung. Lokal per Demo-PIN und zentral werden dieselben Tabletprofil-Felder bearbeitet. Aus dem Apartment-Projekt kommen vor allem die modernisierten Gerätekarten und die Farbgebung; das bestehende Wallpanel bleibt die technische Grundlage. Der interaktive Entwurf bleibt vollständig simuliert. Details: [MOCKUP.md](MOCKUP.md).
+Der Entwurf behält wieder die allgemeine Übersicht mit Wetter/Energie/Tor, großer Kamera samt letzter Bewegung und Kamerawechsel, Abfall/Status und direkten Zimmerknöpfen pro Tablet. Durchsage und Assist sind ständig erreichbar. Szenen sind keine Voraussetzung. Lokal per Demo-PIN und zentral werden dieselben Tabletprofil-Felder bearbeitet. Aus dem Apartment-Projekt kommen vor allem die modernisierten Gerätekarten und die Farbgebung; das bestehende Wallpanel bleibt die technische Grundlage. Der interaktive Entwurf bleibt vollständig simuliert. Details: [MOCKUP.md](MOCKUP.md).
 
 
 ## Weitere Bedienkorrekturen am Entwurf

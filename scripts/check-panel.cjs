@@ -11,7 +11,7 @@ async function change(page,selector,value){await page.locator(selector).evaluate
  if(process.env.WALLPANEL_BROWSER && process.env.WALLPANEL_BROWSER!==name)continue;
  const browser=await engine.launch();try{
   const page=await browser.newPage({viewport:{width:1024,height:768}}),errors=[],writes=[],commands=[];
-  let cfg={name:'Test-iPad',room:'living',rooms:['living','kitchen'],quickLights:['light.sofa'],screensaver:{enabled:false,minutes:5},sounds:false,nightMode:{enabled:false,startHour:23,startMinute:0,endHour:6,endMinute:0,brightness:12}};
+  let cfg={name:'Test-iPad',room:'living',rooms:['living','kitchen'],screensaver:{enabled:false,minutes:5},sounds:false,nightMode:{enabled:false,startHour:23,startMinute:0,endHour:6,endMinute:0,brightness:12}};
   let gate={smartControl:false,torAutomatik:true,torDauerAuf:false,schliessZeit:'18 s',fahrZeit:'22 s'};
   let failLive=false,delayNextCommand=false;
   const met=(label,display)=>({label,display,value:parseFloat(display)});
