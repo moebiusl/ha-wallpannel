@@ -47,7 +47,7 @@ Nach einem Add-on-Update laden sich die Tablets automatisch neu, sobald sie kurz
 
 ### Design
 
-Neben dem klassischen Design gibt es das Test-Design **„Home“** im Stil von Apple Home: graue Flächen, eingeschaltete Geräte hell mit gelbem Symbol, Navigation als Segment-Schalter. Umschalten pro Tablet unter Optionen → Dieses Tablet → Design oder aus der Ferne unter Optionen → Tablets. Zum Anschauen ohne Umstellen: `?theme=home` an die Adresse hängen.
+Das Wallpanel hat ein einziges Design, das neue Panel unter `/panel/`. Die früheren Designs „Klassisch“ und „Apple“ gibt es nicht mehr. Alte Adressen und Homescreen-Symbole (`/`, `start.html`, `raum.html` …) leiten automatisch auf das Panel um. Die Verwaltung bleibt unter `/verwaltung` (`optionen.html`) erreichbar.
 
 ### Regenradar
 

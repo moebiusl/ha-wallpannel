@@ -123,7 +123,6 @@ function startOptionsPage() {
   loadNightModeSettings();
   loadScreensaverSettings();
   loadTabletIdentity();
-  loadThemeSetting();
   initOptionsPage();
 }
 
@@ -1722,27 +1721,6 @@ function loadTabletIdentity() {
   }
 }
 
-function loadThemeSetting() {
-  var select = document.getElementById("themeSelect");
-  if (select && typeof getWallpanelTheme === "function") {select.innerHTML=WallpanelDesign.options(getWallpanelTheme());select.value=getWallpanelTheme();}
-}
-
-function saveThemeSetting() {
-  var select = document.getElementById("themeSelect");
-  if (!select || typeof applyWallpanelTheme !== "function") { return; }
-  try { window.sessionStorage.removeItem('haWallpanel.themePreview'); } catch (_e) { /* ignore */ }
-  var previewButton = document.querySelector('.theme-preview-exit');
-  if (previewButton) { previewButton.parentNode.removeChild(previewButton); }
-  if (window.history && window.history.replaceState) { window.history.replaceState(null, "", wallpanelUrlWithoutTheme()); }
-  if(select.value==='panel'){
-    var chosen=select.value;if(typeof shouldRegisterAsTablet==='function'&&shouldRegisterAsTablet()){
-      apiPost('api/tablet/report',{id:getTabletId(),config:{theme:chosen}},function(error){if(error){var state=document.getElementById('settingsSaveState');if(state){state.textContent='Design konnte nicht gespeichert werden.';}return;}WallpanelDesign.go(chosen);});
-    }else{WallpanelDesign.go(chosen);}return;
-  }
-  applyWallpanelTheme(select.value);
-  if (typeof reportTabletConfig === "function") { reportTabletConfig({ theme: select.value }); }
-}
-
 function saveTabletName() {
   var input = document.getElementById("tabletNameInput");
   if (!input) { return; }
@@ -1842,7 +1820,6 @@ function renderTabletsAdmin() {
         '<label>Name<input id="' + p + 'name" class="assist-input" type="text" maxlength="40" value="' + escapeHtml(c.name || "") + '"></label>' +
         '<label>Hauptraum<select id="' + p + 'room" class="room-select">' + tabletRoomOptions(c.room || "") + "</select></label>" +
         '<label>Panel (klassische Oberfläche)<select id="' + p + 'panel" class="room-select">' + tabletPanelOptions(c.panelId) + "</select></label>" +
-        '<label>Design<select id="' + p + 'theme" class="room-select">' + WallpanelDesign.options(c.theme) + '</select></label>' +
         tabletAssignedRoomFields(t) +
         '<label class="settings-check"><input id="' + p + 'large" type="checkbox"' + (c.large ? " checked" : "") + '><span>Größere Schrift</span></label>' +
         '<label class="settings-check"><input id="' + p + 'doorbell" type="checkbox"' + (c.doorbellWake !== false ? " checked" : "") + "><span>Klingel-Popup anzeigen</span></label>" +
@@ -1872,7 +1849,6 @@ function renderTabletsAdmin() {
       '<span id="tab_all_state" class="settings-save-state"></span>' +
       noticeFormHtml("tab_all_", "all") +
     "</div>" + html;
-  for(var ti=0;ti<tablets.length;ti++){var select=document.getElementById('tab_'+tablets[ti].id+'_theme');if(select){select.value=WallpanelDesign.normalize(tablets[ti].config.theme);}}
 }
 
 function tabletAdminValue(id) {
@@ -1898,7 +1874,7 @@ function saveTabletAdmin(id) {
     rooms: tabletCheckedRooms(id),
     large: !!tabletAdminValue(p + "large"),
     panelId: tabletAdminValue(p + "panel") || "default",
-    theme: tabletAdminValue(p + "theme") || "classic",
+    theme: "panel",
     doorbellWake: !!tabletAdminValue(p + "doorbell"),
     sounds: !!tabletAdminValue(p + "sounds"),
     screensaver: { enabled: !!tabletAdminValue(p + "ss"), minutes: num("ssmin", 5) },

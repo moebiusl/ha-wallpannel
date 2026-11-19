@@ -13,9 +13,7 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="apple-touch-icon" href="apple-touch-icon.png">
   <script src="design.js"></script>
-  <script src="theme.js"></script>
   <link rel="stylesheet" href="style.css">
-  <link rel="stylesheet" href="theme-home.css">
 </head>
 <body data-page="optionen" data-room="hof">
   <div class="app-shell">
@@ -69,15 +67,6 @@
             <div id="settingsTab-tablet" class="settings-tab-panel">
               <div class="settings-layout-grid">
 
-                <section class="settings-section settings-section-wide">
-                  <div class="settings-title">Design</div>
-                  <select id="themeSelect" class="room-select" onchange="saveThemeSetting()">
-                    <option value="classic">Klassisch</option>
-                    <option value="home">Apple</option>
-                    <option value="panel">Neues Wallpanel</option>
-                  </select>
-                  <div class="settings-hint">Gilt nur für dieses Gerät und wird sofort übernommen.</div>
-                </section>
 
                 <section class="settings-section settings-section-wide">
                   <div class="settings-title">Name dieses Tablets</div>
@@ -430,7 +419,6 @@ event_data:
     </div>
   </div>
 
-  <script src="icons.js"></script>
   <script src="layout.js"></script>
   <script src="api.js"></script>
   <script src="options.js"></script>

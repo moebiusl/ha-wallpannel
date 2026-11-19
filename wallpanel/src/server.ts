@@ -1399,6 +1399,11 @@ app.get(["/panel/", "/panel/index.html"], (_req, res) => {
   res.type("html").send(fs.readFileSync(path.join(__dirname, "../public/panel/index.html"), "utf8").replace("<head>", `<head><script>window.WallpanelBuild=${JSON.stringify(ASSET_VERSION)};</script>`));
 });
 app.get("/verwaltung", (_req, res) => { res.redirect("optionen.html#tablets"); });
+// Die früheren Designs (Klassisch, Apple) gibt es nicht mehr: alte Adressen, Lesezeichen und Homescreen-Symbole führen zum Panel.
+app.get(["/", "/index.html", "/start.html", "/raum.html", "/energie.html", "/klima.html", "/sicherheit.html", "/wetter.html"], (_req, res) => {
+  res.setHeader("Cache-Control", "no-store");
+  res.redirect(302, "/panel/");
+});
 app.use(express.static(path.join(__dirname, "../public"), {
   setHeaders: (res) => {
     // no-cache statt no-store: Der Browser behält die Datei und fragt nur per ETag nach (304),
@@ -2877,8 +2882,9 @@ function handleHaEvent(eventType: string, data: any): void {
   }
 }
 
-app.use((_req: Request, res: Response) => {
-  res.sendFile(path.join(__dirname, "../public/index.html"));
+app.use((req: Request, res: Response) => {
+  if (req.path.startsWith("/api/")) { res.status(404).json({ ok: false, message: "Unbekannter Endpunkt." }); return; }
+  res.redirect(302, "/panel/");
 });
 
 // ---------------------------------------------------------------------------

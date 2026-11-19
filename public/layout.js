@@ -41,29 +41,7 @@ function buildHeader(activePage, roomLabel, roomId, visiblePages) {
     return !visiblePages || visiblePages.indexOf(key) !== -1;
   }
 
-  var roomHref = 'raum.html?room=' + encodeURIComponent(roomId || 'hof');
-  var links = '';
-  if (pageVisible('raum')) {
-    links += navLink(escapeHtml(roomLabel || 'Raum'), roomHref, 'raum');
-  }
-  if (pageVisible('home')) {
-    links += navLink('Home', 'index.html', 'home');
-  }
-  if (pageVisible('raum')) {
-    links += '<a class="topnav-link" href="#" onclick="openRoomsModal(); return false;">Räume</a>';
-  }
-  if (pageVisible('energie')) {
-    links += navLink('Energie', 'energie.html', 'energie');
-  }
-  if (pageVisible('klima')) {
-    links += navLink('Klima', 'klima.html', 'klima');
-  }
-  if (pageVisible('wetter')) {
-    links += navLink('Wetter', 'wetter.html', 'wetter');
-  }
-  if (pageVisible('sicherheit')) {
-    links += navLink('Sicherheit', 'sicherheit.html', 'sicherheit');
-  }
+  var links = navLink('← Wallpanel', '/panel/', 'panel') + navLink('Verwaltung', 'optionen.html', 'optionen');
 
   return '' +
     '<header class="topbar">' +
@@ -74,8 +52,7 @@ function buildHeader(activePage, roomLabel, roomId, visiblePages) {
         '<div class="topnav-options">' +
           '<a class="topnav-link topnav-link-icon assist-open-button" href="#" onclick="openAnnounceModal(); return false;" aria-label="Durchsage" title="Durchsage">' + announceIcon() + '</a>' +
           '<a class="topnav-link topnav-link-icon assist-open-button" href="#" onclick="openAssistModal(); return false;" aria-label="Assist" title="Assist">' + assistMicIcon() + '</a>' +
-          '<a class="' + (activePage === 'optionen' ? 'topnav-link topnav-link-icon active' : 'topnav-link topnav-link-icon') + '" href="optionen.html" aria-label="Optionen" title="Optionen">⚙</a>' +
-        '</div>' +
+                  '</div>' +
       '</div>' +
     '</header>';
 }
@@ -132,7 +109,7 @@ function renderRoomsModal(structure) {
       if (!areas[a].areaId) { continue; }
       var link = document.createElement('a');
       link.className = 'rooms-modal-tile';
-      link.href = 'raum.html?room=' + encodeURIComponent(areas[a].areaId);
+      link.href = '/panel/#room/' + encodeURIComponent(areas[a].areaId);
       link.innerHTML = '<span>' + escapeHtml(areas[a].name) + '</span><em>' + (areas[a].entityCount || 0) + ' Entitäten</em>';
       grid.appendChild(link);
     }
@@ -472,7 +449,7 @@ function buildRoomLinksFromAreas(areas, activeRoom) {
   var i;
 
   for (i = 0; i < areas.length; i++) {
-    links += '<a class="' + (activeRoom === areas[i].area_id ? 'room-button active' : 'room-button') + '" href="raum.html?room=' + encodeURIComponent(areas[i].area_id) + '" title="' + escapeHtml(areas[i].floorName || '') + '">' + escapeHtml(areas[i].name) + '</a>';
+    links += '<a class="' + (activeRoom === areas[i].area_id ? 'room-button active' : 'room-button') + '" href="/panel/#room/' + encodeURIComponent(areas[i].area_id) + '" title="' + escapeHtml(areas[i].floorName || '') + '">' + escapeHtml(areas[i].name) + '</a>';
   }
 
   return links;
@@ -489,7 +466,7 @@ function buildFooter(activeRoom, structure) {
   } else {
     fallbackRooms = getFallbackRooms();
     for (i = 0; i < fallbackRooms.length; i++) {
-      links += '<a class="' + (activeRoom === fallbackRooms[i][1] ? 'room-button active' : 'room-button') + '" href="raum.html?room=' + fallbackRooms[i][1] + '">' + fallbackRooms[i][0] + '</a>';
+      links += '<a class="' + (activeRoom === fallbackRooms[i][1] ? 'room-button active' : 'room-button') + '" href="/panel/#room/' + fallbackRooms[i][1] + '">' + fallbackRooms[i][0] + '</a>';
     }
   }
 
@@ -614,7 +591,7 @@ function renderSharedLayout() {
   if (roomSelect) {
     roomSelect.value = activeRoom;
     roomSelect.onchange = function () {
-      window.location.href = 'raum.html?room=' + roomSelect.value;
+      window.location.href = '/panel/#room/' + encodeURIComponent(roomSelect.value);
     };
   }
 
@@ -874,7 +851,6 @@ function setupScreensaver() {
 // Darüber kommen zentral gepflegte Einstellungen, Mitteilungen, die Klingel und Update-Hinweise.
 var TABLET_SYNC_MS = 3000;
 var tabletAssetVersion = null;
-var pendingDesign=null,lastDesignRevision=null;
 var tabletConfigLockUntil = 0;
 var tabletSyncBusy = false;
 window.wallpanelPopupOpen = false;
@@ -906,21 +882,10 @@ function getTabletId() {
   return id;
 }
 
-/** Design wechseln: auf dem Tablet merken und sofort anwenden (ohne Neuladen). */
-function applyWallpanelTheme(theme) {
-  theme = normalizeWallpanelTheme(theme);
-  writeStored('haWallpanel.theme', theme);
-  theme = getWallpanelPreviewTheme() || theme;
-  var root = document.documentElement;
-  root.className = root.className.replace(/\btheme-[a-z]+\b/g, '').replace(/\s+/g, ' ').replace(/^ | $/g, '');
-  if (theme !== 'classic') { root.className += (root.className ? ' ' : '') + 'theme-' + theme; }
-}
+/** Es gibt nur noch ein Design (das neue Panel). */
+function applyWallpanelTheme() { writeStored('haWallpanel.theme', 'panel'); }
 
-function getWallpanelTheme() {
-  var theme = '';
-  try { theme = window.localStorage.getItem('haWallpanel.theme') || ''; } catch (_e) { theme = ''; }
-  return normalizeWallpanelTheme(theme);
-}
+function getWallpanelTheme() { return 'panel'; }
 
 function getLocalTabletConfig() {
   return {
@@ -945,7 +910,6 @@ function reportTabletConfig(partial) {
 function applyTabletConfig(config) {
   if (!config || new Date().getTime() < tabletConfigLockUntil) { return; }
   if (typeof config.name === 'string') { writeStored('haWallpanel.tabletName', config.name); }
-  if(config.theme && (config.theme!==getWallpanelTheme() || lastDesignRevision!==null&&config.themeRevision!==lastDesignRevision)){if(config.theme==='panel'){pendingDesign='panel';}else{pendingDesign=null;applyWallpanelTheme(config.theme);}}lastDesignRevision=config.themeRevision || 0;
 
   if (config.screensaver && JSON.stringify(config.screensaver) !== JSON.stringify(readStoredJson('haWallpanel.screensaver'))) {
     writeStored('haWallpanel.screensaver', JSON.stringify(config.screensaver));
@@ -1079,7 +1043,6 @@ function syncTablet() {
     var commands = payload.commands || [];
     for (var i = 0; i < commands.length; i++) { runTabletCommand(commands[i]); }
     handleAssetVersion(payload.assetVersion);
-    if(pendingDesign&&!/^(INPUT|TEXTAREA|SELECT)$/.test((document.activeElement||{}).tagName||'')&&!window.wallpanelPopupOpen&&!document.querySelector('.open')&&document.body.getAttribute('data-page')!=='optionen'&&isTabletIdle(2000)&&!(wallpanelSoundAudio&&!wallpanelSoundAudio.paused)&&!(assistAudio&&!assistAudio.paused)&&!(window.parent!==window&&window.parent.shellAudio&&!window.parent.shellAudio.paused)){WallpanelDesign.go(pendingDesign);return;}
     var focused=document.activeElement;
     if(payload.reload && payload.reload.expiresAt>new Date().getTime() && !window.wallpanelPopupOpen && !document.querySelector('.open') && document.body.getAttribute('data-page') !== 'optionen' && isTabletIdle(2000) && !(focused && /^(INPUT|TEXTAREA|SELECT)$/.test(focused.tagName)) && !(wallpanelSoundAudio && !wallpanelSoundAudio.paused) && !(assistAudio && !assistAudio.paused)) { reloadWallpanel(payload.reload.id); }
   };
@@ -1397,7 +1360,7 @@ function tickHeaderBoiler(fromLoad) {
     options.insertBefore(pill, options.firstChild);
   }
   if (inner.className.indexOf('has-boiler') === -1) { inner.className += ' has-boiler'; }
-  var href = headerBoiler.roomId ? 'raum.html?room=' + encodeURIComponent(headerBoiler.roomId) : '#';
+  var href = headerBoiler.roomId ? '/panel/#room/' + encodeURIComponent(headerBoiler.roomId) : '#';
   if (pill.getAttribute('href') !== href) { pill.setAttribute('href', href); }
   var text = 'Boiler';
   if (remaining !== null) {

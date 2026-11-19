@@ -25,9 +25,8 @@ export type TabletConfig = {
   doorbellWake?: boolean;
   /** Töne bei Klingel und Mitteilungen abspielen (Standard: an). */
   sounds?: boolean;
-  /** Design: classic, home (Apple), panel; frühere apartment-Werte werden als home gelesen. */
+  /** Es gibt nur noch ein Design (panel); alte Werte (classic, home, apartment) werden als panel gelesen. */
   theme?: string;
-  themeRevision?: number;
 };
 
 export const SOUNDS = ["gong", "glocke", "ping", "hinweis", "alarm"] as const;
@@ -124,8 +123,7 @@ function sanitizeConfig(input: unknown): TabletConfig {
   }
   if (typeof source.doorbellWake === "boolean") { config.doorbellWake = source.doorbellWake; }
   if (typeof source.sounds === "boolean") { config.sounds = source.sounds; }
-  if (source.theme === "classic" || source.theme === "home" || source.theme === "apartment" || source.theme === "panel") { config.theme = source.theme === "apartment" ? "home" : source.theme; }
-  if(typeof source.themeRevision === "number" && Number.isFinite(source.themeRevision)){config.themeRevision=source.themeRevision;}
+  if (typeof source.theme === "string") { config.theme = "panel"; }
   return config;
 }
 
@@ -216,8 +214,7 @@ export function createTabletRegistry(filePath: string, defaults: TabletsSettings
     const record = tablets.get(id);
     if (!record) { return null; }
     const previous = record.config;
-    const patch=sanitizeConfig(config);delete patch.themeRevision;
-    if(patch.theme!==undefined){patch.themeRevision=Math.max(Date.now(),(record.config.themeRevision || 0)+1);}
+    const patch = sanitizeConfig(config);
     record.config = { ...record.config, ...patch };
     try { save(true); } catch (error) { record.config = previous; throw error; }
     return record;

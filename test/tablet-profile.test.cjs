@@ -18,3 +18,22 @@ test('Tablet-Räume und Schnelllichter bleiben nach zentraler Änderung und Neus
  const remote=createTabletRegistry(file,defaults).list()[0];assert.equal(remote.config.room,'');assert.deepEqual(remote.config.rooms,[]);assert.equal(remote.config.large,true);assert.equal(remote.config.doorbellWake,false);assert.deepEqual(remote.config.nightMode,{enabled:true,startHour:21,startMinute:30,endHour:6,endMinute:45,brightness:12});
  }finally{fs.rmSync(dir,{recursive:true,force:true});}
 });
+
+test('Alte Designs (classic, home, apartment) werden als panel gelesen, auch aus bestehenden Dateien',()=>{
+ const dir=fs.mkdtempSync(path.join(os.tmpdir(),'wallpanel-theme-'));
+ try{
+  const file=path.join(dir,'tablets.json'),defaults={doorbellEntity:'',doorbellCamera:'',doorbellLights:[],doorbellSound:'gong',noticeSound:'ping',announcementPresets:[]};
+  let registry=createTabletRegistry(file,defaults);
+  for(const old of ['classic','home','apartment']){
+   registry.sync('tablet-'+old+'-1234',{page:'index',userAgent:'t',ip:'l',localConfig:{name:old,theme:old}});
+   assert.equal(registry.list().find(t=>t.id==='tablet-'+old+'-1234').config.theme,'panel');
+  }
+  registry.updateConfig('tablet-classic-1234',{theme:'home'});
+  assert.equal(createTabletRegistry(file,defaults).list().find(t=>t.id==='tablet-classic-1234').config.theme,'panel');
+  // Eine Datei aus früheren Versionen mit „classic“ und Design-Revision liest sich ebenfalls als panel.
+  const saved=JSON.parse(fs.readFileSync(file,'utf8'));const first=Array.isArray(saved)?saved[0]:Object.values(saved.tablets||saved)[0];
+  first.config.theme='classic';first.config.themeRevision=123;fs.writeFileSync(file,JSON.stringify(saved));
+  const reread=createTabletRegistry(file,defaults).list()[0];
+  assert.equal(reread.config.theme,'panel');assert.equal(reread.config.themeRevision,undefined);
+ }finally{fs.rmSync(dir,{recursive:true,force:true});}
+});

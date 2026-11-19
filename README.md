@@ -34,7 +34,7 @@ Lokal werden `HA_URL` und `HA_TOKEN` aus `.env` genutzt.
 
 ## Designs und Tabletverwaltung
 
-Unter **Optionen → Dieses Tablet → Design** stehen Klassisch, Apple (`home`) und Neues Wallpanel (`panel`, öffnet `/panel/`) zur Auswahl. Über **Optionen → Tablets** lässt sich das Design auch aus der Ferne pro Tablet einstellen. Die Verwaltung ist direkt über `/verwaltung` erreichbar. Das frühere Test-Design Apartment wurde entfernt; gespeicherte Apartment-Profile werden als Apple gelesen.
+Das Wallpanel hat nur noch ein Design, das neue Panel unter `/panel/`. Die früheren Designs Klassisch und Apple wurden entfernt; alte Adressen (`/`, `/start.html`, `/raum.html` …) leiten auf das Panel um. Über **Optionen → Tablets** lassen sich Name, Räume, Bildschirmschoner und mehr pro Tablet aus der Ferne einstellen. Die Verwaltung ist direkt über `/verwaltung` erreichbar. Alte gespeicherte Design-Einstellungen (Klassisch, Apple, Apartment) werden als Panel gelesen.
 
 Lokale Änderungen, behobene Fehler, Prüfungen und weitere Verbesserungen: [LOCAL-REVIEW.md](LOCAL-REVIEW.md).
 
@@ -54,4 +54,4 @@ Unter **[http://localhost:3000/panel/](http://localhost:3000/panel/)** läuft di
 
 Die Übersicht behält Kamera, Wetter, Energie, Tor, Abfall und Schnelllichter. Raumkarten zeigen HomePod-Cover/Titel/Play/Lautstärke, weitere Musikoptionen per Halten oder Cover-Tipp, Halbkreis-Heizungsregler und Lichtkacheln mit senkrechtem Regler beziehungsweise Schalter beim langen Drücken. Einstellungen sind mit der bestehenden Verwaltungs-PIN geschützt; „Dieses Tablet“ und „Alle Tablets“ speichern dieselben zentralen Profile.
 
-Die isolierte Beispieldaten-Vorschau bleibt unter `/mockup/`, die bisherige Oberfläche unter `/start.html`. Details und Testgrenzen: [PANEL-LOKAL.md](PANEL-LOKAL.md). Es wurde nichts committed, gepusht oder ausgerollt.
+Die isolierte Beispieldaten-Vorschau bleibt unter `/mockup/`, die Verwaltung unter `/verwaltung`. Details und Testgrenzen: [PANEL-LOKAL.md](PANEL-LOKAL.md). Es wurde nichts committed, gepusht oder ausgerollt.

@@ -1,3 +1,12 @@
+## 1.12.0
+
+### Nur noch ein Design
+- Die Designs „Klassisch“ und „Apple“ sind entfernt, es gibt nur noch das neue Panel. Damit entfallen 16 Dateien mit rund 200 KB alter Oberflächen-Code (klassische Seiten für Home, Raum, Energie, Klima, Sicherheit und Wetter samt Apple-Stil)
+- Alte Adressen, Lesezeichen und Homescreen-Symbole (`/`, `start.html`, `raum.html` …) leiten automatisch auf das Panel um. Die Web-App startet jetzt direkt im Panel
+- Gespeicherte Tablet-Profile mit „Klassisch“ oder „Apple“ werden als Panel gelesen, auch auf Tablets, die noch die alte Oberfläche zeigen. Die Design-Auswahl in den Tablet-Einstellungen und in der Verwaltung entfällt
+- Die Verwaltung (`/verwaltung`) bleibt erhalten; ihre Kopfzeile führt jetzt mit „← Wallpanel“ zurück zum Panel
+- Unbekannte Adressen unter `/api/` melden jetzt „404“ statt einer Webseite
+
 ## 1.11.7
 
 ### Gas und Wasser auf der Energieseite
