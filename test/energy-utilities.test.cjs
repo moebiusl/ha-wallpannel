@@ -65,11 +65,11 @@ test('Diagramm: 14 Tage, lückenlos, heute zuletzt, ohne Statistik kein Diagramm
  assert.equal(g[0].kind,'gas');assert.equal(g[0].chart.unit,'m³');
 });
 
-test('Energie-Einstellungen: Netz (neues und altes Format), Solar und Akku',()=>{
+test('Energie-Einstellungen: Netzbezug (neues und altes Format), Solar und Akku; Einspeisung wird nicht angezeigt',()=>{
  const neu={energy_sources:[{type:'grid',flow_from:[{stat_energy_from:'sensor.bezug'}],flow_to:[{stat_energy_to:'sensor.einsp'}]},{type:'solar',stat_energy_from:'sensor.pv1'},{type:'solar',stat_energy_from:'sensor.pv2'},{type:'battery',stat_energy_from:'sensor.aus',stat_energy_to:'sensor.ein'}]};
- assert.deepEqual(pickUtilitySources(neu),[{kind:'grid',statIds:['sensor.bezug']},{kind:'grid_export',statIds:['sensor.einsp']},{kind:'solar',statIds:['sensor.pv1','sensor.pv2']},{kind:'battery_out',statIds:['sensor.aus']},{kind:'battery_in',statIds:['sensor.ein']}]);
+ assert.deepEqual(pickUtilitySources(neu),[{kind:'grid',statIds:['sensor.bezug']},{kind:'solar',statIds:['sensor.pv1','sensor.pv2']},{kind:'battery_out',statIds:['sensor.aus']},{kind:'battery_in',statIds:['sensor.ein']}]);
  const alt={energy_sources:[{type:'grid',stat_energy_from:'sensor.verbrauch',stat_energy_to:'sensor.einspeisung',stat_rate:'sensor.leistung'}]};
- assert.deepEqual(pickUtilitySources(alt),[{kind:'grid',statIds:['sensor.verbrauch']},{kind:'grid_export',statIds:['sensor.einspeisung']}]);
+ assert.deepEqual(pickUtilitySources(alt),[{kind:'grid',statIds:['sensor.verbrauch']}]);
 });
 
 test('Gruppen: Wh werden zu kWh, mehrere Zähler addiert, feste Reihenfolge, kein Zählerstand bei „heute“-Zählern',()=>{
@@ -85,4 +85,22 @@ test('Gruppen: Wh werden zu kWh, mehrere Zähler addiert, feste Reihenfolge, kei
 test('Eingefrorene Zähler ergeben Nullen statt falscher Balken',()=>{
  const g=buildUtilityGroups([{kind:'solar',statIds:['sensor.pv'],meter:false}],{'sensor.pv':[bucket(0,0),bucket(1,0),bucket(2,0)]},()=>({state:'1022',attributes:{unit_of_measurement:'Wh'}}),localDay);
  assert.equal(g[0].chart.max,0);assert.ok(g[0].chart.bars.every(b=>b.value===0));
+});
+
+test('Messfehler zählen in den Summen nicht mit, stehen aber als Hinweis da',()=>{
+ const base=[bucket(0,0.762),bucket(1,4.5),bucket(2,5.9),bucket(3,6.5),bucket(4,5.7),bucket(5,8.4),bucket(6,151767.9),bucket(7,367.4)];
+ const g=buildUtilityGroups([{kind:'gas',statIds:['sensor.gas']}],{'sensor.gas':base},()=>({state:'21805',attributes:{unit_of_measurement:'m³'}}),localDay);
+ const by=Object.fromEntries(g[0].metrics.map(m=>[m.id.split(':').pop(),m.display]));
+ assert.equal(by.month,'31,76 m³');                       // 0,762+4,5+5,9+6,5+5,7+8,4 – ohne 151767,9 und 367,4
+ assert.equal(by.week,'31,76 m³');
+ assert.match(g[0].note,/^Ohne 2 Messfehler \(\d\d\.\d\d\., \d\d\.\d\d\.\), die in den Summen nicht mitgezählt werden\.$/);
+ assert.ok(g[0].chart.bars.filter(b=>b.clipped).length===2);
+ // ohne Ausreißer: kein Hinweis
+ const ok=buildUtilityGroups([{kind:'gas',statIds:['sensor.gas']}],{'sensor.gas':base.slice(0,6)},()=>({state:'1',attributes:{unit_of_measurement:'m³'}}),localDay);
+ assert.equal(ok[0].note,'');
+ // Die Grenze gilt auch für Tage, die nicht mehr im 14-Tage-Diagramm stehen, aber im Monat
+ const old=[bucket(0,5),bucket(1,5),bucket(2,5),bucket(3,5),bucket(17,99999)];
+ const g2=buildUtilityGroups([{kind:'gas',statIds:['sensor.gas']}],{'sensor.gas':old},()=>({state:'1',attributes:{unit_of_measurement:'m³'}}),localDay);
+ assert.equal(Object.fromEntries(g2[0].metrics.map(m=>[m.id.split(':').pop(),m.display])).month,'20,00 m³');
+ assert.match(g2[0].note,/^Ohne einen Messfehler \(\d\d\.\d\d\.\), der in den Summen nicht mitgezählt wird\.$/);
 });

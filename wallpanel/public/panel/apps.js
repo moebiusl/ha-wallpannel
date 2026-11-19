@@ -54,7 +54,7 @@
     // Verlauf und Summen für Strom, Solar, Akku, Gas und Wasser (aus den Langzeitstatistiken von Home Assistant).
     function utilitySections(list){
       var html='';
-      for(var i=0;i<list.length;i++){var g=list[i];html+=section(g.title,metricList(g.metrics)+chartHtml(g.chart,g.kind));}
+      for(var i=0;i<list.length;i++){var g=list[i];html+=section(g.title,metricList(g.metrics)+(g.note?'<p class="info-note">'+esc(g.note)+'</p>':'')+chartHtml(g.chart,g.kind));}
       return html;
     }
     function energy(){
@@ -62,7 +62,7 @@
       if(energyError){html+='<p class="app-error" role="alert">'+esc(energyError)+(energyData?' · Letzter bekannter Stand':'')+'</p>';}
       if(!energyData){return '<div class="energy-page">'+html+(energyError?'':'<p class="app-empty" role="status"><span class="panel-spinner"></span> Energiedaten werden geladen …</p>')+'</div>';}
       var d=energyData.energy || {},s=d.summary || {},devices=energyData.devices || [];
-      html+='<div class="app-summary energy-flow">'+metric('Solarleistung',s.solarPowerDisplay,'flow-solar')+metric('Hausverbrauch',s.consumptionDisplay,'flow-home')+metric('Netzleistung',s.gridPowerDisplay,'flow-grid')+metric('Einspeisung',s.feedInDisplay,'flow-export')+'</div>';
+      html+='<div class="app-summary energy-flow">'+metric('Solarleistung',s.solarPowerDisplay,'flow-solar')+metric('Hausverbrauch',s.consumptionDisplay,'flow-home')+metric('Netzleistung',s.gridPowerDisplay,'flow-grid')+metric('Akku',s.powerstreamBatteryDisplay,'flow-export')+'</div>';
       html+=utilitySections(d.utilities || []);
       html+='<div class="energy-storage-grid">'+storage('Powerstream',d.powerstream,d.powerstream && d.powerstream.batteryCharge)+storage('Delta2',d.delta2,d.delta2 && d.delta2.mainBattery)+'</div>';
       html+=section('Haus & Netz',metricList(d.grid || {}));

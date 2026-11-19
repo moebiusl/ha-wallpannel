@@ -948,9 +948,7 @@ async function buildEnergySummary(stateMap?: Map<string, HaState>) {
     grid: {
       title: "Haus / Netz",
       power: metricFromState(stateMap, ENERGY_ENTITIES.grid.power, "Netzleistung"),
-      feedIn: metricFromState(stateMap, ENERGY_ENTITIES.grid.feedIn, "Einspeisung"),
-      consumption: metricFromState(stateMap, ENERGY_ENTITIES.grid.consumption, "Zähler Verbrauch"),
-      feedInTotal: metricFromState(stateMap, ENERGY_ENTITIES.grid.feedInTotal, "Zähler Einspeisung")
+      consumption: metricFromState(stateMap, ENERGY_ENTITIES.grid.consumption, "Zähler Verbrauch")
     },
     updatedAt: formatGermanDateTime(new Date())
   };

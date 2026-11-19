@@ -1284,7 +1284,6 @@ body.large-type .boiler-card .boiler-state { font-size: 25px; }
 .dialog form .info-note { max-width: none; }
 /* Diagrammfarben je Art: Netz blau, Einspeisung grün, Solar gelb, Akku violett */
 .energy-chart-grid .energy-bar { background: #6f9be0; }
-.energy-chart-grid_export .energy-bar { background: #6cc28a; }
 .energy-chart-solar .energy-bar { background: #f2c14e; }
 .energy-chart-battery_in .energy-bar { background: #a98ae0; }
 .energy-chart-battery_out .energy-bar { background: #d38ad0; }
