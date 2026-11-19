@@ -4,9 +4,17 @@
 - Die Designs „Klassisch“ und „Apple“ sind entfernt, es gibt nur noch das neue Panel. Damit entfallen 16 Dateien mit rund 200 KB alter Oberflächen-Code (klassische Seiten für Home, Raum, Energie, Klima, Sicherheit und Wetter samt Apple-Stil)
 - Alte Adressen, Lesezeichen und Homescreen-Symbole (`/`, `start.html`, `raum.html` …) leiten automatisch auf das Panel um. Die Web-App startet jetzt direkt im Panel
 - Gespeicherte Tablet-Profile mit „Klassisch“ oder „Apple“ werden als Panel gelesen, auch auf Tablets, die noch die alte Oberfläche zeigen. Die Design-Auswahl in den Tablet-Einstellungen und in der Verwaltung entfällt
-- Die Verwaltung (`/verwaltung`) bleibt erhalten; ihre Kopfzeile führt jetzt mit „← Wallpanel“ zurück zum Panel
 - Unbekannte Adressen unter `/api/` melden jetzt „404“ statt einer Webseite
 - Die „Schnelllichter“ sind entfernt. Die Einstellung wurde zwar gespeichert, aber nirgends angezeigt
+
+### Neue Verwaltung im Panel
+- Die Verwaltung ist jetzt Teil des neuen Panels: unter **Einstellungen** gibt es neben „Dieses Tablet“ und „Alle Tablets“ die Reiter **Klingel & Töne**, **Automationen**, **System** und **Add-ons & Info**. Erreichbar auch über `/verwaltung`, geschützt mit der PIN
+- Klingel & Töne: Klingel-Sensor, Kamera und Lichter beim Klingeln, Boiler-Schalter, Klingel- und Mitteilungston (zum Anhören), Schnell-Durchsagen, Test-Klingel sowie die Anleitung für Mitteilungen aus Home Assistant
+- Automationen: alle Home-Assistant-Automationen mit letzter Ausführung, zum Ein- und Ausschalten
+- System: die wichtigsten Server-Werte auf einen Blick (alle Messwerte aufklappbar), Aktivitätsprotokoll (Tor, Automationen, Alle) und die Kalibrierung des Wassertanks
+- Add-ons & Info: Version mit Änderungsliste und alle installierten Add-ons mit Update-Knopf
+- In den Auswahllisten (Klingel-Sensor, Kamera, Lichter) erscheinen Geräte mit „#“ am Namenanfang nicht mehr
+- Die alte klassische Verwaltungsseite ist entfernt. Entfallen sind dabei die Einstellungen für die klassischen Seiten („Inhalte“) und die Benachrichtigungs-Schwellwerte, die das Panel nie ausgewertet hat
 
 ### Schneller auf den iPads
 - Start: Die zwölf Skripte des Panels werden jetzt gleichzeitig geladen (vorher eines nach dem anderen) und laufen weiterhin in der richtigen Reihenfolge

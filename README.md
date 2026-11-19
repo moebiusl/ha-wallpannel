@@ -34,7 +34,7 @@ Lokal werden `HA_URL` und `HA_TOKEN` aus `.env` genutzt.
 
 ## Designs und Tabletverwaltung
 
-Das Wallpanel hat nur noch ein Design, das neue Panel unter `/panel/`. Die früheren Designs Klassisch und Apple wurden entfernt; alte Adressen (`/`, `/start.html`, `/raum.html` …) leiten auf das Panel um. Über **Optionen → Tablets** lassen sich Name, Räume, Bildschirmschoner und mehr pro Tablet aus der Ferne einstellen. Die Verwaltung ist direkt über `/verwaltung` erreichbar. Alte gespeicherte Design-Einstellungen (Klassisch, Apple, Apartment) werden als Panel gelesen.
+Das Wallpanel hat nur noch ein Design, das neue Panel unter `/panel/`. Die früheren Designs Klassisch und Apple wurden entfernt; alte Adressen (`/`, `/start.html`, `/raum.html` …) leiten auf das Panel um. Über **Einstellungen → Alle Tablets** lassen sich Name, Räume, Bildschirmschoner und mehr pro Tablet aus der Ferne einstellen; weitere Reiter betreffen Klingel & Töne, Automationen, System und Add-ons. Die Verwaltung ist direkt über `/verwaltung` erreichbar. Alte gespeicherte Design-Einstellungen (Klassisch, Apple, Apartment) werden als Panel gelesen.
 
 Lokale Änderungen, behobene Fehler, Prüfungen und weitere Verbesserungen: [LOCAL-REVIEW.md](LOCAL-REVIEW.md).
 

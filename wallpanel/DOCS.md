@@ -41,13 +41,13 @@ Live-Ansicht: Das Add-on holt den Stream selbst von go2rtc und reicht ihn als MJ
 
 ## Tablets verwalten
 
-Jedes iPad, das das Wallpanel als Web-App vom Homescreen öffnet, meldet sich mit einer eigenen Kennung an. Unter **Optionen → Tablets** (z. B. vom Mac über `http://<HA-IP>:3000/optionen.html`) kannst du für jedes Tablet Name, Raum, Panel, Bildschirmschoner, Nachtmodus und das Klingel-Popup einstellen. Änderungen kommen innerhalb weniger Sekunden auf dem Tablet an. Dort gibt es auch „Identifizieren“ (zeigt den Namen groß auf dem Tablet), „Mitteilung senden“ und „Neu laden“.
+Jedes iPad, das das Wallpanel als Web-App vom Homescreen öffnet, meldet sich mit einer eigenen Kennung an. Unter **Einstellungen → Alle Tablets** (z. B. vom Mac über `http://<HA-IP>:3000/verwaltung`) kannst du für jedes Tablet Name, Raum, Panel, Bildschirmschoner, Nachtmodus und das Klingel-Popup einstellen. Änderungen kommen innerhalb weniger Sekunden auf dem Tablet an. Dort gibt es auch „Identifizieren“ (zeigt den Namen groß auf dem Tablet), „Mitteilung senden“ und „Neu laden“.
 
 Nach einem Add-on-Update laden sich die Tablets automatisch neu, sobald sie kurz nicht bedient werden.
 
 ### Design
 
-Das Wallpanel hat ein einziges Design, das neue Panel unter `/panel/`. Die früheren Designs „Klassisch“ und „Apple“ gibt es nicht mehr. Alte Adressen und Homescreen-Symbole (`/`, `start.html`, `raum.html` …) leiten automatisch auf das Panel um. Die Verwaltung bleibt unter `/verwaltung` (`optionen.html`) erreichbar.
+Das Wallpanel hat ein einziges Design, das neue Panel unter `/panel/`. Die früheren Designs „Klassisch“ und „Apple“ gibt es nicht mehr. Alte Adressen und Homescreen-Symbole (`/`, `start.html`, `raum.html` …) leiten automatisch auf das Panel um. Die Verwaltung (Tablets, Klingel & Töne, Automationen, System, Add-ons & Info) ist eine Ansicht im Panel und über `/verwaltung` erreichbar. Sie ist mit der PIN geschützt.
 
 ### Regenradar
 

@@ -1398,7 +1398,8 @@ app.get(["/panel/", "/panel/index.html"], (_req, res) => {
   res.setHeader("Cache-Control", "no-store");
   res.type("html").send(fs.readFileSync(path.join(__dirname, "../public/panel/index.html"), "utf8").replace("<head>", `<head><script>window.WallpanelBuild=${JSON.stringify(ASSET_VERSION)};</script>`));
 });
-app.get("/verwaltung", (_req, res) => { res.redirect("optionen.html#tablets"); });
+// Die Verwaltung ist jetzt eine Ansicht im Panel (Einstellungen, mit PIN).
+app.get(["/verwaltung", "/optionen.html"], (_req, res) => { res.setHeader("Cache-Control", "no-store"); res.redirect(302, "/panel/#settings"); });
 // Die früheren Designs (Klassisch, Apple) gibt es nicht mehr: alte Adressen, Lesezeichen und Homescreen-Symbole führen zum Panel.
 app.get(["/", "/index.html", "/start.html", "/raum.html", "/energie.html", "/klima.html", "/sicherheit.html", "/wetter.html"], (_req, res) => {
   res.setHeader("Cache-Control", "no-store");
@@ -2702,8 +2703,9 @@ app.get("/api/tablets", async (_req: Request, res: Response) => {
   const now = Date.now();
   let haConnected = true;
   const states = await getAllStates().catch(() => { haConnected=false; return [] as HaState[]; });
+  // Mit „#“ beginnende Namen sind in Home Assistant zum Ausblenden gedacht und werden hier nicht angeboten.
   const pick = (pattern: RegExp) => states
-    .filter((state) => pattern.test(state.entity_id))
+    .filter((state) => pattern.test(state.entity_id) && !String(state.attributes?.friendly_name || "").trim().startsWith("#"))
     .map((state) => ({ entityId: state.entity_id, name: String(state.attributes?.friendly_name || state.entity_id) }))
     .sort((a, b) => a.name.localeCompare(b.name, "de"));
   res.setHeader("Cache-Control", "no-store");

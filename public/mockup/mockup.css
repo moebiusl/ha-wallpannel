@@ -1239,3 +1239,46 @@ body.large-type .boiler-card .boiler-state { font-size: 25px; }
 /* Gekappter Balken (Messfehler): heller Streifen oben, der echte Wert steht darüber */
 .energy-bar-col.is-clipped .energy-bar { box-shadow: inset 0 7px 0 rgba(255,255,255,.7); opacity: 1; }
 .energy-bar-col.is-clipped .energy-bar-value { color: #ffb86b; font-weight: bold; }
+/* Verwaltung: Klingel & Töne, Automationen, System, Add-ons & Info */
+.settings-tabs { -webkit-flex-wrap: wrap; flex-wrap: wrap; }
+.settings-tabs .settings-tab { min-width: 0; padding: 0 6px; }
+.settings-card + .settings-card { margin-top: 14px; }
+.settings-card .card-head { margin-bottom: 10px; }
+.settings-card > .pill, .settings-card .pill + .pill { margin-bottom: 4px; }
+.admin-rows { margin: 4px 0 2px; }
+.admin-row { display: -webkit-flex; display: flex; -webkit-justify-content: space-between; justify-content: space-between; -webkit-align-items: baseline; align-items: baseline; padding: 11px 0; border-bottom: 1px solid #3a3040; }
+.admin-row:last-child { border-bottom: 0; }
+.admin-row > span { color: #b8a7c3; font-size: 13px; }
+.admin-row > strong { margin-left: 16px; color: #eee3f4; font-size: 14px; font-weight: 500; text-align: right; word-wrap: break-word; min-width: 0; }
+.admin-actions { display: -webkit-flex; display: flex; -webkit-flex-wrap: wrap; flex-wrap: wrap; margin-top: 12px; }
+.admin-actions .button { margin: 0 8px 8px 0; }
+.admin-list { margin-top: 4px; }
+.admin-list-row { display: -webkit-flex; display: flex; -webkit-align-items: center; align-items: center; padding: 12px 0; border-bottom: 1px solid #3a3040; }
+.admin-list-row:last-child { border-bottom: 0; }
+.admin-list-row .grow, .admin-log-row .grow { -webkit-flex: 1; flex: 1; min-width: 0; }
+.admin-list-row strong { display: block; color: #eee3f4; font-size: 14px; font-weight: 500; }
+.admin-list-row small, .admin-log-row small { display: block; margin-top: 3px; color: #b8a7c3; font-size: 11px; }
+.admin-list-row .button { margin: 0 0 0 12px; min-width: 90px; }
+.admin-filter { margin-bottom: 12px; }
+.admin-log-day { margin: 14px 0 4px; color: #b8a7c3; font-size: 11px; letter-spacing: .04em; text-transform: uppercase; }
+.admin-log-row { display: -webkit-flex; display: flex; -webkit-align-items: flex-start; align-items: flex-start; padding: 9px 0; border-bottom: 1px solid #342b3a; color: #eee3f4; font-size: 13px; }
+.admin-log-row.is-error { color: #f1a19b; }
+.admin-log-row em { margin-left: 6px; color: #b8a7c3; font-size: 11px; font-style: normal; }
+.admin-log-time { width: 46px; margin-right: 10px; color: #b8a7c3; font-size: 12px; -webkit-flex-shrink: 0; flex-shrink: 0; }
+.admin-log-row .pill { margin-left: 10px; padding: 4px 7px; font-size: 9px; }
+.admin-code { margin: 10px 0 0; padding: 12px; overflow: auto; border-radius: 11px; background: #231d28; color: #d8cbe0; font-family: Menlo, Courier, monospace; font-size: 11px; line-height: 1.5; white-space: pre; -webkit-overflow-scrolling: touch; }
+.admin-checks { max-height: 220px; overflow: auto; -webkit-overflow-scrolling: touch; }
+.admin-changelog { max-height: 62vh; overflow: auto; -webkit-overflow-scrolling: touch; }
+.admin-cl-version { margin: 18px 0 4px; font-size: 16px; }
+.admin-cl-version:first-child { margin-top: 0; }
+.admin-cl-category { margin: 10px 0 4px; color: #e9be89; font-size: 12px; font-weight: 600; }
+.admin-cl-item { margin: 0 0 6px; padding-left: 12px; color: #d8cbe0; font-size: 12px; line-height: 1.5; text-indent: -12px; padding-left: 14px; }
+.admin-cl-item:before { content: "\2022\00a0"; color: #8f6f9c; }
+.dialog form .button + .field, .dialog form .field + .button { margin-top: 12px; }
+@media (max-width: 680px) { .admin-row { display: block; } .admin-row > strong { display: block; margin: 3px 0 0; text-align: left; } .settings-tabs .settings-tab { min-width: 46%; } }
+.dialog form .field select, .dialog form .field textarea, .dialog form .field input:not([type=checkbox]) { display: block; width: 100%; max-width: none; -webkit-box-sizing: border-box; box-sizing: border-box; }
+.dialog form .field select { min-height: 48px; padding: 10px 12px; border: 1px solid #504457; border-radius: 11px; background: #332b39; color: #f0e8f5; font-size: 15px; }
+.dialog form .field { margin-top: 16px; }
+.dialog form .field:first-child { margin-top: 0; }
+.dialog form .field label:not(.checkbox-line) { display: block; margin-bottom: 6px; }
+.dialog form .info-note { max-width: none; }
