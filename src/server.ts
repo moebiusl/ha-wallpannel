@@ -1404,11 +1404,19 @@ app.get(["/", "/index.html", "/start.html", "/raum.html", "/energie.html", "/kli
   res.setHeader("Cache-Control", "no-store");
   res.redirect(302, "/panel/");
 });
+// Dateien mit Versions-Parameter (?_build=<Hash>) ändern sich unter dieser Adresse nie: ein Update bringt neue Adressen.
+// Der Browser behält sie dauerhaft und fragt gar nicht mehr nach, auch nicht für einen 304.
+app.use((req: Request, res: Response, next: () => void) => {
+  if (/^[0-9a-f]{12}$/.test(String(req.query._build || "")) && /\.(?:js|css)$/.test(req.path)) {
+    res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
+  }
+  next();
+});
 app.use(express.static(path.join(__dirname, "../public"), {
+  cacheControl: false,
   setHeaders: (res) => {
-    // no-cache statt no-store: Der Browser behält die Datei und fragt nur per ETag nach (304),
-    // statt CSS/JS bei jedem Seitenwechsel komplett neu zu laden. Updates kommen trotzdem sofort an.
-    res.setHeader("Cache-Control", "no-cache");
+    // Alles andere: no-cache statt no-store. Der Browser behält die Datei und fragt nur per ETag nach (304).
+    if (!res.getHeader("Cache-Control")) { res.setHeader("Cache-Control", "no-cache"); }
   }
 }));
 
@@ -1436,8 +1444,13 @@ app.get("/api/panel/state", async (req, res) => {
     const [structure, states] = await Promise.all([buildHaStructure(), getAllStates()]);
     res.setHeader("Cache-Control", "no-store");
     panelFeatures.observe(structure.entities);
-    res.json({ revision: structure.structureRevision, areas: structure.areas, floors: structure.floors,
-      entities: withLightGroups(projectPanelEntities(structure.entities, states)).filter(entity => req.query.compact !== "1" || ["light","climate","media_player","switch","input_boolean","scene"].includes(entity.domain) || entity.deviceClass === "battery" || req.query.view === "security" && entity.domain === "binary_sensor" && ["motion","occupancy","presence","door","window","opening","garage_door","smoke","gas","carbon_monoxide","moisture","safety"].includes(entity.deviceClass)), roomReadings: roomReadings(structure.entities), inbox: panelFeatures.list() });
+    const payload = { revision: structure.structureRevision, areas: structure.areas, floors: structure.floors,
+      entities: withLightGroups(projectPanelEntities(structure.entities, states)).filter(entity => req.query.compact !== "1" || ["light","climate","media_player","switch","input_boolean","scene"].includes(entity.domain) || entity.deviceClass === "battery" || req.query.view === "security" && entity.domain === "binary_sensor" && ["motion","occupancy","presence","door","window","opening","garage_door","smoke","gas","carbon_monoxide","moisture","safety"].includes(entity.deviceClass)), roomReadings: roomReadings(structure.entities), inbox: panelFeatures.list() };
+    // Unverändert seit der letzten Abfrage des Tablets (?since=<Kennung>): nur eine Zeile statt der ganzen Liste senden.
+    const body = JSON.stringify(payload);
+    const etag = crypto.createHash("sha1").update(body).digest("hex").slice(0, 16);
+    if (req.query.since === etag) { res.json({ unchanged: true }); return; }
+    res.type("json").send(`${body.slice(0, -1)},"etag":"${etag}"}`);
   } catch { res.status(502).json({ ok: false, message: "Home Assistant nicht erreichbar" }); }
 });
 

@@ -7,6 +7,11 @@
 - Die Verwaltung (`/verwaltung`) bleibt erhalten; ihre Kopfzeile führt jetzt mit „← Wallpanel“ zurück zum Panel
 - Unbekannte Adressen unter `/api/` melden jetzt „404“ statt einer Webseite
 
+### Schneller auf den iPads
+- Start: Die zwölf Skripte des Panels werden jetzt gleichzeitig geladen (vorher eines nach dem anderen) und laufen weiterhin in der richtigen Reihenfolge
+- Neuladen: Dateien mit Versionskennung bleiben dauerhaft im Browser. Vorher hat jedes Tablet bei jedem Neuladen für jede Datei erneut beim Server nachgefragt. Nach einem Update kommen die neuen Dateien sofort, weil sich ihre Adresse ändert
+- Dauerbetrieb: Die Geräteliste (rund 62 KB) wird nur noch übertragen und ausgewertet, wenn sie sich geändert hat; sonst antwortet der Server mit einer Zeile (18 Byte). Das spart Datenverkehr und Rechenzeit auf den alten iPads, bei jeder Abfrage alle 5 Sekunden
+
 ## 1.11.7
 
 ### Gas und Wasser auf der Energieseite
