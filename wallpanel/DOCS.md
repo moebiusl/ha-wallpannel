@@ -51,7 +51,9 @@ Das Wallpanel hat ein einziges Design, das neue Panel unter `/panel/`. Die früh
 
 ### Regenradar
 
-Die Wetterseite zeigt ein bewegtes Regenradar des Deutschen Wetterdienstes: die letzte Stunde und eine Vorhersage für knapp 2 Stunden, mit Zeitleiste, Play/Pause und deinem Standort (aus der HA-Konfiguration). Darüber steht, wann der Regen bei dir anfängt oder aufhört. Das Add-on holt die Bilder beim DWD und speichert sie zwischen; die Tablets laden nur die fertigen Bilder. Ist der DWD nicht erreichbar, erscheint wie bisher das Radarbild aus Home Assistant.
+Die Wetterseite zeigt ein bewegtes Regenradar: die Radarbilder der letzten zwei Stunden (RainViewer) auf einer Karte von OpenStreetMap, mit Zeitleiste, Play/Pause und deinem Standort (aus der HA-Konfiguration). Darüber steht, wann der Regen bei dir anfängt oder aufhört; das kommt aus einer 15-Minuten-Modellprognose von Open-Meteo, dazu gibt es den Niederschlagsverlauf der nächsten Stunden. Es gibt keine Radar-Zukunftsbilder, die Prognose steht nur als Text und Verlauf da.
+
+Das Add-on holt nur kleine fertige Kartenkacheln und gibt sie weiter; Karten werden bis zu sieben Tage zwischengespeichert. Fällt eine der Quellen aus, zeigt es den letzten guten Stand bis zu drei Stunden weiter (als „veraltet“ gekennzeichnet). Das Radar braucht Internetzugang zu `api.rainviewer.com`, `tilecache.rainviewer.com`, `api.open-meteo.com` und `tile.openstreetmap.org`.
 
 ### Klingel
 

@@ -61,7 +61,7 @@ Die PIN des Mockups ist nur eine UI-Demonstration, keine Produktionsauthentifizi
 HA verwaltet Namen, Gerätetypen, Fähigkeiten, Räume und Sichtbarkeit. Im Entwurf gibt es keine Pflicht zu einer zweiten Geräteliste.
 
 - Räume mit führendem `#` bleiben ausgeblendet, einschließlich führender Leerzeichen vor `#`.
-- Nicht erreichbare Kameras werden ausgeblendet; die DWD-Wetterkarte gehört zum Wetter.
+- Nicht erreichbare Kameras werden ausgeblendet; die Wetterkarte (Regenradar) gehört zum Wetter.
 - Bei der bestehenden Live-Anbindung beschreibt ein HA-Status bzw. Verbindungssensor die gemeldete Erreichbarkeit. Ein Status wie `idle` beweist noch keinen erfolgreichen Bildabruf. Bildfehler mit begrenzter Wiederholung/Ausblendung müssen vor der echten Kameraübernahme behandelt werden.
 - Ein ausgeblendeter oder entfernter Raum wird nicht durch einen fremden Raum ersetzt.
 

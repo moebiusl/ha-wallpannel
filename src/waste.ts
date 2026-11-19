@@ -20,6 +20,15 @@ export function berlinToday(now: number): number {
   return Date.UTC(local.getUTCFullYear(), local.getUTCMonth(), local.getUTCDate());
 }
 
+/** „HH:MM“ in deutscher Zeit, unabhängig von Zeitzone und Sprachdaten des Containers (sonst käme „9:50 AM“). */
+export function berlinClock(ms: number): string {
+  const year = new Date(ms).getUTCFullYear();
+  const summer = ms >= lastSundayUtc(year, 2) && ms < lastSundayUtc(year, 9);
+  const local = new Date(ms + (summer ? 2 : 1) * 60 * 60 * 1000);
+  const pad = (n: number) => (n < 10 ? "0" : "") + n;
+  return `${pad(local.getUTCHours())}:${pad(local.getUTCMinutes())}`;
+}
+
 /** Beginn des heutigen Tages in deutscher Zeit als Zeitpunkt (Millisekunden). */
 export function berlinDayStartMs(now: number): number {
   const day = berlinToday(now);

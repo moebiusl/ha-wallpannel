@@ -39,4 +39,4 @@ Automatisierte Tests simulieren Hinzufügen, Löschen, Umbenennen, Raumwechsel, 
 
 ## Ergänzung zum neuen Entwurf
 
-HA-Räume mit führendem `#` werden ausgeblendet. Kameras benötigen einen erreichbaren HA-Status und gegebenenfalls einen positiven Verbindungssensor. DWD-Wetterkarten werden aus der Kameraliste ausgeschlossen und bleiben Wetterinhalte. Die Erreichbarkeit folgt den HA-Meldungen und ist noch kein vollständiger Bild-/Livestream-Test. Details zum separaten, ausschließlich simulierten Entwurf: [MOCKUP.md](MOCKUP.md).
+HA-Räume mit führendem `#` werden ausgeblendet. Kameras benötigen einen erreichbaren HA-Status und gegebenenfalls einen positiven Verbindungssensor. DWD-Wetterkarten (HA-Kameras) werden aus der Kameraliste ausgeschlossen und bleiben Wetterinhalte. Die Erreichbarkeit folgt den HA-Meldungen und ist noch kein vollständiger Bild-/Livestream-Test. Details zum separaten, ausschließlich simulierten Entwurf: [MOCKUP.md](MOCKUP.md).

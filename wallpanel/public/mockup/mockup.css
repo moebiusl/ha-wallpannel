@@ -1287,3 +1287,10 @@ body.large-type .boiler-card .boiler-state { font-size: 25px; }
 .energy-chart-solar .energy-bar { background: #f2c14e; }
 .energy-chart-battery_in .energy-bar { background: #a98ae0; }
 .energy-chart-battery_out .energy-bar { background: #d38ad0; }
+/* Regenradar: Kartenkacheln mit Radar-Überlagerung */
+.radar-map img.radar-tile { position: absolute; width: 256px; height: 256px; max-width: none; max-height: none; object-fit: fill; -webkit-user-select: none; user-select: none; pointer-events: none; }
+.radar-map img.radar-tile-rain { opacity: .72; }
+.radar-credit { position: absolute; right: 6px; bottom: 4px; padding: 1px 5px; border-radius: 4px; background: rgba(255,255,255,.75); color: #444; font-size: 9px; }
+.radar-note { margin: 8px 0 0; color: #b8a7c3; font-size: 11px; }
+.radar-home { z-index: 2; }
+.radar-loading { z-index: 3; }

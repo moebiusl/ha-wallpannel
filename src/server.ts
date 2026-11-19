@@ -17,7 +17,7 @@ import path from "path";
 import { getHaRegistries, HaRegistries, runAssist, runHaCommand, runTts, subscribeToHaEvents, subscribeToStateChanges } from "./ha-websocket";
 import { computeAssetVersion, createTabletRegistry, normalizeSound } from "./tablets";
 import { createCameraLive, LiveSource, MjpegThrottle } from "./camera-live";
-import { createRadar } from "./radar";
+import { createWeatherRadar, RadarError } from "./weather-radar";
 import { wasteDaysUntil, berlinToday, berlinDayStartMs } from "./waste";
 import { buildUtilityGroups, parseDailyBuckets, pickUtilitySources, UTILITY_HISTORY_DAYS, UtilitySource, DailyBucket } from "./energy-utilities";
 import { BOILER_TIMER, BoilerEntity, boilerCandidates, chooseBoilerEntity, lastOnFromHistory, lastOnFromState } from "./boiler";
@@ -1981,47 +1981,39 @@ async function getHaLocation(): Promise<{ lat: number; lon: number } | null> {
   }
 }
 
-const radar = createRadar({ http: axios.create(), getLocation: getHaLocation, describeError });
+const weatherRadar = createWeatherRadar({
+  http: axios.create(),
+  getLocation: getHaLocation,
+  describeError,
+  cacheDir: path.join(path.dirname(getConfigPath()), "weather-tiles"),
+  userAgent: `HA-Wallpanel/${readLocalVersion()} (private home dashboard)`
+});
 
 app.get("/api/radar", async (_req: Request, res: Response) => {
-  const info = await radar.getInfo();
+  const info = await weatherRadar.getSummary();
   res.setHeader("Cache-Control", "no-store");
-  if (!info) {
-    res.status(503).json({ ok: false, message: "Regenradar nicht verfügbar" });
+  if (!info || !info.frames.length) {
+    res.status(503).json({ ok: false, message: info ? "Keine Radarbilder verfügbar" : "Regenradar nicht verfügbar", summary: info?.summary || "" });
     return;
   }
-  res.json({ ok: true, ...info });
+  res.json({
+    ok: true, status: info.status, summary: info.summary, shortSummary: info.shortSummary, level: info.level, series: info.series, view: info.view,
+    frames: info.frames.map((frame) => ({ time: new Date(frame.time * 1000).toISOString(), epoch: frame.time, forecast: false }))
+  });
 });
 
-app.get("/api/radar/base.png", async (_req: Request, res: Response) => {
+// Kacheln: Karte (OpenStreetMap, lokal zwischengespeichert) und Radar (RainViewer, je Aufnahmezeit)
+app.get(/^\/api\/radar\/tile\/(map|radar)\/(\d+)\/(\d+)\/(\d+)\/(\d+)\.png$/, async (req: Request, res: Response) => {
+  const params = req.params as unknown as string[];
   try {
-    const data = await radar.getBaseImage();
-    if (!data) { res.status(503).end(); return; }
+    const data = await weatherRadar.getTile(params[0], Number(params[1]), Number(params[2]), Number(params[3]), Number(params[4]));
     res.setHeader("Content-Type", "image/png");
-    res.setHeader("Cache-Control", "private, max-age=86400");
+    res.setHeader("Cache-Control", params[0] === "map" ? "public, max-age=604800" : "private, max-age=3600");
     res.send(data);
   } catch (error) {
-    console.warn(`Radar-Karte nicht verfügbar: ${describeError(error)}`);
-    res.status(502).end();
-  }
-});
-
-app.get("/api/radar/frame", async (req: Request, res: Response) => {
-  const time = typeof req.query.time === "string" ? req.query.time : "";
-  if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:00)?Z$/.test(time)) {
-    res.status(400).end();
-    return;
-  }
-  try {
-    const data = await radar.getFrameImage(time);
-    if (!data) { res.status(404).end(); return; }
-    res.setHeader("Content-Type", "image/png");
-    // Die URL enthält die Referenzzeit des DWD-Laufs – ein neuer Lauf ergibt neue URLs.
-    res.setHeader("Cache-Control", "private, max-age=3600");
-    res.send(data);
-  } catch (error) {
-    console.warn(`Radarbild nicht verfügbar (${time}): ${describeError(error)}`);
-    res.status(502).end();
+    const status = error instanceof RadarError ? error.status : 502;
+    if (status >= 500) { console.warn(`Radarkachel nicht verfügbar: ${describeError(error)}`); }
+    res.status(status).end();
   }
 });
 
@@ -2051,7 +2043,7 @@ app.get("/api/dashboard", async (req: Request, res: Response) => {
   ]);
   const weather = extractWeatherSummary(weatherSummary, weatherForecast);
   // Wetterkachel: minutengenauer Satz aus dem Regenradar, sonst die Tagesvorhersage.
-  const radarInfo = radar.getCachedInfo();
+  const radarInfo = weatherRadar.getCachedSummary();
   const forecastOutlook = buildPrecipitationOutlook(rainRateEntity, homeHourlyForecast);
   const precipitationOutlook = radarInfo && radarInfo.shortSummary
     ? { ...forecastOutlook, text: radarInfo.shortSummary, source: "radar" }

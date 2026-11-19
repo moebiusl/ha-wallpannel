@@ -39,7 +39,7 @@ Modernes WebKit und ES5-Prüfung ersetzen keinen Test auf iOS 9.3.6. Offen ist d
 
 ## Detailumfang und Rückmeldungen
 
-- Wetter verwendet zusätzlich `/api/wetterstation` und `/api/wassertank`: Außenwerte, Tages-/Monats-/Jahresregen, Regenrate, Druck/Trend, Wind/Kompass, UV, Tankinhalt/-höhe und vorhandene LED-Bedienung. DWD-Vorhersage und Radar mit Zeitleiste, Einzelbildern, Abspielen/Pause und Niederschlagsverlauf sind im selben Popup erreichbar.
+- Wetter verwendet zusätzlich `/api/wetterstation` und `/api/wassertank`: Außenwerte, Tages-/Monats-/Jahresregen, Regenrate, Druck/Trend, Wind/Kompass, UV, Tankinhalt/-höhe und vorhandene LED-Bedienung. Vorhersage und Regenradar (RainViewer) mit Zeitleiste, Einzelbildern, Abspielen/Pause und Niederschlagsverlauf sind im selben Popup erreichbar.
 - Energie übernimmt die komplette bestehende `/api/energy`-Antwort: Zusammenfassung inklusive Lade-/Restzeit und Tageswerten, Powerstream, Haus/Netz, Delta2 sowie sichtbare Batterien.
 - Das Tor-Popup enthält Status, Schließ-/Fahrzeit, smarte Steuerung, Automatik, Dauer-Auf, AutoÖffnen, Impuls und +60 Sekunden. Das Öffnen des Popups löst keinen Torbefehl aus.
 - Schaltende Geräte pulsieren bis zur HA-Bestätigung. Ein/Aus-Bestätigung wurde korrigiert; ausstehende Aktionen sperren weitere identische Befehle. Hintergrundaktualisierungen ersetzen während einer Berührung keine Kacheln.

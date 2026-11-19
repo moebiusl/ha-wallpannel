@@ -1,3 +1,13 @@
+## 1.12.1
+
+### Regenradar lädt wieder zuverlässig
+- Das Radar nutzt jetzt wie das Apartment-Wallpanel RainViewer-Kacheln auf einer OpenStreetMap-Karte, statt Bilder vom DWD-Kartendienst zu rendern. Der DWD-Dienst lieferte bei jedem Aufruf eine fast 1 MB große Liste und lief auf dem Anschluss oft in die Zeitüberschreitung („Regenradar nicht verfügbar“)
+- Das Radar antwortet jetzt in Sekundenbruchteilen; die Bilder der letzten zwei Stunden laufen mit Zeitleiste und Play/Pause. Der Standort liegt in der Mitte
+- Regenbeginn und -ende (auch auf der Wetterkachel der Übersicht) und der Niederschlagsverlauf der nächsten Stunden kommen aus einer 15-Minuten-Prognose von Open-Meteo
+- Fällt eine Quelle aus, bleibt der letzte gute Stand bis zu drei Stunden sichtbar; ein einzelner Ausfall lässt die Karte nicht mehr leer
+- Neu: Es gibt keine Radar-Zukunftsbilder mehr (der DWD zeigte etwa 2 Stunden voraus). Die Prognose steht stattdessen als Text und Verlauf da
+- Die Quellenangaben „© OpenStreetMap“ und „Radar: RainViewer“ stehen unter der Karte
+
 ## 1.12.0
 
 ### Nur noch ein Design

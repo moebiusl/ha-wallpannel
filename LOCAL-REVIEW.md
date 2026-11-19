@@ -73,7 +73,7 @@ Zusätzlich behoben: Wetterauswahl ignoriert nicht verfügbare und explizit vers
 
 ## Funktionsabgleich mit dem bisherigen Wallpanel
 
-Die verkürzten Wetter-, Energie- und Tor-Popups wurden durch vollständige Ansichten der bestehenden Serverdaten und Torfunktionen ersetzt. Wetter umfasst Wetterstation, Tank/LED, Vorhersage und bedienbares DWD-Radar; Energie umfasst Powerstream, Netz, Delta2, Tages-/Restzeitwerte und Batterien. Die Tor-Kachel öffnet die Steuerung, statt unmittelbar eine Öffnung anzufordern.
+Die verkürzten Wetter-, Energie- und Tor-Popups wurden durch vollständige Ansichten der bestehenden Serverdaten und Torfunktionen ersetzt. Wetter umfasst Wetterstation, Tank/LED, Vorhersage und bedienbares Regenradar; Energie umfasst Powerstream, Netz, Delta2, Tages-/Restzeitwerte und Batterien. Die Tor-Kachel öffnet die Steuerung, statt unmittelbar eine Öffnung anzufordern.
 
 Die Raumansicht folgt der Apartment-Vorlage: Musik und Licht nebeneinander, darunter Raumklima-Karten. Lichtkacheln enthalten keine direkten Regler mehr; kurzes Tippen schaltet und Halten öffnet den senkrechten Dimmer beziehungsweise Schalter.
 
