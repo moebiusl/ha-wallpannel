@@ -18,7 +18,8 @@ import { getHaRegistries, HaRegistries, runAssist, runHaCommand, runTts, subscri
 import { computeAssetVersion, createTabletRegistry, normalizeSound } from "./tablets";
 import { createCameraLive, LiveSource, MjpegThrottle } from "./camera-live";
 import { createRadar } from "./radar";
-import { wasteDaysUntil } from "./waste";
+import { wasteDaysUntil, berlinToday } from "./waste";
+import { buildUtilityGroups, parseDailyBuckets, pickUtilitySources, UTILITY_HISTORY_DAYS, UtilitySource, DailyBucket } from "./energy-utilities";
 import { BOILER_TIMER, BoilerEntity, boilerCandidates, chooseBoilerEntity, lastOnFromHistory, lastOnFromState } from "./boiler";
 import { readPanelConfig, writePanelConfig, getConfigPath } from "./panel-config";
 import { getDomain } from "./entity-filter";
@@ -823,6 +824,35 @@ function sumMetrics(states: Map<string, HaState>, entityIds: string[]): number |
   return hasValue ? sum : null;
 }
 
+// Gas und Wasser kommen aus den Energie-Einstellungen von Home Assistant (keine festen Sensor-Namen).
+let utilityCache: { at: number; sources: UtilitySource[]; buckets: Record<string, DailyBucket[]> } | null = null;
+const UTILITY_CACHE_MS = 60000;
+async function loadUtilityData(): Promise<{ sources: UtilitySource[]; buckets: Record<string, DailyBucket[]> }> {
+  if (utilityCache && Date.now() - utilityCache.at < UTILITY_CACHE_MS) { return utilityCache; }
+  try {
+    const sources = pickUtilitySources(await runHaCommand(HA_URL, HA_TOKEN, "energy/get_prefs", {}));
+    const buckets: Record<string, DailyBucket[]> = {};
+    if (sources.length) {
+      const day = berlinToday(Date.now());
+      const raw = await runHaCommand(HA_URL, HA_TOKEN, "recorder/statistics_during_period", {
+        start_time: new Date(day - UTILITY_HISTORY_DAYS * 24 * 60 * 60 * 1000).toISOString(),
+        statistic_ids: sources.map((source) => source.statId), period: "day", types: ["change"]
+      });
+      for (const source of sources) { buckets[source.statId] = parseDailyBuckets(raw, source.statId); }
+    }
+    utilityCache = { at: Date.now(), sources, buckets };
+  } catch (error) {
+    // Home Assistant hat die Energie-Daten (noch) nicht: nichts anzeigen, nach 30 s erneut versuchen.
+    console.warn(`Gas/Wasser aus den Energie-Einstellungen nicht lesbar: ${describeError(error)}`);
+    utilityCache = { at: Date.now() - UTILITY_CACHE_MS + 30000, sources: utilityCache?.sources || [], buckets: utilityCache?.buckets || {} };
+  }
+  return utilityCache;
+}
+async function buildUtilities(stateMap: Map<string, HaState>) {
+  const { sources, buckets } = await loadUtilityData();
+  return buildUtilityGroups(sources, buckets, (id) => stateMap.get(id), berlinToday(Date.now()));
+}
+
 async function buildEnergySummary(stateMap?: Map<string, HaState>) {
   stateMap = stateMap || await getStateMap();
   const deltaSolar = numericState(readStateFromMap(stateMap, ENERGY_ENTITIES.delta2.solarInPower));
@@ -1411,7 +1441,8 @@ app.get("/api/panel/energy", async (_req,res) => {
     const [structure,states]=await Promise.all([buildHaStructure(),getAllStates()]);
     const devices=projectPanelEntities(structure.entities,states).filter(entity => ["sensor","binary_sensor"].includes(entity.domain) && ["battery","power","energy","voltage","current"].includes(entity.deviceClass));
     const energy=await buildEnergySummary(new Map(states.map(state=>[state.entity_id,state])));
-    res.setHeader("Cache-Control","no-store");res.json({energy,devices});
+    const utilities=await buildUtilities(new Map(states.map(state=>[state.entity_id,state])));
+    res.setHeader("Cache-Control","no-store");res.json({energy:{...energy,utilities},devices});
   } catch { res.status(502).json({ok:false,message:"Energiedaten aus Home Assistant nicht erreichbar."}); }
 });
 
@@ -1475,7 +1506,8 @@ app.get("/api/page/:panelId/:pageId", async (req: Request, res: Response) => {
 
 app.get("/api/energy", async (_req: Request, res: Response) => {
   try {
-    res.json(await buildEnergySummary());
+    const stateMap = await getStateMap();
+    res.json({ ...(await buildEnergySummary(stateMap)), utilities: await buildUtilities(stateMap) });
   } catch (error) {
     console.error(`Fehler beim Laden der Energiedaten: ${describeError(error)}`);
     res.status(500).json({ ok: false, message: "energy unavailable" });

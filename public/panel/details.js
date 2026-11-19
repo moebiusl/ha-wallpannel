@@ -20,6 +20,7 @@
     function renderEnergy(d){var s=d.summary || {},html='<div class="detail-grid detail-summary">';
       var summaries=[['Solar aktuell','solarPowerDisplay'],['Verbrauch','consumptionDisplay'],['Netzleistung','gridPowerDisplay'],['Powerstream Akku','powerstreamBatteryDisplay'],['Einspeisung','feedInDisplay'],['Bis voll','chargeTimeDisplay'],['Bis leer','dischargeTimeDisplay'],['Akku genutzt heute','fromBatteryTodayDisplay'],['In Akku heute','toBatteryTodayDisplay']];
       for(var i=0;i<summaries.length;i++){html+=metric(summaries[i][0],s[summaries[i][1]]);}html+='</div>';
+      var utilities=d.utilities || [];for(var ui2=0;ui2<utilities.length;ui2++){html+=section(utilities[ui2].title,utilities[ui2].metrics);}
       html+=section('Powerstream',fields(d.powerstream,['batteryCharge','solarPower','inverterOutputWatts','batteryInputWatts','chargeTime','dischargeTime','fromBatteryToday','toBatteryToday','pv1Today','pv2Today','status','smartPlugLoads','otherLoads','batteryStatus','batteryTemperature','inverterTemperature']));
       html+=section('Haus / Netz',fields(d.grid,['power','feedIn','consumption','feedInTotal']));
       html+=section('Delta2',fields(d.delta2,['status','totalInPower','totalOutPower','solarInPower','acInPower','acOutPower','remainingTime','batteryTemperature','cycles']));

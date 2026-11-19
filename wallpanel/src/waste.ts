@@ -13,7 +13,7 @@ function lastSundayUtc(year: number, month: number): number {
 }
 
 /** Heutiges Datum in deutscher Zeit als UTC-Mitternacht (unabhängig von der Zeitzone des Containers). */
-function berlinToday(now: number): number {
+export function berlinToday(now: number): number {
   const year = new Date(now).getUTCFullYear();
   const summer = now >= lastSundayUtc(year, 2) && now < lastSundayUtc(year, 9);
   const local = new Date(now + (summer ? 2 : 1) * 60 * 60 * 1000);

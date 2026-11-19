@@ -91,6 +91,11 @@ function renderEnergyPage(data) {
   if (!mount) { return; }
   mount.innerHTML = "";
 
+  var utilities = data.utilities || [];
+  for (var u = 0; u < utilities.length; u++) {
+    appendEnergySection(mount, utilities[u].title, utilities[u].metrics);
+  }
+
   appendEnergySection(mount, "Powerstream", [
     data.powerstream.batteryCharge,
     data.powerstream.solarPower,

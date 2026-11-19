@@ -1,3 +1,10 @@
+## 1.11.7
+
+### Gas und Wasser auf der Energieseite
+- Gas- und Wasserzähler erscheinen als eigene Abschnitte unter der Strom-Übersicht, im neuen Panel und auf der klassischen Energieseite: Heute, Gestern, Letzte 7 Tage, Dieser Monat und Zählerstand
+- Die Zähler kommen aus den Energie-Einstellungen von Home Assistant (Einstellungen → Dashboards → Energie). Dort einmal eintragen, mehr ist nicht nötig. Der Wasserzähler erscheint automatisch, sobald er dort steht
+- Sind dort noch keine Gas- oder Wasserzähler eingetragen oder ist Home Assistant nicht erreichbar, bleibt der Bereich einfach weg
+
 ## 1.11.6
 
 ### Klingel und Durchsagen kommen wieder an
