@@ -1,5 +1,5 @@
 const {test}=require('node:test'),assert=require('node:assert/strict');
-const {pickUtilitySources,parseDailyBuckets,formatAmount,utilityMetrics,buildUtilityGroups}=require('../src/energy-utilities');
+const {pickUtilitySources,parseDailyBuckets,formatAmount,utilityMetrics,buildUtilityGroups,utilityChart}=require('../src/energy-utilities');
 const DAY=86400000,localDay=Date.UTC(2026,10,19); // 19.11.2026
 const bucket=(daysAgo,change)=>({start:localDay-daysAgo*DAY-3600000,change}); // Mitternacht deutscher Zeit = 23:00 UTC Vortag
 
@@ -43,4 +43,16 @@ test('Gruppen: Titel Gas/Wasser, bei mehreren Zählern mit Namen',()=>{
  assert.deepEqual(g.map(x=>x.title),['Gas','Wasser']);assert.equal(g[0].metrics[0].id,'sensor.gas:today');
  const two=buildUtilityGroups([{kind:'gas',statId:'sensor.gas'},{kind:'gas',statId:'sensor.gas2'}],{},id=>id==='sensor.gas'?states['sensor.gas']:{state:'3',attributes:{unit_of_measurement:'m³'}},localDay);
  assert.deepEqual(two.map(x=>x.title),['Gas · Gaszähler','Gas · sensor.gas2']);
+});
+
+test('Diagramm: 14 Tage, lückenlos, heute zuletzt, ohne Statistik kein Diagramm',()=>{
+ const c=utilityChart([bucket(0,0.762),bucket(1,4),bucket(3,2),bucket(20,9)],'m³',localDay);
+ assert.equal(c.bars.length,14);assert.equal(c.bars[13].today,true);assert.equal(c.bars.filter(b=>b.today).length,1);
+ assert.equal(c.bars[13].day,'19');assert.equal(c.bars[13].weekday,'Do');   // 19.11.2026 ist ein Donnerstag
+ assert.equal(c.bars[12].day,'18');assert.equal(c.bars[12].value,4);
+ assert.equal(c.bars[11].value,0);assert.equal(c.bars[10].value,2);       // Lücke wird 0
+ assert.equal(c.bars[13].label,'0,762');assert.equal(c.max,4);            // 20 Tage alte Daten fehlen
+ assert.equal(utilityChart([],'m³',localDay),null);
+ const g=buildUtilityGroups([{kind:'gas',statId:'sensor.gas'}],{'sensor.gas':[bucket(0,1)]},()=>({state:'1',attributes:{unit_of_measurement:'m³'}}),localDay);
+ assert.equal(g[0].kind,'gas');assert.equal(g[0].chart.unit,'m³');
 });

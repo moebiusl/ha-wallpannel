@@ -6,7 +6,9 @@ export type UtilityKind = "gas" | "water";
 export type UtilitySource = { kind: UtilityKind; statId: string };
 export type DailyBucket = { start: number; change: number };
 export type UtilityMetric = { id: string; label: string; display: string };
-export type UtilityGroup = { id: string; title: string; metrics: UtilityMetric[] };
+export type ChartBar = { weekday: string; day: string; value: number; label: string; today: boolean };
+export type UtilityChart = { unit: string; bars: ChartBar[]; max: number };
+export type UtilityGroup = { id: string; title: string; kind: UtilityKind; metrics: UtilityMetric[]; chart: UtilityChart | null };
 type StateLike = { state?: string; attributes?: Record<string, unknown> } | undefined;
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -42,10 +44,30 @@ export function parseDailyBuckets(raw: unknown, statId: string): DailyBucket[] {
   return buckets.sort((a, b) => a.start - b.start);
 }
 
-export function formatAmount(value: number, unit: string): string {
+export function formatNumber(value: number, unit: string): string {
   const decimals = unit === "L" || unit === "l" ? 0 : unit === "m³" ? (value < 10 ? 3 : value < 100 ? 2 : 1) : (value < 10 ? 2 : 1);
-  const text = value.toFixed(decimals).replace(".", ",");
+  return value.toFixed(decimals).replace(".", ",");
+}
+
+export function formatAmount(value: number, unit: string): string {
+  const text = formatNumber(value, unit);
   return unit ? `${text} ${unit}` : text;
+}
+
+const WEEKDAYS = ["So", "Mo", "Di", "Mi", "Do", "Fr", "Sa"];
+export const CHART_DAYS = 14;
+
+/** Tagesbalken der letzten 14 Tage (Tage ohne Statistik zählen als 0). */
+export function utilityChart(buckets: DailyBucket[], unit: string, localDay: number): UtilityChart | null {
+  if (!buckets.length) { return null; }
+  const bars: ChartBar[] = [];
+  for (let i = CHART_DAYS - 1; i >= 0; i--) {
+    const dayStart = localDay - i * DAY_MS;
+    const value = Math.max(0, sumSince(buckets, dayStart - TOLERANCE_MS, dayStart + DAY_MS - TOLERANCE_MS));
+    const date = new Date(dayStart);
+    bars.push({ weekday: WEEKDAYS[date.getUTCDay()], day: String(date.getUTCDate()), value, label: formatNumber(value, unit), today: i === 0 });
+  }
+  return { unit, bars, max: Math.max(...bars.map((b) => b.value)) };
 }
 
 function sumSince(buckets: DailyBucket[], from: number, to: number): number {
@@ -94,8 +116,12 @@ export function buildUtilityGroups(
     if (!metrics.length) { continue; }
     const same = sources.filter((s) => s.kind === source.kind);
     const name = same.length > 1 ? String(stateOf(source.statId)?.attributes?.friendly_name || source.statId) : "";
+    const state = stateOf(source.statId);
+    const unit = typeof state?.attributes?.unit_of_measurement === "string" ? String(state.attributes.unit_of_measurement) : "";
     groups.push({
       id: `${source.kind}:${source.statId}`,
+      kind: source.kind,
+      chart: utilityChart(bucketsByStat[source.statId] || [], unit, localDay),
       title: name ? `${TITLES[source.kind]} · ${name}` : TITLES[source.kind],
       metrics: metrics.map((m) => ({ ...m, id: `${source.statId}:${m.id}` }))
     });

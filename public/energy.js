@@ -78,6 +78,30 @@ function energySection(title, metrics) {
   return section;
 }
 
+function energyChart(chart, kind) {
+  if (!chart || !chart.bars || !chart.bars.length) { return null; }
+  var wrap = document.createElement("div");
+  wrap.className = "energy-chart energy-chart-" + kind;
+  var html = '<div class="energy-chart-head"><span>Pro Tag</span><span></span></div><div class="energy-chart-bars">';
+  for (var i = 0; i < chart.bars.length; i++) {
+    var b = chart.bars[i];
+    var h = chart.max > 0 && b.value > 0 ? Math.max(3, Math.round(b.value / chart.max * 100)) : 0;
+    html += '<div class="energy-bar-col' + (b.today ? " is-today" : "") + '"><span class="energy-bar-value"></span><div class="energy-bar-track"><div class="energy-bar" style="height:' + h + '%"></div></div><span class="energy-bar-label"></span></div>';
+  }
+  wrap.innerHTML = html + "</div>";
+  wrap.setAttribute("role", "img");
+  wrap.setAttribute("aria-label", "Verbrauch pro Tag, letzte " + chart.bars.length + " Tage");
+  wrap.querySelector(".energy-chart-head span:last-child").textContent = chart.unit || "";
+  var values = wrap.querySelectorAll(".energy-bar-value"), labels = wrap.querySelectorAll(".energy-bar-label");
+  for (var j = 0; j < chart.bars.length; j++) {
+    values[j].textContent = chart.bars[j].value > 0 ? chart.bars[j].label : "";
+    labels[j].appendChild(document.createTextNode(chart.bars[j].weekday));
+    labels[j].appendChild(document.createElement("br"));
+    labels[j].appendChild(document.createTextNode(chart.bars[j].day));
+  }
+  return wrap;
+}
+
 function renderEnergyPage(data) {
   if (!data || !data.summary) { return; }
 
@@ -94,6 +118,8 @@ function renderEnergyPage(data) {
   var utilities = data.utilities || [];
   for (var u = 0; u < utilities.length; u++) {
     appendEnergySection(mount, utilities[u].title, utilities[u].metrics);
+    var chart = energyChart(utilities[u].chart, utilities[u].kind);
+    if (chart && mount.lastChild) { mount.lastChild.appendChild(chart); }
   }
 
   appendEnergySection(mount, "Powerstream", [

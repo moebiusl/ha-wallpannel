@@ -2,6 +2,7 @@
 
 ### Gas und Wasser auf der Energieseite
 - Gas- und Wasserzähler erscheinen als eigene Abschnitte unter der Strom-Übersicht, im neuen Panel und auf der klassischen Energieseite: Heute, Gestern, Letzte 7 Tage, Dieser Monat und Zählerstand
+- Unter jedem Abschnitt zeigt ein Balkendiagramm den Verbrauch pro Tag der letzten 14 Tage; der heutige Tag ist hervorgehoben (Gas orange, Wasser blau). Die Balken sind ohne Bibliothek gezeichnet und laufen auch auf alten iPads
 - Die Zähler kommen aus den Energie-Einstellungen von Home Assistant (Einstellungen → Dashboards → Energie). Dort einmal eintragen, mehr ist nicht nötig. Der Wasserzähler erscheint automatisch, sobald er dort steht
 - Sind dort noch keine Gas- oder Wasserzähler eingetragen oder ist Home Assistant nicht erreichbar, bleibt der Bereich einfach weg
 

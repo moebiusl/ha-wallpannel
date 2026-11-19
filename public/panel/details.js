@@ -8,6 +8,14 @@
     function value(v){return v===undefined || v===null || v==='' || v==='unavailable' || v==='unknown'?'–':String(v).replace(/^(\d+)\.(\d+)/,'$1,$2');}
     function metric(label,v){return '<div class="detail-metric"><span>'+esc(label)+'</span><strong>'+esc(value(v))+'</strong></div>';}
     function section(title,metrics){var html='<section class="detail-section"><h3>'+esc(title)+'</h3><div class="detail-grid">';for(var i=0;i<metrics.length;i++){var m=metrics[i];if(m){html+=metric(m.label,m.display);}}return html+'</div></section>';}
+    function chartHtml(c,kind){
+      if(!c || !c.bars || !c.bars.length){return '';}
+      var html='<div class="energy-chart energy-chart-'+esc(kind)+'" role="img" aria-label="Verbrauch pro Tag, letzte '+c.bars.length+' Tage"><div class="energy-chart-head"><span>Pro Tag</span><span>'+esc(c.unit)+'</span></div><div class="energy-chart-bars">';
+      for(var i=0;i<c.bars.length;i++){var b=c.bars[i],h=c.max>0&&b.value>0?Math.max(3,Math.round(b.value/c.max*100)):0;
+        html+='<div class="energy-bar-col'+(b.today?' is-today':'')+'"><span class="energy-bar-value">'+esc(b.value>0?b.label:'')+'</span><div class="energy-bar-track"><div class="energy-bar" style="height:'+h+'%"></div></div><span class="energy-bar-label">'+esc(b.weekday)+'<br>'+esc(b.day)+'</span></div>';}
+      return html+'</div></div>';
+    }
+    function utilitySection(g){var html=section(g.title,g.metrics);return html.replace(/<\/section>$/,chartHtml(g.chart,g.kind)+'</section>');}
     function fields(obj,keys){var result=[];for(var i=0;i<keys.length;i++){if(obj&&obj[keys[i]]){result.push(obj[keys[i]]);}}return result;}
     function open(title,type,html){ui.openDialog(title,html,type);return alive;}
     function release(){alive++;clearTimeout(radarTimer);clearInterval(refreshTimer);radarTimer=null;refreshTimer=null;radar=null;radarPlaying=false;loading=false;pending={};}
@@ -20,7 +28,7 @@
     function renderEnergy(d){var s=d.summary || {},html='<div class="detail-grid detail-summary">';
       var summaries=[['Solar aktuell','solarPowerDisplay'],['Verbrauch','consumptionDisplay'],['Netzleistung','gridPowerDisplay'],['Powerstream Akku','powerstreamBatteryDisplay'],['Einspeisung','feedInDisplay'],['Bis voll','chargeTimeDisplay'],['Bis leer','dischargeTimeDisplay'],['Akku genutzt heute','fromBatteryTodayDisplay'],['In Akku heute','toBatteryTodayDisplay']];
       for(var i=0;i<summaries.length;i++){html+=metric(summaries[i][0],s[summaries[i][1]]);}html+='</div>';
-      var utilities=d.utilities || [];for(var ui2=0;ui2<utilities.length;ui2++){html+=section(utilities[ui2].title,utilities[ui2].metrics);}
+      var utilities=d.utilities || [];for(var ui2=0;ui2<utilities.length;ui2++){html+=utilitySection(utilities[ui2]);}
       html+=section('Powerstream',fields(d.powerstream,['batteryCharge','solarPower','inverterOutputWatts','batteryInputWatts','chargeTime','dischargeTime','fromBatteryToday','toBatteryToday','pv1Today','pv2Today','status','smartPlugLoads','otherLoads','batteryStatus','batteryTemperature','inverterTemperature']));
       html+=section('Haus / Netz',fields(d.grid,['power','feedIn','consumption','feedInTotal']));
       html+=section('Delta2',fields(d.delta2,['status','totalInPower','totalOutPower','solarInPower','acInPower','acOutPower','remainingTime','batteryTemperature','cycles']));

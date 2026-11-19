@@ -5918,3 +5918,48 @@ html {
   flex: 0 1 calc(100% - 274px);
   margin-right: 274px;
 }
+
+/* Tagesbalken für Gas und Wasser auf der Energieseite (ohne Bibliothek, für alte iPads) */
+.energy-chart {
+  margin: 10px 5px 0;
+  padding: 14px 12px 10px;
+  border: 1px solid #263a57;
+  border-radius: 12px;
+  background: #132238;
+}
+.energy-chart-head {
+  display: -webkit-flex;
+  display: flex;
+  -webkit-justify-content: space-between;
+  justify-content: space-between;
+  margin-bottom: 10px;
+  color: #94a7c6;
+  font-size: 12px;
+}
+.energy-chart-bars { display: -webkit-flex; display: flex; -webkit-align-items: flex-end; align-items: flex-end; }
+.energy-bar-col { -webkit-flex: 1; flex: 1; min-width: 0; text-align: center; }
+.energy-bar-value { display: block; height: 14px; overflow: hidden; color: #94a7c6; font-size: 10px; line-height: 14px; white-space: nowrap; }
+.energy-bar-col.is-today .energy-bar-value { color: #eef4ff; font-weight: bold; }
+.energy-bar-track {
+  display: -webkit-flex;
+  display: flex;
+  -webkit-align-items: flex-end;
+  align-items: flex-end;
+  -webkit-justify-content: center;
+  justify-content: center;
+  height: 120px;
+  border-bottom: 1px solid #263a57;
+}
+.energy-bar { width: 62%; max-width: 30px; background: #5b8fd6; border-radius: 6px 6px 0 0; opacity: .55; }
+.energy-chart-gas .energy-bar { background: #e0866f; }
+.energy-chart-water .energy-bar { background: #5fb0d6; }
+.energy-bar-col.is-today .energy-bar { opacity: 1; }
+.energy-bar-label { display: block; margin-top: 6px; color: #7f93b3; font-size: 11px; line-height: 1.3; }
+.energy-bar-col.is-today .energy-bar-label { color: #eef4ff; font-weight: bold; }
+html.theme-home .energy-chart { border: 0; border-radius: 20px; background: #2c2c2e; }
+html.theme-home .energy-chart-head, html.theme-home .energy-bar-value, html.theme-home .energy-bar-label { color: rgba(235, 235, 245, 0.6); }
+html.theme-home .energy-bar-track { border-bottom-color: rgba(255, 255, 255, 0.12); }
+html.theme-home .energy-bar-col.is-today .energy-bar-value, html.theme-home .energy-bar-col.is-today .energy-bar-label { color: #ffffff; }
+html.theme-home .energy-chart-gas .energy-bar { background: #ff9f0a; }
+html.theme-home .energy-chart-water .energy-bar { background: #64d2ff; }
+@media (max-width: 680px) { .energy-bar-value { font-size: 8px; } .energy-bar-label { font-size: 9px; } }
