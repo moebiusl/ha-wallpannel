@@ -1762,6 +1762,12 @@ app.get("/api/camera-stream/:entityId", async (req: Request, res: Response) => {
     streamAbort.signal
   );
   if (abandoned || res.destroyed) { if (live) { live.stream.destroy(); live.release(); } return; }
+  // Eufy-Kameras liefern über Home Assistants eigenen Stream nie ein Bild. Hat der P2P-Start über go2rtc
+  // nichts gebracht, sofort melden statt weitere 30 s auf den Ersatzweg zu warten.
+  if (!live && strictLive) {
+    const source = await cameraLive.getSourceInfo(cameraConfig?.haCameraEntityId || entityId, cameraConfig?.streamOverride || "");
+    if (source?.isEufy) { if (!res.destroyed) { res.status(503).json({ ok: false, message: "Die Kamera liefert kein Bild" }); } return; }
+  }
   if (live) {
     res.setHeader("Content-Type", live.contentType);
     res.setHeader("Cache-Control", "no-store");

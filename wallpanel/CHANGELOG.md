@@ -4,6 +4,9 @@
 - Nach einem Neuladen oder Update zeigt jedes iPad „Neue Version – Bestätigen & Ton aktivieren“. Bisher warteten Klingel-Popup und Durchsagen hinter diesem Dialog, bis jemand darauf tippte – auf Wand-iPads kam so nichts an
 - Klingel, Durchsage und Ton gehen jetzt sofort durch und übergehen den Dialog. Der Ton bleibt gesperrt, bis einmal auf das Lautsprecher-Symbol getippt wird; das Popup erscheint aber immer
 
+### Live-Bild
+- Liefert eine Eufy-Kamera nach dem Start kein Bild, erscheint der Hinweis „Die Kamera liefert kein Bild“ nach etwa 25 statt nach etwa 55 Sekunden, mit „Erneut versuchen“
+
 ## 1.11.5
 
 ### Lampen zusammenfassen, umbenennen, verschieben
