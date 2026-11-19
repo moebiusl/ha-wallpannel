@@ -154,6 +154,9 @@
   function receive(cmd){
     if(cmd.type==='doorbell-close'){startupCommands=startupCommands.filter(function(c){return c.type!=='doorbell';});if(ui.state.dialog&&ui.state.dialog.type==='doorbell'){ui.closeDialog(true,'remote');}return;}
     if(cmd.type==='reload'){reloadJob={id:'legacy'+cmd.createdAt,expiresAt:Date.now()+60000};return;}
+    // Klingel, Durchsage und Ton dürfen nie hinter dem „Neue Version“-Dialog warten: Ohne Tipp auf dem
+    // Wand-iPad käme sonst nichts an. Der Dialog wird dann übergangen; der Ton bleibt bis zum nächsten Tipp gesperrt.
+    if(!startupConfirmed&&(cmd.type==='doorbell'||cmd.type==='notify'||cmd.type==='sound')){startupConfirmed=true;startupStarted=true;if(ui.state.dialog&&ui.state.dialog.type==='startup'){ui.closeDialog(true);}dirty=true;indicators();}
     if(!startupConfirmed||(cmd.type==='notify'&&ui.state.dialog)){if(startupCommands.length<20){startupCommands.push(cmd);}return;}
     if(cmd.type==='doorbell'&&config.doorbellWake===false){playSequence(cmd);return;}
     wake();if(cmd.type==='notify'){alerts.notice(cmd);}else if(cmd.type==='doorbell'){alerts.bell(cmd);}else if(cmd.type==='identify'){ui.openDialog(model.tablets[0].name,'<p>'+esc(tabletId)+'</p>','identify');}else if(cmd.type==='sound'){playSequence(cmd);}

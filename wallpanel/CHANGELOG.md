@@ -1,3 +1,9 @@
+## 1.11.6
+
+### Klingel und Durchsagen kommen wieder an
+- Nach einem Neuladen oder Update zeigt jedes iPad „Neue Version – Bestätigen & Ton aktivieren“. Bisher warteten Klingel-Popup und Durchsagen hinter diesem Dialog, bis jemand darauf tippte – auf Wand-iPads kam so nichts an
+- Klingel, Durchsage und Ton gehen jetzt sofort durch und übergehen den Dialog. Der Ton bleibt gesperrt, bis einmal auf das Lautsprecher-Symbol getippt wird; das Popup erscheint aber immer
+
 ## 1.11.5
 
 ### Lampen zusammenfassen, umbenennen, verschieben
