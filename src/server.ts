@@ -1,4 +1,4 @@
-import { projectPanelEntities, selectDashboardWeather } from "./panel-state";
+import { projectPanelEntities, selectDashboardWeather, activeSibling } from "./panel-state";
 import { createPanelFeatures, planClimateSync, roomReadings } from "./panel-features";
 import { isEntityId, validateEntityService } from "./entity-service";
 import { createHostGuard } from "./host-guard";
@@ -1637,7 +1637,18 @@ app.post("/api/entity/:entityId/service", async (req: Request, res: Response) =>
       const structure=await buildHaStructure();const light=structure.entities.find(e=>e.entityId===entityId&&e.visibleByDefault&&!e.haHidden);if(!light){throw new Error("Lampe nicht verfügbar.");}validateLightColor(validated,(light.attributes || {}) as Record<string,any>);
     }
     if(domain === "climate") { climateSyncBusy.add(entityId); }
-    try { await callService(domain, service, { ...validated, entity_id: entityId }); }
+    let target: string = entityId;
+    if (domain === "media_player") {
+      // Läuft die Musik direkt über AirPlay, geht der Befehl an diesen Eintrag statt an Music Assistant.
+      const structure = await buildHaStructure();
+      const player: any = structure.entities.find(e => e.entityId === entityId);
+      const states = new Map<string, { entity_id: string; state: string; attributes?: Record<string, any> }>(
+        structure.entities.map((e: any) => [String(e.entityId), { entity_id: String(e.entityId), state: String(e.state), attributes: e.attributes }]));
+      const own = states.get(entityId);
+      const sibling = player && own ? activeSibling(player, own, states) : null;
+      if (sibling) { target = sibling.entity_id; }
+    }
+    try { await callService(domain, service, { ...validated, entity_id: target }); }
     finally { if(domain === "climate") { climateSyncBusy.delete(entityId); } }
     res.json({ ok: true });
   } catch (error) {

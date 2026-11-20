@@ -56,6 +56,8 @@ export function discoverHaEntities(states: HaState[], registries: HaRegistries) 
       deviceName: device?.name_by_user || device?.name || [device?.manufacturer, device?.model].filter(Boolean).join(" ") || "Ohne Gerät",
       platform: registry?.platform || null,
       musicAssistant: registry?.platform === "music_assistant",
+      /** Direkter AirPlay-/HomePod-Eintrag desselben Geräts: zeigt auch Musik, die nicht über Music Assistant läuft. */
+      siblingEntityId: original && stateIds.has(original.entity_id) ? original.entity_id : null,
       entityCategory: registry?.entity_category || null,
       haEntityHidden: !!(device?.disabled_by || registry?.disabled_by || registry?.hidden_by),
       haHidden: !!(hiddenArea || hashName || device?.disabled_by || registry?.disabled_by || registry?.hidden_by),

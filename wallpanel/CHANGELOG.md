@@ -1,3 +1,9 @@
+## 1.13.2
+
+### Musik
+- HomePod-Button zeigt auch Musik, die direkt über AirPlay läuft (vom iPhone oder Siri), nicht nur über Music Assistant; Pause, Weiter und Lautstärke wirken dann auf diese Wiedergabe
+- „Buffering“ gilt als spielend
+
 ## 1.13.1
 
 ### Durchsagen
