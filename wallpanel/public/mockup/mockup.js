@@ -518,10 +518,10 @@
     if(event.type==='mousedown'&&Date.now()-lastTouch<1000){return;}
     if(event.type==='touchstart'){lastTouch=Date.now();var tapNode=event.touches.length===1&&Date.now()-lastScrollAt>150?fastTapTarget(event.target):null;fastTap=tapNode?{node:tapNode,target:event.target,x:event.touches[0].clientX,y:event.touches[0].clientY}:null;}
     clearTimeout(holdTimer);holdTimer=null;held=false;holdTarget=null;
-    var node=actionNode(event.target);if(!node||node.disabled||['light','music-details','music-play'].indexOf(node.getAttribute('data-action'))===-1){return;}
+    var node=actionNode(event.target);if(!node||node.disabled||['light','music-details','music-play','appliance-details'].indexOf(node.getAttribute('data-action'))===-1){return;}
     if(event.touches&&event.touches.length!==1){return;}
     var point=event.touches?event.touches[0]:event;holdX=point.clientX;holdY=point.clientY;holdTarget=node;
-    holdTimer=setTimeout(function(){holdTimer=null;held=true;try{window.getSelection().removeAllRanges();}catch(_e){}blockedClick={node:node,until:Date.now()+1500};if(node.getAttribute('data-action')==='light'){openLight(node.getAttribute('data-id'));}else{dispatch('music-details',node.getAttribute('data-id'),node);}},600);
+    holdTimer=setTimeout(function(){holdTimer=null;held=true;try{window.getSelection().removeAllRanges();}catch(_e){}blockedClick={node:node,until:Date.now()+1500};if(node.getAttribute('data-action')==='light'){openLight(node.getAttribute('data-id'));}else if(node.getAttribute('data-action')==='appliance-details'){dispatch('appliance-control',node.getAttribute('data-id'),node);}else{dispatch('music-details',node.getAttribute('data-id'),node);}},600);
   }
   function moveHold(event){var point=event.touches?event.touches[0]:event;if(fastTap&&(!point||Math.abs(point.clientX-fastTap.x)>10||Math.abs(point.clientY-fastTap.y)>10)){fastTap=null;}if(!point||Math.abs(point.clientX-holdX)>10||Math.abs(point.clientY-holdY)>10){clearTimeout(holdTimer);holdTimer=null;}}
   function endHold(event){clearTimeout(holdTimer);holdTimer=null;var tap=event.type==='touchend'&&!held&&event.cancelable?fastTap:null;fastTap=null;if(holdTarget&&held&&event.type==='touchend'){if(event.cancelable){event.preventDefault();}}holdTarget=null;held=false;

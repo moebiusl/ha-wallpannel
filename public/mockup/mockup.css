@@ -1323,3 +1323,12 @@ body.large-type .boiler-card .boiler-state { font-size: 25px; }
 .appliance-foot { margin: 8px 0 0; color: #b9a9c2; font-size: 13px; }
 body.large-type .appliance-name { font-size: 20px; }
 body.large-type .appliance-detail, body.large-type .appliance-time { font-size: 17px; }
+
+/* Gerätetimer in der Kopfleiste und Steuerdialog */
+.appliance-timers { display: -webkit-flex; display: flex; }
+.appliance-pill { max-width: 230px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.appliance { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+.appliance-dialog-status { margin: 0 0 14px; font-size: 18px; color: #f4eaf8; }
+.appliance-actions { display: -webkit-flex; display: flex; -webkit-flex-direction: column; flex-direction: column; }
+.appliance-actions .button { margin: 0 0 10px; min-height: 52px; font-size: 18px; }
+.appliance-actions .button.danger { background: #5a2f3a; border-color: #d98b98; color: #ffd9de; }

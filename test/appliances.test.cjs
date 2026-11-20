@@ -63,3 +63,29 @@ test("Einschalter an im Leerlauf heißt bereit; unbekanntes Programm wird lesbar
   const gs = buildAppliances([state("sensor.gs_zustand", "run"), state("select.gs_aktiv", "dishcare_dishwasher_program_super_clean")], devices, entities).find((a) => a.kind === "dishwasher");
   assert.equal(gs.program, "Super clean");
 });
+
+test("Steuerung: nur sinnvolle Aktionen, vom Server geprüft", () => {
+  const { resolveApplianceAction } = require("../src/appliances.ts");
+  const ctrl = [
+    ...entities,
+    reg("button.gs_stop", "d1", "StopProgram"),
+    reg("button.bo_pause", "d2", "BSH.Common.Command.PauseProgram"),
+    reg("button.bo_resume", "d2", "BSH.Common.Command.ResumeProgram"),
+    reg("switch.gs_power", "d1", "BSH.Common.Setting.PowerState")
+  ];
+  const running = [
+    state("sensor.gs_zustand", "run"), state("switch.gs_power", "on"), state("button.gs_stop", "unknown"),
+    state("sensor.bo_zustand", "inactive"), state("switch.bo_power", "off"), state("button.bo_pause", "unknown"), state("button.bo_resume", "unknown")
+  ];
+  const list = buildAppliances(running, devices, ctrl);
+  assert.deepEqual(list.find((a) => a.kind === "dishwasher").actions, ["stop"]);
+  assert.deepEqual(list.find((a) => a.kind === "oven").actions, ["power-on"]);
+  assert.deepEqual(resolveApplianceAction(running, devices, ctrl, "d1", "stop"), { domain: "button", service: "press", entityId: "button.gs_stop", label: "Geschirrspüler" });
+  // Ausschalten während des Laufs, Fortsetzen ohne Pause und unbekannte Aktionen werden abgelehnt.
+  assert.equal(resolveApplianceAction(running, devices, ctrl, "d1", "power-off"), null);
+  assert.equal(resolveApplianceAction(running, devices, ctrl, "d2", "resume"), null);
+  assert.equal(resolveApplianceAction(running, devices, ctrl, "d1", "start"), null);
+  assert.equal(resolveApplianceAction(running, devices, ctrl, "d9", "stop"), null);
+  const idle = running.map((s) => s.entity_id === "sensor.gs_zustand" ? state(s.entity_id, "inactive") : s);
+  assert.deepEqual(resolveApplianceAction(idle, devices, ctrl, "d1", "power-off"), { domain: "switch", service: "turn_off", entityId: "switch.gs_power", label: "Geschirrspüler" });
+});

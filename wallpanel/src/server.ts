@@ -17,7 +17,7 @@ import path from "path";
 import { getHaRegistries, HaRegistries, runAssist, runHaCommand, runTts, subscribeToHaEvents, subscribeToStateChanges } from "./ha-websocket";
 import { computeAssetVersion, createTabletRegistry, normalizeSound } from "./tablets";
 import { createCameraLive, LiveSource, MjpegThrottle } from "./camera-live";
-import { buildAppliances } from "./appliances";
+import { buildAppliances, resolveApplianceAction } from "./appliances";
 import { createWeatherRadar, RadarError } from "./weather-radar";
 import { wasteDaysUntil, berlinToday, berlinDayStartMs } from "./waste";
 import { buildUtilityGroups, parseDailyBuckets, pickUtilitySources, UTILITY_HISTORY_DAYS, UtilitySource, DailyBucket } from "./energy-utilities";
@@ -2034,6 +2034,27 @@ app.get("/api/appliances", async (_req: Request, res: Response) => {
   }
 });
 
+/** Gerät anhalten oder ein-/ausschalten (nur diese Aktionen; Prüfung gegen den aktuellen Zustand auf dem Server). */
+app.post("/api/appliances/:id/:action", async (req: Request, res: Response) => {
+  const id = String(req.params.id || "");
+  const action = String(req.params.action || "");
+  try {
+    const [states, registries] = await Promise.all([getAllStates(), getCachedRegistries()]);
+    const target = resolveApplianceAction(states, registries.devices, registries.entities, id, action);
+    if (!target) {
+      res.status(409).json({ ok: false, message: "Aktion ist gerade nicht möglich" });
+      return;
+    }
+    await callService(target.domain, target.service, { entity_id: target.entityId });
+    logActivity("system", `${target.label}: ${action}`, true);
+    res.json({ ok: true });
+  } catch (error) {
+    console.error(`Gerätesteuerung fehlgeschlagen (${action}): ${describeError(error)}`);
+    logActivity("system", `Gerät: ${action}`, false, describeError(error));
+    res.status(500).json({ ok: false, message: "Das Gerät hat nicht reagiert." });
+  }
+});
+
 app.get("/api/dashboard", async (req: Request, res: Response) => {
   const [stateMap, structure] = await Promise.all([getStateMap(), buildHaStructure()]);
   const requestedRoom = typeof req.query.room === "string" ? req.query.room : "";
@@ -2618,34 +2639,41 @@ async function speakWithAnyEngine(text: string): Promise<string> {
 async function sendNotice(request: NoticeRequest): Promise<number> {
   const title = typeof request.title === "string" ? request.title.trim().slice(0, 80) : "";
   const message = request.message.trim().slice(0, 500);
-  let speechUrl: string | undefined;
-  if (request.speak === true || request.speak === "true") {
-    const text = title ? `${title}. ${message}` : message;
-    let ttsPath = "";
-    try {
-      const ttsUrl = await runTts(HA_URL, HA_TOKEN, text);
-      if (ttsUrl) { ttsPath = ttsUrl.replace(/^https?:\/\/[^/]+/, ""); }
-      else { console.warn("Durchsage: Standard-Assistent lieferte keine Sprachausgabe – versuche andere Sprachausgaben"); }
-    } catch (error) {
-      console.warn(`Durchsage: Standard-Assistent kann nicht sprechen (${describeError(error)}) – versuche andere Sprachausgaben`);
-    }
-    if (!ttsPath) { ttsPath = await speakWithAnyEngine(text); }
-    if (ttsPath) {
-      speechUrl = `api/assist/audio?path=${encodeURIComponent(ttsPath)}`;
-      console.log("Durchsage: Sprachausgabe von Home Assistant erzeugt");
-    } else {
-      console.warn("Durchsage: keine funktionierende Sprachausgabe in Home Assistant – sende ohne Sprache");
-    }
-  }
   const ids = tabletRegistry.resolveTargets(request.target).filter((id) => id !== request.from);
-  return tabletRegistry.enqueue(ids, {
+  // Die Nachricht geht sofort raus; die Sprachausgabe (Home Assistant braucht dafür ein paar Sekunden) folgt, sobald sie fertig ist.
+  const delivered = tabletRegistry.enqueue(ids, {
     type: "notify",
     title,
     message,
     duration: Math.min(600, Math.max(5, Number(request.duration) || 30)),
-    sound: normalizeSound(request.sound, tabletRegistry.getSettings().noticeSound),
-    speechUrl
+    sound: normalizeSound(request.sound, tabletRegistry.getSettings().noticeSound)
   });
+  if (request.speak === true || request.speak === "true") {
+    const text = title ? `${title}. ${message}` : message;
+    void speakNotice(text).then((speechUrl) => {
+      if (speechUrl) { tabletRegistry.enqueue(ids, { type: "sound", sound: "none", speechUrl }); }
+    });
+  }
+  return delivered;
+}
+
+/** Sprachdatei für eine Durchsage erzeugen; leer, wenn Home Assistant nicht sprechen kann. */
+async function speakNotice(text: string): Promise<string | undefined> {
+  let ttsPath = "";
+  try {
+    const ttsUrl = await runTts(HA_URL, HA_TOKEN, text);
+    if (ttsUrl) { ttsPath = ttsUrl.replace(/^https?:\/\/[^/]+/, ""); }
+    else { console.warn("Durchsage: Standard-Assistent lieferte keine Sprachausgabe – versuche andere Sprachausgaben"); }
+  } catch (error) {
+    console.warn(`Durchsage: Standard-Assistent kann nicht sprechen (${describeError(error)}) – versuche andere Sprachausgaben`);
+  }
+  if (!ttsPath) { ttsPath = await speakWithAnyEngine(text); }
+  if (!ttsPath) {
+    console.warn("Durchsage: keine funktionierende Sprachausgabe in Home Assistant – sende ohne Sprache");
+    return undefined;
+  }
+  console.log("Durchsage: Sprachausgabe von Home Assistant erzeugt");
+  return `api/assist/audio?path=${encodeURIComponent(ttsPath)}`;
 }
 
 function isValidTabletId(id: unknown): id is string {
@@ -2721,11 +2749,15 @@ function triggerDoorbell(source: string, target?: string): number {
   return tabletRegistry.enqueue(ids, { type: "doorbell", camera: settings.doorbellCamera, sound: settings.doorbellSound });
 }
 
-app.post("/api/tablet/sync", (req: Request, res: Response) => {
+app.post("/api/tablet/sync", async (req: Request, res: Response) => {
   const id = req.body?.id;
   if (!isValidTabletId(id)) {
     res.status(400).json({ ok: false, message: "ungültige Tablet-ID" });
     return;
+  }
+  // Long-Poll: Wer schon bekannt ist und „wait“ sendet, bekommt Klingel und Durchsagen sofort statt erst bei der nächsten Abfrage.
+  if (req.body?.wait === true && tabletRegistry.list().some((record) => record.id === id)) {
+    await tabletRegistry.waitForCommands(id, 2500);
   }
   const result = tabletRegistry.sync(id, {
     page: String(req.body?.page || "").slice(0, 40),

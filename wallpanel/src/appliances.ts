@@ -25,9 +25,24 @@ export type Appliance = {
   temperature: number | null;
   door: "open" | "closed" | "locked" | null;
   childLock: boolean | null;
+  /** Aktionen, die gerade sinnvoll und möglich sind (Steuerung per langem Drücken). */
+  actions: ApplianceAction[];
 };
 
+/** Bewusst klein: nur Anhalten und Ein-/Ausschalten. Programme werden nie ferngestartet. */
+export type ApplianceAction = "stop" | "pause" | "resume" | "power-on" | "power-off";
+export const APPLIANCE_ACTIONS: ApplianceAction[] = ["stop", "pause", "resume", "power-on", "power-off"];
+
 type StateLike = { entity_id: string; state: string; attributes?: Record<string, unknown> };
+type Grouped = Map<string, Map<string, StateLike>>;
+
+const ACTION_KEYS: Record<ApplianceAction, string> = {
+  stop: "StopProgram",
+  pause: "BSH.Common.Command.PauseProgram",
+  resume: "BSH.Common.Command.ResumeProgram",
+  "power-on": "BSH.Common.Setting.PowerState",
+  "power-off": "BSH.Common.Setting.PowerState"
+};
 
 const STATUS_TEXT: Record<ApplianceStatus, string> = {
   unavailable: "Nicht erreichbar",
@@ -83,11 +98,9 @@ function number(value: string | undefined): number | null {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
-/** Fasst die Home-Connect-Entitäten je Gerät zusammen. */
-export function buildAppliances(states: StateLike[], devices: DeviceRegistryEntry[], entities: EntityRegistryEntry[]): Appliance[] {
+function groupEntities(states: StateLike[], entities: EntityRegistryEntry[]): Grouped {
   const byEntity = new Map(states.map((state) => [state.entity_id, state]));
-  const deviceMap = new Map(devices.map((device) => [device.id, device]));
-  const grouped = new Map<string, Map<string, StateLike>>();
+  const grouped: Grouped = new Map();
   for (const entity of entities) {
     if (entity.platform !== "home_connect" || !entity.device_id || entity.disabled_by || !entity.unique_id) { continue; }
     const key = entity.unique_id.slice(entity.unique_id.lastIndexOf("-") + 1);
@@ -97,6 +110,27 @@ export function buildAppliances(states: StateLike[], devices: DeviceRegistryEntr
     keys.set(key, state);
     grouped.set(entity.device_id, keys);
   }
+  return grouped;
+}
+
+function availableActions(keys: Map<string, StateLike>, status: ApplianceStatus): ApplianceAction[] {
+  const has = (action: ApplianceAction) => keys.has(ACTION_KEYS[action]);
+  const busy = status === "running" || status === "paused" || status === "delayed" || status === "action";
+  const power = keys.get("BSH.Common.Setting.PowerState")?.state;
+  const actions: ApplianceAction[] = [];
+  if (has("stop") && busy) { actions.push("stop"); }
+  if (has("pause") && status === "running") { actions.push("pause"); }
+  if (has("resume") && status === "paused") { actions.push("resume"); }
+  // Ausschalten erst, wenn nichts mehr läuft (vorher „Stoppen“).
+  if (has("power-off") && power === "on" && !busy) { actions.push("power-off"); }
+  if (has("power-on") && power === "off" && status === "off") { actions.push("power-on"); }
+  return actions;
+}
+
+/** Fasst die Home-Connect-Entitäten je Gerät zusammen. */
+export function buildAppliances(states: StateLike[], devices: DeviceRegistryEntry[], entities: EntityRegistryEntry[]): Appliance[] {
+  const deviceMap = new Map(devices.map((device) => [device.id, device]));
+  const grouped = groupEntities(states, entities);
 
   const result: Appliance[] = [];
   for (const [deviceId, keys] of grouped) {
@@ -129,8 +163,32 @@ export function buildAppliances(states: StateLike[], devices: DeviceRegistryEntr
       endsAt: active && Number.isFinite(end) ? end : null,
       temperature: kind === "oven" ? number(keys.get("Cooking.Oven.Status.CurrentCavityTemperature")?.state) : null,
       door: doorRaw === "open" || doorRaw === "closed" || doorRaw === "locked" ? doorRaw : null,
-      childLock: lock === "on" ? true : lock === "off" ? false : null
+      childLock: lock === "on" ? true : lock === "off" ? false : null,
+      actions: availableActions(keys, status)
     });
   }
   return result.sort((a, b) => a.kind.localeCompare(b.kind) || a.name.localeCompare(b.name, "de"));
+}
+
+/**
+ * Übersetzt „Gerät + Aktion“ in den Home-Assistant-Dienst. Gibt null zurück, wenn die Aktion für das Gerät
+ * im aktuellen Zustand nicht erlaubt ist (Prüfung läuft hier auf dem Server, nicht im Tablet).
+ */
+export function resolveApplianceAction(
+  states: StateLike[],
+  devices: DeviceRegistryEntry[],
+  entities: EntityRegistryEntry[],
+  deviceId: string,
+  action: string
+): { domain: string; service: string; entityId: string; label: string } | null {
+  if (!APPLIANCE_ACTIONS.includes(action as ApplianceAction)) { return null; }
+  const appliance = buildAppliances(states, devices, entities).find((entry) => entry.id === deviceId);
+  if (!appliance || !appliance.actions.includes(action as ApplianceAction)) { return null; }
+  const keys = groupEntities(states, entities).get(deviceId);
+  const state = keys?.get(ACTION_KEYS[action as ApplianceAction]);
+  if (!state) { return null; }
+  const domain = state.entity_id.split(".")[0];
+  if (domain === "button") { return { domain, service: "press", entityId: state.entity_id, label: appliance.name }; }
+  if (domain === "switch") { return { domain, service: action === "power-on" ? "turn_on" : "turn_off", entityId: state.entity_id, label: appliance.name }; }
+  return null;
 }

@@ -233,6 +233,24 @@ export function createTabletRegistry(filePath: string, defaults: TabletsSettings
       .map((record) => record.id);
   }
 
+  // Tablets, die gerade auf neue Befehle warten (Long-Poll): Sie werden sofort geweckt, statt bis zur nächsten Abfrage zu warten.
+  const waiters = new Map<string, Array<() => void>>();
+
+  /** Wartet höchstens `ms`, bis für das Tablet ein Befehl bereitliegt. */
+  function waitForCommands(id: string, ms: number): Promise<void> {
+    if ((queues.get(id) || []).length) { return Promise.resolve(); }
+    return new Promise((resolve) => {
+      const timer = setTimeout(done, ms);
+      function done() {
+        clearTimeout(timer);
+        const list = (waiters.get(id) || []).filter((entry) => entry !== done);
+        if (list.length) { waiters.set(id, list); } else { waiters.delete(id); }
+        resolve();
+      }
+      waiters.set(id, [...(waiters.get(id) || []), done]);
+    });
+  }
+
   function enqueue(ids: string[], command: Omit<TabletCommand, "createdAt">): number {
     for (const id of ids) {
       const queue = queues.get(id) || [];
@@ -247,6 +265,7 @@ export function createTabletRegistry(filePath: string, defaults: TabletsSettings
         createdAt: Date.now()
       });
       queues.set(id, queue.slice(-COMMAND_QUEUE_LIMIT));
+      for (const wake of [...(waiters.get(id) || [])]) { wake(); }
     }
     return ids.length;
   }
@@ -284,5 +303,5 @@ export function createTabletRegistry(filePath: string, defaults: TabletsSettings
     return settings;
   }
 
-  return { sync, updateConfig, remove, resolveTargets, enqueue, list, getSettings, updateSettings };
+  return { sync, waitForCommands, updateConfig, remove, resolveTargets, enqueue, list, getSettings, updateSettings };
 }

@@ -1,3 +1,17 @@
+## 1.13.0
+
+### Hausgeräte steuern
+- Backofen und Geschirrspüler: lang auf die Karte drücken öffnet die Steuerung – Programm stoppen (mit Rückfrage), pausieren/fortsetzen, ein- und ausschalten. Programme werden bewusst nie ferngestartet; der Server prüft jede Aktion gegen den aktuellen Zustand
+- Laufende Geräte erscheinen als Timer in der Kopfleiste (wie beim Boiler), Tipp führt zur Küche
+
+### Schneller
+- Tablets bekommen Klingel und Durchsagen sofort statt erst bei der nächsten Abfrage (Long-Poll)
+- Durchsagen: Die Nachricht geht sofort raus, die Sprache folgt, sobald Home Assistant sie erzeugt hat
+
+### Durchsagen
+- Schnellauswahl fügt den Text nur ins Feld ein; gesendet wird erst mit „Senden“
+- Im Durchsage-Fenster führt „Vorlagen bearbeiten“ direkt zu den Einstellungen
+
 ## 1.12.5
 
 ### Kameras
