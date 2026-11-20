@@ -1,3 +1,9 @@
+## 1.12.4
+
+### Livebild der Kameras
+- Mit eingeschaltetem RTSP legt Home Assistant in go2rtc zusätzlich einen Stream „camera.…“ an, dessen Quelle kein Bild liefert, während der P2P-Start in den Stream mit der Seriennummer schreibt. Das Wallpanel prüft jetzt beide Streams einer Kamera und nimmt den, der ein Bild liefert
+- Bei „Kein Livebild“ stehen die Diagnosezeilen für beide Streams im Log
+
 ## 1.12.3
 
 ### Neu: Backofen und Geschirrspüler

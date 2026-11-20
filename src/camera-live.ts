@@ -19,6 +19,8 @@ type LiveDeps = {
 
 export type LiveSource = {
   streamName: string;
+  /** Weitere go2rtc-Streams derselben Kamera (z. B. Seriennummer neben camera.xyz); der erste mit Bild gewinnt. */
+  alternates: string[];
   isEufy: boolean;
 };
 
@@ -118,7 +120,6 @@ export function createCameraLive(deps: LiveDeps) {
 
     const shortId = cameraEntityId.replace(/^camera\./, "");
     const direct = [streamOverride, cameraEntityId, shortId].find((name) => name && names.includes(name));
-    if (direct) { return { streamName: direct, isEufy }; }
 
     // Eufy benennt die go2rtc-Streams nach der Seriennummer des Geräts.
     const device = entity?.device_id ? registries?.devices.find((entry) => entry.id === entity.device_id) : undefined;
@@ -127,7 +128,8 @@ export function createCameraLive(deps: LiveDeps) {
       ...(device?.identifiers || []).map((identifier) => identifier[1])
     ];
     const bySerial = candidates.find((name) => name && names.includes(name));
-    return bySerial ? { streamName: bySerial, isEufy } : null;
+    const found = [direct, bySerial].filter((name, index, all): name is string => Boolean(name) && all.indexOf(name) === index);
+    return found.length ? { streamName: found[0], alternates: found.slice(1), isEufy } : null;
   }
 
   async function hasFrame(base: string, streamName: string): Promise<boolean> {
@@ -171,8 +173,22 @@ export function createCameraLive(deps: LiveDeps) {
     }
   }
 
+  /** Prüft alle Streams der Kamera; bei Treffer wird der funktionierende als streamName übernommen. */
+  async function anyFrame(base: string, source: LiveSource): Promise<boolean> {
+    const names = [source.streamName, ...source.alternates];
+    const results = await Promise.all(names.map((name) => hasFrame(base, name)));
+    const index = results.indexOf(true);
+    if (index === -1) { return false; }
+    if (index > 0) {
+      console.log(`Live: Bild kommt aus go2rtc-Stream ${names[index]} (nicht ${names[0]})`);
+      source.alternates = names.filter((_name, i) => i !== index);
+      source.streamName = names[index];
+    }
+    return true;
+  }
+
   async function startAndWait(cameraEntityId: string, source: LiveSource, base: string): Promise<boolean> {
-    if (await hasFrame(base, source.streamName)) { return true; }
+    if (await anyFrame(base, source)) { return true; }
     if (source.isEufy && !startedByUs.has(cameraEntityId) && await hasRealSource(base, source.streamName)) {
       console.log(`Live ${cameraEntityId}: go2rtc hat bereits eine echte Quelle (z. B. RTSP) – kein P2P-Start nötig`);
     } else if (source.isEufy) {
@@ -191,7 +207,7 @@ export function createCameraLive(deps: LiveDeps) {
     let restarted = false;
     while (Date.now() < deadline) {
       await sleep(1500);
-      if (await hasFrame(base, source.streamName)) { return true; }
+      if (await anyFrame(base, source)) { return true; }
       // Kommt nach einigen Sekunden nichts: Hängt ein selbst gestarteter Stream, einmal stoppen und neu starten.
       // Wurde nur eine „echte Quelle“ vermutet (z. B. veralteter Eintrag), jetzt doch den P2P-Start anstoßen.
       if (source.isEufy && !restarted && Date.now() - started > STUCK_RESTART_MS) {
@@ -210,7 +226,9 @@ export function createCameraLive(deps: LiveDeps) {
         }
       }
     }
-    console.warn(`Kein Livebild von go2rtc (${source.streamName}) innerhalb von ${READY_TIMEOUT_MS / 1000}s – ${await describeStream(base, source.streamName)}`);
+    for (const name of [source.streamName, ...source.alternates]) {
+      console.warn(`Kein Livebild von go2rtc (${name}) innerhalb von ${READY_TIMEOUT_MS / 1000}s – ${await describeStream(base, name)}`);
+    }
     return false;
   }
 
