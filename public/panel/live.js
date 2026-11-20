@@ -148,7 +148,7 @@
   function nextAudio(){if(audioCurrent||unlockingAudio||!audioQueue.length){return;}audioCurrent=true;audio.muted=false;audio.src=audioQueue.shift();try{var result=audio.play();if(result&&result.catch){result.catch(audioFailed);}}catch(_e){audioFailed();}}
   function audioFailed(){audio.pause();audioCurrent=false;audioQueue=[];soundUnlocked=false;indicators();}
   function play(url){if(!model.tablets[0].sounds || !url){return;}if(audioQueue.length<20){audioQueue.push(url);}nextAudio();}
-  function playSequence(cmd){if(model.tablets[0].sounds===false){return;}if(cmd.sound&&cmd.sound!=='none'){play('/sounds/'+encodeURIComponent(cmd.sound)+'.mp3');}if(cmd.speechUrl){play(cmd.speechUrl);}}
+  function playSequence(cmd){if(model.tablets[0].sounds===false){return;}if(cmd.sound&&cmd.sound!=='none'){play('/sounds/'+encodeURIComponent(cmd.sound)+'.mp3');}if(cmd.speechUrl){play('/'+String(cmd.speechUrl).replace(/^\//,''));}}
 
   function assist(){if(busy.assist){return;}var input=el('assistQuestion'),text=input.value.replace(/^\s+|\s+$/g,'');if(!text){return;}busy.assist=true;el('assistAnswer').textContent='Assist antwortet …';request('POST','/api/assist',{text:text,conversationId:conversation},function(err,data){delete busy.assist;if(!err){conversation=data.conversationId || conversation;}if(ui.state.dialog && ui.state.dialog.type==='assist'){el('assistAnswer').textContent=err || data.speech || 'Keine Antwort.';if(!err&&data.audioUrl){play('/'+data.audioUrl.replace(/^\//,''));}}});}
   function weather(){details.weather();}

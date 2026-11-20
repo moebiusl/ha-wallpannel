@@ -2921,10 +2921,13 @@ app.get("/api/doorbell", async (_req: Request, res: Response) => {
   }
   const camera = tabletRegistry.getSettings().doorbellCamera;
   const cameraConfig = (await getDiscoveredCameraConfigs()).find((config) => config.haCameraEntityId === camera);
+  // Zweite Kamera im Klingel-Popup: die Einfahrt (falls vorhanden und nicht die Klingelkamera selbst).
+  const extraConfig = (await getDiscoveredCameraConfigs()).find((config) => config.haCameraEntityId === ENTITIES.cameraFeeds.einfahrt && config.haCameraEntityId !== camera);
   res.setHeader("Cache-Control", "no-store");
   res.json({
     ok: true,
     camera,
+    extra: extraConfig ? { camera: extraConfig.haCameraEntityId, name: extraConfig.name, streamUrl: `api/camera-stream/${encodeURIComponent(extraConfig.haCameraEntityId)}?fallbackImage=${encodeURIComponent(extraConfig.eventImageEntityId)}` } : null,
     cameraName: cameraConfig?.name || "Klingel",
     streamUrl: `api/camera-stream/${encodeURIComponent(camera)}${cameraConfig ? `?fallbackImage=${encodeURIComponent(cameraConfig.eventImageEntityId)}` : ""}`,
     // Letztes Event-Bild der Klingel: sofort sichtbar, solange Live startet oder falls Live ausfällt.

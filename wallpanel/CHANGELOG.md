@@ -1,3 +1,12 @@
+## 1.13.1
+
+### Durchsagen
+- Sprache wird jetzt vom Tablet abgeholt: Die Adresse der Sprachdatei war relativ und lief auf /panel/ ins Leere (nur der Gong kam an)
+
+### Klingel
+- Einfahrt erscheint klein unter dem Klingelbild im Popup
+- Kommt der MJPEG-Strom nicht innerhalb von 6 s, werden Einzelbilder genutzt (vorher 15 s); neue Logzeile „Live angefragt“
+
 ## 1.13.0
 
 ### Hausgeräte steuern

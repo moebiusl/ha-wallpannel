@@ -1332,3 +1332,8 @@ body.large-type .appliance-detail, body.large-type .appliance-time { font-size: 
 .appliance-actions { display: -webkit-flex; display: flex; -webkit-flex-direction: column; flex-direction: column; }
 .appliance-actions .button { margin: 0 0 10px; min-height: 52px; font-size: 18px; }
 .appliance-actions .button.danger { background: #5a2f3a; border-color: #d98b98; color: #ffd9de; }
+
+/* Einfahrt im Klingel-Popup */
+.bell-extra { position: relative; margin: 10px 0 0; border-radius: 14px; overflow: hidden; background: #141218; }
+.bell-extra img { display: block; width: 100%; max-height: 190px; object-fit: contain; }
+.bell-extra-label { position: absolute; left: 10px; top: 8px; padding: 2px 10px; border-radius: 999px; background: rgba(20,18,24,.7); color: #f4eaf8; font-size: 13px; }

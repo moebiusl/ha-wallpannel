@@ -318,6 +318,7 @@ export function createCameraLive(deps: LiveDeps) {
     }
 
     if (signal?.aborted) { return null; }
+    console.log(`Live angefragt: ${cameraEntityId}`);
     addViewer(cameraEntityId);
     let released = false;
     const release = () => {
@@ -346,7 +347,8 @@ export function createCameraLive(deps: LiveDeps) {
         if (signal?.aborted) { release(); return null; }
         const response = await deps.http.get(`${base}/api/stream.mjpeg?src=${encodeURIComponent(transcodeName)}`, {
           responseType: "stream",
-          timeout: 15000
+          // Kommt die Umwandlung nicht schnell in Gang, lieber gleich Einzelbilder nehmen (Klingel-Popup soll nicht ewig drehen).
+          timeout: 6000
         });
         upstream = response.data as Readable;
         if (!String(response.headers?.["content-type"]).toLowerCase().startsWith("multipart/x-mixed-replace")) { upstream.destroy(); upstream = null; }
