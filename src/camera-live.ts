@@ -86,6 +86,8 @@ export function createCameraLive(deps: LiveDeps) {
   const viewers = new Map<string, number>();
   const stopTimers = new Map<string, NodeJS.Timeout>();
   const startPromises = new Map<string, Promise<boolean>>();
+  // Nur Streams stoppen, die wir selbst gestartet haben. Kameras mit dauerhaftem RTSP (oder von anderer Stelle gestartet) bleiben unberührt.
+  const startedByUs = new Set<string>();
 
   async function ensureTranscodeStream(base: string, streamName: string): Promise<string> {
     const name = TRANSCODE_PREFIX + streamName;
@@ -144,11 +146,39 @@ export function createCameraLive(deps: LiveDeps) {
     return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
+  /** Kurzdiagnose für das Log: Kennt go2rtc den Stream, und liefert Eufy überhaupt eine Quelle? (Keine Adressen, nur Zahlen.) */
+  async function describeStream(base: string, streamName: string): Promise<string> {
+    try {
+      const response = await deps.http.get(`${base}/api/streams`, { timeout: 5000 });
+      const entry = response.data?.[streamName];
+      if (!entry) { return "go2rtc kennt den Stream nicht (Eufy-Integration hat ihn nicht angelegt)"; }
+      const producers = Array.isArray(entry.producers) ? entry.producers.length : 0;
+      const consumers = Array.isArray(entry.consumers) ? entry.consumers.length : 0;
+      return producers ? `go2rtc: Quelle vorhanden (${producers}), Zuschauer ${consumers}, aber noch kein Bild` : `go2rtc: Stream angelegt, aber ohne Quelle – Eufy sendet keine Daten (Zuschauer ${consumers})`;
+    } catch (error) {
+      return `go2rtc-Status nicht lesbar: ${deps.describeError(error)}`;
+    }
+  }
+
+  /** Hat go2rtc für den Stream schon eine echte Quelle (z. B. dauerhaftes RTSP) statt des Eufy-Platzhalters? */
+  async function hasRealSource(base: string, streamName: string): Promise<boolean> {
+    try {
+      const response = await deps.http.get(`${base}/api/streams`, { timeout: 5000 });
+      const producers = response.data?.[streamName]?.producers;
+      return Array.isArray(producers) && producers.some((producer: { url?: unknown }) => typeof producer?.url === "string" && producer.url !== "" && !producer.url.includes(":65535"));
+    } catch (_error) {
+      return false;
+    }
+  }
+
   async function startAndWait(cameraEntityId: string, source: LiveSource, base: string): Promise<boolean> {
     if (await hasFrame(base, source.streamName)) { return true; }
-    if (source.isEufy) {
+    if (source.isEufy && !startedByUs.has(cameraEntityId) && await hasRealSource(base, source.streamName)) {
+      console.log(`Live ${cameraEntityId}: go2rtc hat bereits eine echte Quelle (z. B. RTSP) – kein P2P-Start nötig`);
+    } else if (source.isEufy) {
       try {
         console.log(`Starte Eufy-Livestream: ${cameraEntityId} -> go2rtc-Stream ${source.streamName}`);
+        startedByUs.add(cameraEntityId);
         await deps.ha.post("/api/services/eufy_security/start_p2p_livestream", { entity_id: cameraEntityId });
         console.log(`Eufy-Livestream angefordert (${cameraEntityId}), warte auf Bild von go2rtc …`);
       } catch (error) {
@@ -162,20 +192,25 @@ export function createCameraLive(deps: LiveDeps) {
     while (Date.now() < deadline) {
       await sleep(1500);
       if (await hasFrame(base, source.streamName)) { return true; }
-      // Hängt der Stream fest (Eufy meldet „läuft schon“, liefert aber nichts), einmal sauber stoppen und neu starten.
+      // Kommt nach einigen Sekunden nichts: Hängt ein selbst gestarteter Stream, einmal stoppen und neu starten.
+      // Wurde nur eine „echte Quelle“ vermutet (z. B. veralteter Eintrag), jetzt doch den P2P-Start anstoßen.
       if (source.isEufy && !restarted && Date.now() - started > STUCK_RESTART_MS) {
         restarted = true;
-        console.warn(`Eufy-Livestream liefert nichts (${cameraEntityId}) – wird einmal neu gestartet`);
+        const wasOurs = startedByUs.has(cameraEntityId);
+        console.warn(`Eufy-Livestream liefert nichts (${cameraEntityId}) – ${wasOurs ? "wird einmal neu gestartet" : "go2rtc-Quelle liefert kein Bild, starte P2P"}`);
         try {
-          await deps.ha.post("/api/services/eufy_security/stop_p2p_livestream", { entity_id: cameraEntityId }).catch(() => undefined);
-          await sleep(1500);
+          startedByUs.add(cameraEntityId);
+          if (wasOurs) {
+            await deps.ha.post("/api/services/eufy_security/stop_p2p_livestream", { entity_id: cameraEntityId }).catch(() => undefined);
+            await sleep(1500);
+          }
           await deps.ha.post("/api/services/eufy_security/start_p2p_livestream", { entity_id: cameraEntityId });
         } catch (error) {
           console.warn(`Neustart des Eufy-Livestreams fehlgeschlagen (${cameraEntityId}): ${deps.describeError(error)}`);
         }
       }
     }
-    console.warn(`Kein Livebild von go2rtc (${source.streamName}) innerhalb von ${READY_TIMEOUT_MS / 1000}s`);
+    console.warn(`Kein Livebild von go2rtc (${source.streamName}) innerhalb von ${READY_TIMEOUT_MS / 1000}s – ${await describeStream(base, source.streamName)}`);
     return false;
   }
 
@@ -191,12 +226,13 @@ export function createCameraLive(deps: LiveDeps) {
   function removeViewer(cameraEntityId: string, source: LiveSource): void {
     const remaining = Math.max(0, (viewers.get(cameraEntityId) || 0) - 1);
     viewers.set(cameraEntityId, remaining);
-    if (remaining > 0 || !source.isEufy || stopTimers.has(cameraEntityId)) { return; }
+    if (remaining > 0 || !source.isEufy || !startedByUs.has(cameraEntityId) || stopTimers.has(cameraEntityId)) { return; }
 
     // Kurz warten: Beim Kamerawechsel oder Seitenneuladen kommt der Zuschauer oft gleich wieder.
     stopTimers.set(cameraEntityId, setTimeout(() => {
       stopTimers.delete(cameraEntityId);
       if ((viewers.get(cameraEntityId) || 0) > 0) { return; }
+      startedByUs.delete(cameraEntityId);
       deps.ha.post("/api/services/eufy_security/stop_p2p_livestream", { entity_id: cameraEntityId })
         .catch((error) => console.warn(`Eufy-Livestream konnte nicht gestoppt werden (${cameraEntityId}): ${deps.describeError(error)}`));
     }, STOP_DELAY_MS));

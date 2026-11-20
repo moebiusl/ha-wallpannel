@@ -111,6 +111,11 @@ export function isProbablyUsefulEntity(entity: HaState | undefined, registry?: E
     return false;
   }
 
+  // Home-Connect-Geräte (Backofen, Geschirrspüler) erscheinen gesammelt als Gerätekarte, nicht als Einzelschalter.
+  if (registry?.platform === "home_connect") {
+    return false;
+  }
+
   const deviceClass = entity?.attributes?.device_class;
   if (domain === "sensor" && typeof deviceClass === "string") {
     return ALLOWED_SENSOR_DEVICE_CLASSES.includes(deviceClass);

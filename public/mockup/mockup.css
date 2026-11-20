@@ -1298,3 +1298,28 @@ body.large-type .boiler-card .boiler-state { font-size: 25px; }
 /* Ab drei zugewiesenen Räumen: zwei Reihen, kein Seitwärtsscrollen */
 .assigned-room-buttons.two-rows { -webkit-flex-wrap: wrap; flex-wrap: wrap; overflow: visible; min-height: 0; margin-left: -4px; margin-right: -4px; }
 .assigned-room-buttons.two-rows .room-shortcut { -webkit-flex-grow: 0; flex-grow: 0; -webkit-flex-shrink: 0; flex-shrink: 0; min-width: 0; min-height: 64px; margin: 0; padding: 14px 8px; border-width: 4px; border-style: solid; border-color: transparent; background-clip: padding-box; box-sizing: border-box; }
+
+/* Hausgeräte-Karten (Backofen, Geschirrspüler …) */
+.appliances { margin-bottom: 14px; padding: 16px 19px; }
+.appliances .section-label { margin: 0 0 10px; }
+.appliance-list { display: -webkit-flex; display: flex; -webkit-flex-wrap: wrap; flex-wrap: wrap; margin: -5px; }
+.appliance { display: -webkit-flex; display: flex; -webkit-align-items: flex-start; align-items: flex-start; -webkit-flex: 1 1 280px; flex: 1 1 280px; min-width: 0; margin: 5px; padding: 15px 16px; border: 1px solid #594863; border-radius: 16px; background: #342b3a; box-shadow: 0 3px 10px rgba(0,0,0,.18); }
+.appliance.is-running { border-color: #e9be89; background: #3c3138; }
+.appliance-icon { -webkit-flex: 0 0 40px; flex: 0 0 40px; width: 40px; height: 40px; margin-right: 14px; color: #d9c6e0; }
+.appliance.is-running .appliance-icon { color: #edc597; }
+.appliance-icon svg { display: block; width: 40px; height: 40px; }
+.appliance-main { -webkit-flex: 1 1 auto; flex: 1 1 auto; min-width: 0; }
+.appliance-head { display: -webkit-flex; display: flex; -webkit-align-items: center; align-items: center; -webkit-justify-content: space-between; justify-content: space-between; }
+.appliance-name { margin: 0; font-size: 18px; font-weight: 600; color: #f4eaf8; }
+.appliance-status { margin-left: 10px; padding: 3px 10px; border-radius: 999px; background: rgba(217,198,224,.14); color: #e3d5ea; font-size: 13px; font-weight: 600; white-space: nowrap; }
+.appliance.is-running .appliance-status { background: rgba(237,197,151,.2); color: #f3d4ab; }
+.appliance-finished .appliance-status { background: rgba(155,214,160,.18); color: #b9e6bd; }
+.appliance-error .appliance-status, .appliance-action .appliance-status { background: rgba(255,140,140,.2); color: #ffc2c2; }
+.appliance-unavailable { opacity: .7; }
+.appliance-detail { margin: 8px 0 0; color: #e6dbec; font-size: 15px; line-height: 1.35; }
+.appliance-bar { height: 8px; margin: 12px 0 0; border-radius: 4px; background: rgba(255,255,255,.12); overflow: hidden; }
+.appliance-bar span { display: block; height: 8px; border-radius: 4px; background: #edc597; }
+.appliance-time { margin: 8px 0 0; color: #f3d4ab; font-size: 15px; font-weight: 600; }
+.appliance-foot { margin: 8px 0 0; color: #b9a9c2; font-size: 13px; }
+body.large-type .appliance-name { font-size: 20px; }
+body.large-type .appliance-detail, body.large-type .appliance-time { font-size: 17px; }

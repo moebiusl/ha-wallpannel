@@ -1,3 +1,14 @@
+## 1.12.3
+
+### Neu: Backofen und Geschirrspüler
+- Home-Connect-Geräte erscheinen als Karte „Geräte“ in der Raumansicht (Küche): Zustand (Aus, Bereit, Läuft, Fertig, Pausiert, Störung), laufendes Programm, Fortschrittsbalken, Restzeit mit Endzeit, Garraumtemperatur beim Backofen, Tür offen/zu und Kindersicherung
+- Nur Anzeige – es wird nichts geschaltet. Die vielen Einzelschalter der Geräte (Intensivzone, Vario-Speed, Extra trocken …) stehen nicht mehr unter „Weitere Geräte“
+- Hat ein Gerät in Home Assistant keinen Raum, erscheint es in der Küche
+
+### Livebild der Kameras
+- Hat go2rtc für eine Kamera schon eine echte Quelle (z. B. dauerhaftes RTSP), startet und stoppt das Wallpanel keinen Eufy-Livestream mehr. Nur selbst gestartete Streams werden auch wieder beendet; kommt trotz „echter Quelle“ kein Bild, wird einmal ein P2P-Start nachgeholt
+- Bei „Kein Livebild“ steht im Log jetzt dabei, was go2rtc zum Stream weiß (unbekannt, ohne Quelle, Quelle ohne Bild)
+
 ## 1.12.2
 
 ### Durchsagen sprechen wieder

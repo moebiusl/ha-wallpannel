@@ -17,6 +17,7 @@ import path from "path";
 import { getHaRegistries, HaRegistries, runAssist, runHaCommand, runTts, subscribeToHaEvents, subscribeToStateChanges } from "./ha-websocket";
 import { computeAssetVersion, createTabletRegistry, normalizeSound } from "./tablets";
 import { createCameraLive, LiveSource, MjpegThrottle } from "./camera-live";
+import { buildAppliances } from "./appliances";
 import { createWeatherRadar, RadarError } from "./weather-radar";
 import { wasteDaysUntil, berlinToday, berlinDayStartMs } from "./waste";
 import { buildUtilityGroups, parseDailyBuckets, pickUtilitySources, UTILITY_HISTORY_DAYS, UtilitySource, DailyBucket } from "./energy-utilities";
@@ -2014,6 +2015,17 @@ app.get(/^\/api\/radar\/tile\/(map|radar)\/(\d+)\/(\d+)\/(\d+)\/(\d+)\.png$/, as
     const status = error instanceof RadarError ? error.status : 502;
     if (status >= 500) { console.warn(`Radarkachel nicht verfügbar: ${describeError(error)}`); }
     res.status(status).end();
+  }
+});
+
+app.get("/api/appliances", async (_req: Request, res: Response) => {
+  try {
+    const [states, registries] = await Promise.all([getAllStates(), getCachedRegistries()]);
+    res.setHeader("Cache-Control", "no-store");
+    res.json({ ok: true, serverTime: Date.now(), appliances: buildAppliances(states, registries.devices, registries.entities) });
+  } catch (error) {
+    console.warn(`Hausgeräte nicht lesbar: ${describeError(error)}`);
+    res.status(502).json({ ok: false, message: "Hausgeräte derzeit nicht erreichbar" });
   }
 });
 

@@ -44,7 +44,7 @@
   <script>
     (function () {
       var reload = /[?&]_reload=([0-9]+)/.exec(window.location.search);
-      var files = ["../design.js", "../navigation.js", "../mockup/power-fader.js", "../mockup/thermostat.js", "details.js", "apps.js", "alerts.js", "light-color.js", "light-controls.js", "light-settings.js", "admin.js", "live.js", "../mockup/mockup.js"];
+      var files = ["../design.js", "../navigation.js", "../mockup/power-fader.js", "../mockup/thermostat.js", "details.js", "apps.js", "alerts.js", "light-color.js", "light-controls.js", "light-settings.js", "admin.js", "appliances.js", "live.js", "../mockup/mockup.js"];
       var suffix = reload ? '?_reload=' + reload[1] : '?_build=' + encodeURIComponent(window.WallpanelBuild || 'local');
       // Alle Skripte gleichzeitig laden (async=false: Ausführung trotzdem in dieser Reihenfolge) statt eines nach dem anderen.
       for (var i = 0; i < files.length; i++) { var script = document.createElement('script'); script.async = false; script.src = files[i] + suffix; document.body.appendChild(script); }

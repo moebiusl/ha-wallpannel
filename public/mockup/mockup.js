@@ -184,10 +184,11 @@
     var scenes = model.scenes.filter(function (c) { return c.room === room.id; });
     var climateSummary = runtime && runtime.roomClimate ? runtime.roomClimate(room.id) : '';
     var boilerCard = runtime && runtime.roomBoiler ? runtime.roomBoiler(room.id) : '';
+    var applianceCard = runtime && runtime.roomAppliances ? runtime.roomAppliances(room.id) : '';
     var html = scenes.length ? '<div class="room-scenes" aria-label="Szenen für diesen Raum">' : '';
     for (var sc=0;sc<scenes.length;sc++) { html += '<button type="button" class="scene-shortcut"' + action('scene',scenes[sc].id) + '>' + icon('scenes') + '<span>' + esc(scenes[sc].name) + '</span></button>'; }
     if (scenes.length) { html += '</div>'; }
-    html += climateSummary + boilerCard;
+    html += climateSummary + boilerCard + applianceCard;
     if (players.length || lights.length) {
       html += '<div class="room-columns' + (!players.length || !lights.length ? ' single-section' : '') + '">';
       if (players.length) {
