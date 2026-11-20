@@ -1,3 +1,10 @@
+## 1.13.3
+
+### Klingel
+- Klingel und Einfahrt stehen im Popup nebeneinander, die Buttons darunter
+- Einfahrt-Kachel zeigt sofort eine Ladeanimation und wird ohne Verschieben durch das Bild ersetzt
+- Die Einfahrt startet erst, wenn die Klingel ein Bild liefert (oder aufgegeben hat), da Eufy oft nur einen Stream gleichzeitig schafft
+
 ## 1.13.2
 
 ### Musik

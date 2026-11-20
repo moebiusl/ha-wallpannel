@@ -1335,5 +1335,14 @@ body.large-type .appliance-detail, body.large-type .appliance-time { font-size: 
 
 /* Einfahrt im Klingel-Popup */
 .bell-extra { position: relative; margin: 10px 0 0; border-radius: 14px; overflow: hidden; background: #141218; }
-.bell-extra img { display: block; width: 100%; max-height: 190px; object-fit: contain; }
+.bell-extra { height: 210px; display: -webkit-flex; display: flex; -webkit-align-items: center; align-items: center; -webkit-justify-content: center; justify-content: center; }
+.bell-extra img { position: absolute; left: 0; top: 0; width: 100%; height: 100%; object-fit: cover; }
+.bell-extra.is-loading img, .bell-extra.is-failed img { opacity: 0; }
+.bell-extra.is-failed { opacity: .6; }
 .bell-extra-label { position: absolute; left: 10px; top: 8px; padding: 2px 10px; border-radius: 999px; background: rgba(20,18,24,.7); color: #f4eaf8; font-size: 13px; }
+
+/* Klingel-Popup: Klingel und Einfahrt nebeneinander, darunter die Buttons. */
+.bell-views { display: -webkit-flex; display: flex; -webkit-flex-wrap: wrap; flex-wrap: wrap; margin: 0 -5px; }
+.bell-views > div { -webkit-flex: 1 1 320px; flex: 1 1 320px; min-width: 0; margin: 0 5px 10px; }
+.bell-views #bellCamera .camera-full-image { display: block; position: relative; width: 100%; height: 280px !important; }
+.bell-views .bell-extra { margin: 0; height: 280px; }
