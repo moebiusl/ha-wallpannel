@@ -1294,3 +1294,7 @@ body.large-type .boiler-card .boiler-state { font-size: 25px; }
 .radar-note { margin: 8px 0 0; color: #b8a7c3; font-size: 11px; }
 .radar-home { z-index: 2; }
 .radar-loading { z-index: 3; }
+
+/* Ab drei zugewiesenen Räumen: zwei Reihen, kein Seitwärtsscrollen */
+.assigned-room-buttons.two-rows { -webkit-flex-wrap: wrap; flex-wrap: wrap; overflow: visible; min-height: 0; margin-left: -4px; margin-right: -4px; }
+.assigned-room-buttons.two-rows .room-shortcut { -webkit-flex-grow: 0; flex-grow: 0; -webkit-flex-shrink: 0; flex-shrink: 0; min-width: 0; min-height: 64px; margin: 0; padding: 14px 8px; border-width: 4px; border-style: solid; border-color: transparent; background-clip: padding-box; box-sizing: border-box; }

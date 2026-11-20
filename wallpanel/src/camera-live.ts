@@ -24,6 +24,7 @@ export type LiveSource = {
 
 const STREAMS_CACHE_MS = 30000;
 const READY_TIMEOUT_MS = 25000;
+const STUCK_RESTART_MS = 9000;
 const STOP_DELAY_MS = 20000;
 const TRANSCODE_PREFIX = "wallpanel_";
 const MJPEG_WIDTH = 960;
@@ -156,10 +157,23 @@ export function createCameraLive(deps: LiveDeps) {
     } else {
       console.log(`Live ${cameraEntityId} -> go2rtc-Stream ${source.streamName} (keine Eufy-Kamera, kein Startbefehl)`);
     }
-    const deadline = Date.now() + READY_TIMEOUT_MS;
+    const started = Date.now(), deadline = started + READY_TIMEOUT_MS;
+    let restarted = false;
     while (Date.now() < deadline) {
       await sleep(1500);
       if (await hasFrame(base, source.streamName)) { return true; }
+      // Hängt der Stream fest (Eufy meldet „läuft schon“, liefert aber nichts), einmal sauber stoppen und neu starten.
+      if (source.isEufy && !restarted && Date.now() - started > STUCK_RESTART_MS) {
+        restarted = true;
+        console.warn(`Eufy-Livestream liefert nichts (${cameraEntityId}) – wird einmal neu gestartet`);
+        try {
+          await deps.ha.post("/api/services/eufy_security/stop_p2p_livestream", { entity_id: cameraEntityId }).catch(() => undefined);
+          await sleep(1500);
+          await deps.ha.post("/api/services/eufy_security/start_p2p_livestream", { entity_id: cameraEntityId });
+        } catch (error) {
+          console.warn(`Neustart des Eufy-Livestreams fehlgeschlagen (${cameraEntityId}): ${deps.describeError(error)}`);
+        }
+      }
     }
     console.warn(`Kein Livebild von go2rtc (${source.streamName}) innerhalb von ${READY_TIMEOUT_MS / 1000}s`);
     return false;

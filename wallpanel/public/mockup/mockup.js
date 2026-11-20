@@ -119,8 +119,10 @@
   }
   function homeRoomButtons() {
     var rooms=assignedRooms(model.tablets[0]),html='';if(!rooms.length){return '';}
-    html='<nav class="assigned-room-buttons" aria-label="Räume dieses Tablets">';
-    for(var i=0;i<rooms.length;i++){html+='<button type="button" class="room-shortcut"'+action('open-room',rooms[i].id)+'>'+esc(rooms[i].name)+'</button>';}
+    // Ab drei Räumen in zwei Reihen untereinander, damit die Namen nicht umbrechen.
+    var wide=rooms.length>2,cols=wide?Math.ceil(rooms.length/2):rooms.length,width=(100/cols).toFixed(3)+'%';
+    html='<nav class="assigned-room-buttons'+(wide?' two-rows':'')+'" aria-label="Räume dieses Tablets">';
+    for(var i=0;i<rooms.length;i++){html+='<button type="button" class="room-shortcut"'+(wide?' style="width:'+width+';-webkit-flex-basis:'+width+';flex-basis:'+width+'"':'')+action('open-room',rooms[i].id)+'>'+esc(rooms[i].name)+'</button>';}
     return html+'</nav>';
   }
   function latestCamera(cameras) {

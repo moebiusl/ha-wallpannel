@@ -1,3 +1,15 @@
+## 1.12.2
+
+### Durchsagen sprechen wieder
+- Kann der Standard-Assistent nicht sprechen (z. B. weil seine Sprachausgabe in Home Assistant entfernt wurde), probiert das Wallpanel die übrigen Sprachausgaben in Home Assistant der Reihe nach durch. Gibt es gar keine, steht das jetzt klar im Log („keine funktionierende Sprachausgabe“) statt einer stillen Durchsage
+- Voraussetzung bleibt eine vorhandene Sprachausgabe in Home Assistant (z. B. Home Assistant Cloud oder Piper)
+
+### Livebild der Eufy-Kameras
+- Liefert ein gestarteter Eufy-Livestream nach etwa 9 Sekunden nichts, wird er einmal gestoppt und neu gestartet. Das löst den Zustand „Livestream läuft schon“, bei dem Eufy sonst nie ein Bild liefert
+
+### Räume in zwei Reihen
+- Sind einem Tablet mehr als zwei Räume zugewiesen, stehen die Raum-Kacheln auf der Übersicht in zwei Reihen untereinander. Die Namen brechen nicht mehr um, und seitliches Scrollen entfällt
+
 ## 1.12.1
 
 ### Regenradar lädt wieder zuverlässig

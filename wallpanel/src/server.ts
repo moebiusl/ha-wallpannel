@@ -2576,20 +2576,48 @@ type NoticeRequest = {
   speak?: unknown;
 };
 
+/** Fallback, wenn der Standard-Assistent nicht sprechen kann (z. B. entfernte Sprachausgabe): alle tts-Entitäten durchprobieren. */
+async function speakWithAnyEngine(text: string): Promise<string> {
+  let engines: string[] = [];
+  try {
+    const states = await getAllStates();
+    engines = states.filter((state) => state.entity_id.startsWith("tts.") && !["unavailable", "unknown"].includes(state.state)).map((state) => state.entity_id);
+  } catch (error) { console.warn(`Durchsage: Sprachausgaben nicht ermittelbar: ${describeError(error)}`); return ""; }
+  // Lokale/stabile zuerst (Piper, HA Cloud), Cloud-KI zuletzt.
+  const rank = (id: string) => /piper|cloud/.test(id) ? 0 : /google_translate|google_ai/.test(id) ? 2 : 1;
+  engines.sort((a, b) => rank(a) - rank(b));
+  for (const engine of engines.slice(0, 4)) {
+    try {
+      const response = await ha.post("/api/tts_get_url", { engine_id: engine, message: text, language: "de" }, { timeout: 20000 });
+      const url = String(response.data?.path || response.data?.url || "");
+      const path = url.replace(/^https?:\/\/[^/]+/, "");
+      if (/^\/api\/tts_proxy\/[\w.-]+$/.test(path)) { console.log(`Durchsage: Sprachausgabe über ${engine}`); return path; }
+    } catch (error) { console.warn(`Durchsage: ${engine} funktioniert nicht: ${describeError(error)}`); }
+  }
+  return "";
+}
+
 /** Mitteilung an Tablets senden; mit speak wird sie über die HA-Sprachausgabe vorgelesen. */
 async function sendNotice(request: NoticeRequest): Promise<number> {
   const title = typeof request.title === "string" ? request.title.trim().slice(0, 80) : "";
   const message = request.message.trim().slice(0, 500);
   let speechUrl: string | undefined;
   if (request.speak === true || request.speak === "true") {
+    const text = title ? `${title}. ${message}` : message;
+    let ttsPath = "";
     try {
-      const ttsUrl = await runTts(HA_URL, HA_TOKEN, title ? `${title}. ${message}` : message);
-      if (ttsUrl) {
-        const ttsPath = ttsUrl.replace(/^https?:\/\/[^/]+/, "");
-        speechUrl = `api/assist/audio?path=${encodeURIComponent(ttsPath)}`;
-      }
+      const ttsUrl = await runTts(HA_URL, HA_TOKEN, text);
+      if (ttsUrl) { ttsPath = ttsUrl.replace(/^https?:\/\/[^/]+/, ""); }
+      else { console.warn("Durchsage: Standard-Assistent lieferte keine Sprachausgabe – versuche andere Sprachausgaben"); }
     } catch (error) {
-      console.warn(`Vorlesen nicht möglich, sende ohne Sprache: ${describeError(error)}`);
+      console.warn(`Durchsage: Standard-Assistent kann nicht sprechen (${describeError(error)}) – versuche andere Sprachausgaben`);
+    }
+    if (!ttsPath) { ttsPath = await speakWithAnyEngine(text); }
+    if (ttsPath) {
+      speechUrl = `api/assist/audio?path=${encodeURIComponent(ttsPath)}`;
+      console.log("Durchsage: Sprachausgabe von Home Assistant erzeugt");
+    } else {
+      console.warn("Durchsage: keine funktionierende Sprachausgabe in Home Assistant – sende ohne Sprache");
     }
   }
   const ids = tabletRegistry.resolveTargets(request.target).filter((id) => id !== request.from);
