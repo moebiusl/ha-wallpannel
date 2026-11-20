@@ -127,7 +127,7 @@
   }
   function latestCamera(cameras) {
     var latest = null;
-    for (var i = 0; i < cameras.length; i++) { if (!latest || cameras[i].lastMotionMinutes < latest.lastMotionMinutes) { latest = cameras[i]; } }
+    for (var i = 0; i < cameras.length; i++) { var minutes = typeof cameras[i].lastMotionMinutes === 'number' ? cameras[i].lastMotionMinutes : 1e9, best = latest && typeof latest.lastMotionMinutes === 'number' ? latest.lastMotionMinutes : 1e9; if (!latest || minutes < best) { latest = cameras[i]; } }
     return latest;
   }
   function motionAge(camera) {

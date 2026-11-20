@@ -91,6 +91,42 @@ export function createCameraLive(deps: LiveDeps) {
   // Nur Streams stoppen, die wir selbst gestartet haben. Kameras mit dauerhaftem RTSP (oder von anderer Stelle gestartet) bleiben unberührt.
   const startedByUs = new Set<string>();
 
+  /**
+   * Ersatzweg, wenn go2rtc den MJPEG-Strom nicht rechtzeitig liefert (z. B. Klingel mit langsamer Umwandlung):
+   * einzelne Bilder abrufen und selbst als MJPEG weiterreichen.
+   */
+  function frameLoopStream(base: string, streamName: string): Readable {
+    let stopped = false;
+    let first = true;
+    const stream = new Readable({
+      read() { /* Bilder werden von der Schleife eingespeist */ },
+      destroy(error, callback) { stopped = true; callback(error); }
+    });
+    void (async () => {
+      let failures = 0;
+      while (!stopped) {
+        const started = Date.now();
+        try {
+          const response = await deps.http.get(`${base}/api/frame.jpeg?src=${encodeURIComponent(streamName)}`, { responseType: "arraybuffer", timeout: 8000 });
+          const frame = Buffer.from(response.data);
+          if (frame.length > 0 && !stopped && stream.readableLength <= MAX_BUFFERED_BYTES) {
+            stream.push(Buffer.concat([
+              Buffer.from(`${first ? "--frame\r\n" : ""}Content-Type: image/jpeg\r\nContent-Length: ${frame.length}\r\n\r\n`, "latin1"),
+              frame,
+              Buffer.from("\r\n--frame\r\n", "latin1")
+            ]));
+            first = false;
+          }
+          failures = 0;
+        } catch (_error) {
+          if (++failures >= 5) { stream.destroy(); return; }
+        }
+        await sleep(Math.max(0, 500 - (Date.now() - started)));
+      }
+    })();
+    return stream;
+  }
+
   async function ensureTranscodeStream(base: string, streamName: string): Promise<string> {
     const name = TRANSCODE_PREFIX + streamName;
     const src = `ffmpeg:${streamName}#video=mjpeg#width=${MJPEG_WIDTH}`;
@@ -304,19 +340,35 @@ export function createCameraLive(deps: LiveDeps) {
         return null;
       }
 
-      const transcodeName = await ensureTranscodeStream(base, source.streamName);
-      if (signal?.aborted) { release(); return null; }
-      const response = await deps.http.get(`${base}/api/stream.mjpeg?src=${encodeURIComponent(transcodeName)}`, {
-        responseType: "stream",
-        timeout: 15000
-      });
-      const upstream = response.data as Readable;
-      if (signal?.aborted || !String(response.headers?.["content-type"]).toLowerCase().startsWith("multipart/x-mixed-replace")) { upstream.destroy(); release(); return null; }
+      let upstream: Readable | null = null;
+      try {
+        const transcodeName = await ensureTranscodeStream(base, source.streamName);
+        if (signal?.aborted) { release(); return null; }
+        const response = await deps.http.get(`${base}/api/stream.mjpeg?src=${encodeURIComponent(transcodeName)}`, {
+          responseType: "stream",
+          timeout: 15000
+        });
+        upstream = response.data as Readable;
+        if (!String(response.headers?.["content-type"]).toLowerCase().startsWith("multipart/x-mixed-replace")) { upstream.destroy(); upstream = null; }
+      } catch (error) {
+        console.warn(`go2rtc-MJPEG nicht verfügbar (${source.streamName}): ${deps.describeError(error)} – nutze Einzelbilder`);
+      }
+      if (signal?.aborted) { upstream?.destroy(); release(); return null; }
+      if (!upstream) {
+        // Bild war eben noch da: dann lieber ruckelig als gar nicht.
+        upstream = frameLoopStream(base, source.streamName);
+        const loop = upstream;
+        loop.on("error", () => undefined);
+        const fallback = loop;
+        fallback.on("close", release);
+        return { stream: fallback, contentType: "multipart/x-mixed-replace; boundary=frame", release };
+      }
       const throttled = new MjpegThrottle();
-      upstream.on("error", (error) => throttled.destroy(error));
-      throttled.on("close", () => { upstream.destroy(); release(); });
+      const source2 = upstream;
+      source2.on("error", (error) => throttled.destroy(error));
+      throttled.on("close", () => { source2.destroy(); release(); });
       throttled.on("end", release);
-      upstream.pipe(throttled);
+      source2.pipe(throttled);
       return {
         stream: throttled,
         contentType: "multipart/x-mixed-replace; boundary=frame",

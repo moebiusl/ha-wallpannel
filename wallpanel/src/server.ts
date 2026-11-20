@@ -496,13 +496,16 @@ function mapLight(entity: HaState | null, fallbackName: string): LightSummary {
   };
 }
 
-function mapCamera(entity: HaState | null, config: CameraConfig): CameraSummary {
+function mapCamera(imageEntity: HaState | null, config: CameraConfig, cameraEntity: HaState | null = null): CameraSummary {
   const fallbackName = config.name;
   const liveCameraEntityId = config.liveCameraEntityId;
+  // Ohne Ereignisbild (z. B. seit dem Start noch keine Bewegung) zählt die Kamera selbst: sie bleibt sichtbar, Vorschau kommt von ihr.
+  const imageUsable = Boolean(imageEntity) && !["unknown", "unavailable"].includes(imageEntity!.state);
+  const entity = imageUsable || !cameraEntity ? imageEntity : cameraEntity;
   const entityId = entity?.entity_id ?? fallbackName;
-  const eventDate = entity?.state && Number.isFinite(Date.parse(entity.state))
-    ? entity.state
-    : entity?.last_updated || entity?.last_changed;
+  const eventDate = imageUsable && imageEntity?.state && Number.isFinite(Date.parse(imageEntity.state))
+    ? imageEntity.state
+    : imageUsable ? (imageEntity?.last_updated || imageEntity?.last_changed) : undefined;
   // Live läuft über den eigenen Proxy (/api/camera-stream), der go2rtc nutzt und Eufy-Streams startet.
   // WebRTC direkt zu go2rtc nur, wenn die Quelle ohne Startbefehl läuft (keine Eufy-Kamera).
   const liveSource = liveSourceCache.get(config.haCameraEntityId);
@@ -1924,6 +1927,7 @@ app.post("/api/assist", async (req: Request, res: Response) => {
 app.get("/api/assist/audio", async (req: Request, res: Response) => {
   const ttsPath = typeof req.query.path === "string" ? req.query.path : "";
   if (!/^\/api\/tts_proxy\/[\w.-]+$/.test(ttsPath)) {
+    console.warn(`Assist-Audio: Pfad der Sprachausgabe nicht erlaubt (${ttsPath.slice(0, 60)})`);
     res.status(400).json({ ok: false, message: "ungültiger Pfad" });
     return;
   }
@@ -1932,6 +1936,7 @@ app.get("/api/assist/audio", async (req: Request, res: Response) => {
     const response = await ha.get(ttsPath, { responseType: "arraybuffer" });
     const data = Buffer.from(response.data);
     const contentType = response.headers["content-type"];
+    if (!req.headers.range) { console.log(`Assist-Audio ausgeliefert: ${typeof contentType === "string" ? contentType : "unbekannt"}, ${data.length} Bytes`); }
     res.setHeader("Content-Type", typeof contentType === "string" ? contentType : "audio/mpeg");
     res.setHeader("Cache-Control", "no-store");
     res.setHeader("Accept-Ranges", "bytes");
@@ -2065,7 +2070,7 @@ app.get("/api/dashboard", async (req: Request, res: Response) => {
     .map((entity: any) => mapLight(readStateFromMap(stateMap, entity.entityId), entity.name));
   const cameraConfigs = await getDiscoveredCameraConfigs(structure);
   refreshLiveSourceCache(cameraConfigs);
-  const cameras = cameraConfigs.map((config) => mapCamera(readStateFromMap(stateMap, config.eventImageEntityId), config));
+  const cameras = cameraConfigs.map((config) => mapCamera(readStateFromMap(stateMap, config.eventImageEntityId), config, readStateFromMap(stateMap, config.haCameraEntityId)));
   const energy = await buildEnergySummary(stateMap);
   const waterTank = buildWaterTankSummary(stateMap);
 

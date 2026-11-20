@@ -1,3 +1,12 @@
+## 1.12.5
+
+### Kameras
+- Kameras ohne Ereignisbild (noch keine Bewegung seit dem Start) bleiben sichtbar; die Vorschau kommt dann von der Kamera selbst
+- Liefert go2rtc den MJPEG-Strom nicht rechtzeitig (z. B. Klingel), ruft das Wallpanel Einzelbilder ab und reicht sie selbst weiter
+
+### Durchsagen
+- Das Log zeigt jetzt, ob das Tablet die Sprachdatei abgeholt hat („Assist-Audio ausgeliefert“) oder ein Pfad abgelehnt wurde
+
 ## 1.12.4
 
 ### Livebild der Kameras
